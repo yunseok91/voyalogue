@@ -19,7 +19,7 @@ import {
 import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
 import { CSS } from '@dnd-kit/utilities'
 import {
-  onSnapshot, doc, collection, getDoc,
+  onSnapshot, getDocs, doc, collection, getDoc,
   addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -1344,13 +1344,12 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (window.innerWidth >= 1024) setMapMounted(true)
   }, [])
 
-  /* ── 여행 메타 구독 ── */
+  /* ── 여행 메타 1회 로드 ── */
   useEffect(() => {
-    const ref = doc(db, 'users', uid, 'trips', tripId)
-    return onSnapshot(ref, snap => {
-      if (snap.exists()) setMeta(snap.data() as TripMeta)
-      setMetaLoading(false)
-    })
+    getDoc(doc(db, 'users', uid, 'trips', tripId))
+      .then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) })
+      .catch(() => {})
+      .finally(() => setMetaLoading(false))
   }, [uid, tripId])
 
   /* ── shareIndex 지연 등록 (기존 여행 마이그레이션 포함) ── */
@@ -1404,25 +1403,44 @@ function PlannerContent({ tripId }: { tripId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, user?.photoURL])
 
-  /* ── 각 Day의 items 구독 ── */
+  /* ── 비활성 Day items 1회 로드 ── */
   useEffect(() => {
     if (!days.length) return
+    const inactiveDays = days.filter((_, i) => i !== activeDayIdx)
+    Promise.all(
+      inactiveDays.map(day =>
+        getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
+          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+      )
+    ).then(results => {
+      setDayItems(prev => {
+        const next = { ...prev }
+        results.forEach(r => { next[r.dayId] = r.items })
+        return next
+      })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [days.length, uid, tripId])
+
+  /* ── 활성 Day items만 실시간 구독 ── */
+  useEffect(() => {
+    if (!days.length) return
+    const day = days[activeDayIdx]
+    if (!day) return
 
     Object.values(unsubsRef.current).forEach(u => u())
     unsubsRef.current = {}
 
-    days.forEach(day => {
-      const col = collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items')
-      const unsub = onSnapshot(col, snap => {
-        const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
-        setDayItems(prev => ({ ...prev, [day.dayId]: items }))
-      })
-      unsubsRef.current[day.dayId] = unsub
+    const col = collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items')
+    const unsub = onSnapshot(col, snap => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
+      setDayItems(prev => ({ ...prev, [day.dayId]: items }))
     })
+    unsubsRef.current[day.dayId] = unsub
 
     return () => { Object.values(unsubsRef.current).forEach(u => u()) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [days.length, uid, tripId])
+  }, [activeDayIdx, uid, tripId])
 
   const activeDay    = days[activeDayIdx]
   const currentItems = activeDay ? (dayItems[activeDay.dayId] ?? []) : []

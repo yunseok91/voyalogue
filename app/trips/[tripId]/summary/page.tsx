@@ -3,7 +3,7 @@
 import React, { useState, use, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2 } from 'lucide-react'
-import { doc, onSnapshot, collection, getDocs, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
@@ -82,17 +82,18 @@ function SummaryContent({ tripId }: { tripId: string }) {
   const [review,        setReview]        = useState('')
   const [submitted,     setSubmitted]     = useState(false)
 
-  /* ── 여행 메타 구독 ── */
+  /* ── 여행 메타 1회 로드 ── */
   useEffect(() => {
-    const ref = doc(db, 'users', uid, 'trips', tripId)
-    return onSnapshot(ref, snap => {
-      if (snap.exists()) {
-        const data = snap.data() as TripMeta
-        setMeta(data)
-        setOverallRating(data.totalRating ?? 0)
-      }
-      setLoading(false)
-    })
+    getDoc(doc(db, 'users', uid, 'trips', tripId))
+      .then(snap => {
+        if (snap.exists()) {
+          const data = snap.data() as TripMeta
+          setMeta(data)
+          setOverallRating(data.totalRating ?? 0)
+        }
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [uid, tripId])
 
   /* ── 모든 day의 items 로드 ── */

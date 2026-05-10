@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { Plus, Globe, MapPin, Trash2, Palette } from 'lucide-react'
-import { collection, onSnapshot, orderBy, query, doc, setDoc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, orderBy, query, doc, setDoc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AppNavbar } from '@/components/AppNavbar'
@@ -62,11 +62,10 @@ function CollectionContent() {
       collection(db, 'users', user.uid, 'trips'),
       orderBy('startDate', 'desc')
     )
-    const unsub = onSnapshot(q, snap => {
-      setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as Trip)))
-      setLoading(false)
-    }, () => setLoading(false))
-    return unsub
+    getDocs(q)
+      .then(snap => setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() } as Trip))))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [user])
 
   useEffect(() => {

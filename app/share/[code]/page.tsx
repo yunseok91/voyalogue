@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil } from 'lucide-react'
 import {
-  collection, getDoc, orderBy,
-  onSnapshot, doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
+  collection, getDoc, getDocs, orderBy,
+  doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { gradientStyle, gradientTextColor } from '@/lib/tripGradient'
@@ -728,18 +728,19 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
 
   const days = useMemo(() => trip ? buildDays(trip) : [], [trip])
 
-  /* 아이템 구독 */
+  /* 아이템 1회 로드 */
   useEffect(() => {
     if (!trip || !days.length) return
-    const unsubs: (() => void)[] = []
-    days.forEach(day => {
-      const col = collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items')
-      unsubs.push(onSnapshot(col, snap => {
-        const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
-        setDayItems(prev => ({ ...prev, [day.dayId]: items }))
-      }))
-    })
-    return () => unsubs.forEach(u => u())
+    Promise.all(
+      days.map(day =>
+        getDocs(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items'))
+          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+      )
+    ).then(results => {
+      const merged: Record<string, PlanItem[]> = {}
+      results.forEach(r => { merged[r.dayId] = r.items })
+      setDayItems(merged)
+    }).catch(() => {})
   }, [trip, days.length])
 
   const activeDay    = days[activeDayIdx]
