@@ -1,0 +1,96 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // Helper: trip is publicly shared if its viewCode is registered in shareIndex
+    function canReadViaShare(uid, tripId) {
+      let t = get(/databases/$(database)/documents/users/$(uid)/trips/$(tripId)).data;
+      return t.viewCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(t.viewCode));
+    }
+
+    // Helper: trip allows edit writes if its editCode is registered in shareIndex
+    function canWriteViaShare(uid, tripId) {
+      let t = get(/databases/$(database)/documents/users/$(uid)/trips/$(tripId)).data;
+      return t.editCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(t.editCode));
+    }
+
+    // User document itself: owner or admin
+    match /users/{uid} {
+      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+    }
+
+    // All nested paths: owner or admin
+    match /users/{uid}/{document=**} {
+      allow read:  if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+    }
+
+    // 메시지: 본인 읽기/읽음처리, 어드민 생성
+    match /users/{uid}/messages/{msgId} {
+      allow read:   if request.auth != null && request.auth.uid == uid;
+      allow update: if request.auth != null && request.auth.uid == uid &&
+                       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow create, delete: if isAdmin();
+    }
+
+    // Share index: public read; authenticated owner-only write
+    match /shareIndex/{code} {
+      allow read: if true;
+      allow write: if request.auth != null &&
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Shared trip meta: readable when viewCode is active in shareIndex
+    match /users/{uid}/trips/{tripId} {
+      allow read: if resource.data.viewCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
+      // Member self-registration via invite link (members field only, within people limit)
+      allow update: if request.auth != null &&
+        request.auth.uid != uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
+        request.resource.data.members.size() <= resource.data.people;
+    }
+
+    // Member invite codes: public read, owner write
+    match /memberInvites/{code} {
+      allow read: if true;
+      allow write: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+    }
+
+    // Shared trip days: read via viewCode, write via editCode
+    match /users/{uid}/trips/{tripId}/days/{dayId} {
+      allow read:  if canReadViaShare(uid, tripId);
+      allow write: if canWriteViaShare(uid, tripId);
+    }
+
+    // Shared trip items: read via viewCode, write via editCode
+    match /users/{uid}/trips/{tripId}/days/{dayId}/items/{itemId} {
+      allow read:  if canReadViaShare(uid, tripId);
+      allow write: if canWriteViaShare(uid, tripId);
+    }
+
+    // Announcements: authenticated users read, admin write
+    match /announcements/{id} {
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
+    }
+
+    // Reports: authenticated users create, admin full access
+    match /reports/{id} {
+      allow create:           if request.auth != null;
+      allow read, update, delete: if isAdmin();
+    }
+
+    // Admins list: admin read only
+    match /admins/{uid} {
+      allow read: if isAdmin();
+    }
+  }
+}

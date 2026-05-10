@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Inter', sans-serif;
+    --font-display: 'Space Grotesk', sans-serif;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-gray-900 antialiased;
+  }
+}
+
+@layer components {
+  /* 모든 페이지 공통 Navbar 높이 + 좌우 패딩 */
+  .nav-bar {
+    @apply h-14 sm:h-16 bg-white border-b border-gray-200
+           flex items-center px-4 sm:px-6 lg:px-10;
+  }
+
+  /* 페이지 메인 콘텐츠 최대 너비 + 좌우/상하 패딩 */
+  .page-container {
+    @apply max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16
+           pt-6 sm:pt-10 pb-16;
+  }
+
+  /* 랜딩 페이지 섹션 상하 + 좌우 패딩 */
+  .section-pad {
+    @apply py-16 sm:py-28 px-4 sm:px-8 lg:px-12;
+  }
+
+  /* 여행 카드 그리드 */
+  .trip-grid {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3
+           gap-4 sm:gap-5;
+  }
+
+  /* 페이지 메인 제목 */
+  .page-heading {
+    @apply text-2xl sm:text-[28px] font-extrabold text-gray-900;
+  }
+
+  /* 랜딩 섹션 제목 */
+  .section-heading {
+    @apply text-3xl sm:text-4xl xl:text-[44px] font-extrabold text-gray-900;
+  }
+}
