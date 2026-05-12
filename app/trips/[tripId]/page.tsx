@@ -878,6 +878,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   placeholder="장소 검색 (예: 센소지, Tsujihan…)"
                   value={name}
                   onChange={e => { setName(e.target.value); setLat(null); setLng(null) }}
+                  onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                   autoFocus
                   className={inputCls}
                 />
@@ -1144,6 +1145,7 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
               type="text"
               value={name}
               onChange={e => { setName(e.target.value); setLat(0); setLng(0) }}
+              onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
               autoFocus
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
@@ -1627,6 +1629,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       id: generateCode(6), name: newMemberName.trim(), role: 'member' as const,
     }]
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
     setNewMemberName('')
   }
 
@@ -1634,6 +1637,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!meta) return
     const members = meta.members.filter(m => m.id !== id)
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
   }
 
   const setTreasurer = async (id: string) => {
@@ -1653,6 +1657,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!isAlready) {
       await setDoc(doc(db, 'shareIndex', newEditCode), { uid, tripId, canEdit: true })
     }
+    setMeta({ ...meta, members, ...(!isAlready ? { editCode: newEditCode } : {}) })
   }
 
   const setMemberColor = async (memberId: string, colorIndex: number) => {
@@ -1663,6 +1668,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       return { ...rest, colorIndex }
     })
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
   }
 
   const setMemberCustomColor = async (memberId: string, hex: string) => {
@@ -1673,6 +1679,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       return { ...rest, hexColor: hex }
     })
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
   }
 
   const copyMemberInvite = async (memberId: string) => {
@@ -1692,6 +1699,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           ownerUid: uid, tripId, memberId, viewCode: meta.viewCode,
         }),
       ])
+      setMeta({ ...meta, members })
     }
 
     const url = `${window.location.origin}/invite/${inviteCode}`
@@ -1878,7 +1886,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         </div>
         <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
           {/* 멤버 아바타 */}
-          <button onClick={() => setShowMembers(true)}
+          <button onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
             className="flex items-center hover:opacity-80 transition-opacity"
             title="멤버 관리">
             <div className="flex -space-x-2.5">
@@ -2328,25 +2336,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   <div key={m.id} className="flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-gray-50/80 group transition-colors">
                     {/* 아바타 — 멤버는 label로 감싸서 클릭 즉시 팔레트 열림 */}
                     {m.role !== 'owner' ? (
-                      <label className="relative flex-shrink-0 cursor-pointer">
-                        <input
-                          type="color"
-                          value={initialHex}
-                          onChange={e => setMemberCustomColor(m.id, e.target.value)}
-                          style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                        />
-                        <PersonAvatar
-                          name={m.name}
-                          photoURL={m.photoURL}
-                          size={42}
-                          colorIndex={effectiveColorIdx}
-                          hexColor={effectiveHex}
-                          className="hover:opacity-75 transition-opacity"
-                        />
+                      <div className="relative flex-shrink-0">
+                        <label className="cursor-pointer">
+                          <input
+                            type="color"
+                            value={initialHex}
+                            onChange={e => setMemberCustomColor(m.id, e.target.value)}
+                            style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                          />
+                          <PersonAvatar
+                            name={m.name}
+                            photoURL={m.photoURL}
+                            size={42}
+                            colorIndex={effectiveColorIdx}
+                            hexColor={effectiveHex}
+                            className="hover:opacity-75 transition-opacity"
+                          />
+                        </label>
                         {/* 크라운 뱃지 — 총무: amber, 일반: 회색 흐림 / 클릭 시 총무 토글 */}
                         <button
                           type="button"
-                          onClick={e => { e.preventDefault(); e.stopPropagation(); setTreasurer(m.id) }}
+                          onClick={() => setTreasurer(m.id)}
                           title={m.role === 'treasurer' ? '총무 해제' : '총무 지정'}
                           className={`absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
                             m.role === 'treasurer'
@@ -2356,7 +2366,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         >
                           <Crown className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
                         </button>
-                      </label>
+                      </div>
                     ) : (
                       <div className="relative flex-shrink-0">
                         <PersonAvatar
