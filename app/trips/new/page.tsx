@@ -10,6 +10,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
+import { loadGoogleMaps } from '@/lib/googleMaps'
 
 /* ── 타입 ──────────────────────────────────── */
 type Country = {
@@ -47,9 +48,8 @@ const KR_CITIES = [
   countryCode: 'kr',
 }))
 
-/* ── 모듈 레벨 캐시 (페이지 재진입 시 재요청 방지) ── */
+/* ── 모듈 레벨 캐시 ── */
 let countriesCache: Country[] | null = null
-const nominatimCache = new Map<string, Extract<Suggestion, { kind: 'city' }>[]>()
 
 /* ── 상수 ──────────────────────────────────── */
 const POPULAR_CODES = ['jp', 'fr', 'th', 'sg', 'us', 'es', 'id', 'kr', 'gb', 'vn', 'it', 'au']
@@ -68,40 +68,47 @@ function calcNights(start: string, end: string) {
   return { nights, days: nights + 1 }
 }
 
-/* Nominatim 도시 검색 */
-/* 한국 도시 로컬 검색 */
+/* ── 한국 도시 로컬 검색 ── */
 function searchKrCities(q: string) {
   return KR_CITIES.filter(c => c.city.includes(q)).slice(0, 5)
 }
 
-/* Nominatim 해외 도시 검색 (POI 제외) */
-const SKIP_CLASSES = new Set(['amenity', 'shop', 'tourism', 'building', 'railway', 'highway'])
-const SKIP_TYPES   = new Set(['school', 'university', 'hospital', 'restaurant', 'hotel', 'station', 'studio'])
+/* ── Google Places로 도시 검색 (한글/영문 모두 지원) ── */
+async function fetchCitiesGoogle(
+  q: string,
+  countries: Country[],
+  signal?: AbortSignal,
+): Promise<Extract<Suggestion, { kind: 'city' }>[]> {
+  if (signal?.aborted) return []
+  try { await loadGoogleMaps() } catch { return [] }
 
-async function fetchCities(q: string, signal?: AbortSignal) {
-  const url =
-    `https://nominatim.openstreetmap.org/search` +
-    `?q=${encodeURIComponent(q)}&format=json&limit=8&accept-language=ko&addressdetails=1`
-  const res = await fetch(url, { signal })
-  if (!res.ok) return []
-  const data: any[] = await res.json()
+  return new Promise(resolve => {
+    let settled = false
+    const finish = (v: Extract<Suggestion, { kind: 'city' }>[]) => {
+      if (settled) return
+      settled = true
+      resolve(v)
+    }
+    signal?.addEventListener('abort', () => finish([]))
 
-  const seen = new Set<string>()
-  return data
-    .filter(d => !SKIP_CLASSES.has(d.class) && !SKIP_TYPES.has(d.type))
-    .map(d => ({
-      kind: 'city' as const,
-      city:        d.name || d.display_name.split(',')[0].trim(),
-      countryName: d.address?.country      || '',
-      countryCode: (d.address?.country_code || '').toLowerCase(),
-    }))
-    .filter(s => {
-      const k = `${s.city}|${s.countryCode}`
-      if (seen.has(k)) return false
-      seen.add(k)
-      return true
+    const svc = new google.maps.places.AutocompleteService()
+    svc.getPlacePredictions({ input: q, types: ['(cities)'] }, (preds, status) => {
+      if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) { finish([]); return }
+      const seen = new Set<string>()
+      const results: Extract<Suggestion, { kind: 'city' }>[] = []
+      for (const p of preds.slice(0, 5)) {
+        const city        = p.terms[0]?.value
+        const countryName = p.terms[p.terms.length - 1]?.value || ''
+        if (!city) continue
+        const key = `${city}|${countryName}`
+        if (seen.has(key)) continue
+        seen.add(key)
+        const found = countries.find(c => c.name === countryName)
+        results.push({ kind: 'city', city, countryName, countryCode: found?.cca2 ?? '' })
+      }
+      finish(results)
     })
-    .slice(0, 5)
+  })
 }
 
 /* ── 컴포넌트 ──────────────────────────────── */
@@ -199,47 +206,36 @@ function NewTripContent() {
   const previewNight   = nightInfo ? `${nightInfo.nights}박 ${nightInfo.days}일` : '0박 0일'
   const canSubmit      = query.trim() && startDate && endDate && nightInfo
 
-  /* ── 도시 검색: 한국(즉시) + 해외(Nominatim 디바운스 + 캐시 + Abort) ── */
+  /* ── 도시 검색: 한국 도시 즉시 + Google Places 디바운스 ── */
   const handleQueryChange = useCallback((val: string) => {
     setQuery(val)
     setSelected(null)
     setOpen(true)
     clearTimeout(debounceRef.current)
-    abortRef.current?.abort()  // 진행 중인 fetch 즉시 취소
+    abortRef.current?.abort()
 
     if (val.length < 1) { setCitySug([]); setCityLoading(false); return }
 
     // 한국 도시 즉시 로컬 필터
     setCitySug(searchKrCities(val))
 
-    // 한글 전용 입력은 Nominatim 불필요 (한국 도시 외에는 의미 없음)
-    const isKoreanOnly = /^[가-힣\s]+$/.test(val)
-    if (isKoreanOnly || val.length < 2) { setCityLoading(false); return }
+    if (val.length < 2) { setCityLoading(false); return }
 
     setCityLoading(true)
     debounceRef.current = setTimeout(async () => {
-      const key = val.trim().toLowerCase()
-
-      // 캐시 히트: 동일 쿼리 재요청 없음
-      if (nominatimCache.has(key)) {
-        const cached = nominatimCache.get(key)!
-        setCitySug([...searchKrCities(val), ...cached.filter(o => o.countryCode !== 'kr')])
-        setCityLoading(false)
-        return
-      }
-
       const ctrl = new AbortController()
       abortRef.current = ctrl
       try {
-        const overseas = await fetchCities(val, ctrl.signal)
-        nominatimCache.set(key, overseas)
-        setCitySug([...searchKrCities(val), ...overseas.filter(o => o.countryCode !== 'kr')])
-        setCityLoading(false)
+        const overseas = await fetchCitiesGoogle(val, countries, ctrl.signal)
+        if (!ctrl.signal.aborted) {
+          setCitySug([...searchKrCities(val), ...overseas.filter(o => o.countryCode !== 'kr')])
+          setCityLoading(false)
+        }
       } catch {
         // AbortError: 다음 쿼리가 이어받으므로 무시
       }
-    }, 400)
-  }, [])
+    }, 350)
+  }, [countries])
 
   /* ── 국가 선택 ── */
   const selectCountry = (c: Country) => {
