@@ -13,6 +13,10 @@
   body {
     @apply bg-white text-gray-900 antialiased;
   }
+
+  button, [role="button"], label[for], summary {
+    cursor: pointer;
+  }
 }
 
 @layer components {

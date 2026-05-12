@@ -32,10 +32,11 @@ const SPECIAL_COLORS: Record<string, string> = {
 }
 
 interface Props {
-  city:      string
-  items:     MapItem[]
-  focusId?:  string
-  members?:  AvatarMember[]
+  city:          string
+  items:         MapItem[]
+  focusId?:      string
+  focusTrigger?: number
+  members?:      AvatarMember[]
 }
 
 type MarkerEntry = {
@@ -43,7 +44,7 @@ type MarkerEntry = {
   iw:     google.maps.InfoWindow
 }
 
-export function TripMap({ city, items, focusId, members }: Props) {
+export function TripMap({ city, items, focusId, focusTrigger, members }: Props) {
   const containerRef  = useRef<HTMLDivElement>(null)
   const mapRef        = useRef<google.maps.Map | null>(null)
   const markerMapRef  = useRef<Map<string, MarkerEntry>>(new Map())
@@ -51,6 +52,8 @@ export function TripMap({ city, items, focusId, members }: Props) {
   const myLocOverlay  = useRef<google.maps.OverlayView | null>(null)
   const openIwRef     = useRef<google.maps.InfoWindow | null>(null)
   const initDoneRef   = useRef(false)
+  const focusIdRef    = useRef(focusId)
+  focusIdRef.current  = focusId
 
   /* ── 지도 최초 초기화 ── */
   useEffect(() => {
@@ -215,9 +218,24 @@ export function TripMap({ city, items, focusId, members }: Props) {
     } else if (pinned.length > 0) {
       mapRef.current.panTo({ lat: pinned[0].lat, lng: pinned[0].lng })
     }
+
+    /* 마커 재생성 후 기존 focusId 복원 */
+    const fid = focusIdRef.current
+    if (fid) {
+      const entry = markerMapRef.current.get(fid)
+      if (entry) {
+        const pos = entry.marker.getPosition()
+        if (pos) {
+          mapRef.current.panTo(pos)
+          mapRef.current.setZoom(16)
+          entry.iw.open(mapRef.current, entry.marker)
+          openIwRef.current = entry.iw
+        }
+      }
+    }
   }, [items])
 
-  /* ── focusId 변경 → 마커 팬 & InfoWindow ── */
+  /* ── focusId / focusTrigger 변경 → 마커 팬 & InfoWindow ── */
   useEffect(() => {
     if (!focusId || !mapRef.current) return
     const entry = markerMapRef.current.get(focusId)
@@ -230,7 +248,7 @@ export function TripMap({ city, items, focusId, members }: Props) {
     mapRef.current.setZoom(16)
     iw.open(mapRef.current, marker)
     openIwRef.current = iw
-  }, [focusId])
+  }, [focusId, focusTrigger])
 
   /* ── 현재 위치 버튼 ── */
   const handleLocate = () => {

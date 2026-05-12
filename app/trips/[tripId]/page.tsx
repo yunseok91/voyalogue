@@ -1,13 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef, use } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback, use } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, MapPin, Plus, Minus, X, Clock,
   GripVertical, Star, CheckSquare, Wallet, ChevronRight,
   Edit2, Trash2, MoreHorizontal, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera,
-  Plane, BedDouble,
+  Plane, BedDouble, Pencil,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -361,7 +361,7 @@ function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onVi
                   className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 ${
                     hasReceipts
                       ? 'text-violet-600 bg-violet-50 hover:bg-violet-100'
-                      : 'text-gray-300 hover:text-gray-500 hover:bg-gray-100'
+                      : 'text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600'
                   }`}
                 >
                   <Camera className="w-2.5 h-2.5" />
@@ -470,7 +470,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   tripId:               string
   days:                 Day[]
   activeDayId:          string
-  onAddFlight:          (f: Omit<FlightItem, 'id'>) => void
+  onAddFlight:          (fs: Omit<FlightItem, 'id'>[]) => void
   onAddAccommodation:   (a: Omit<AccommodationItem, 'id'>) => void
 }) {
   const { avatarColor, avatarHexColor, user: authUser } = useAuthStore()
@@ -641,8 +641,10 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
       if (!flightName.trim()) return
       if (!inEnabled && !outEnabled) return
       const loc = flightLat !== null ? { lat: flightLat, lng: flightLng ?? 0 } : {}
-      if (inEnabled)  onAddFlight({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc })
-      if (outEnabled) onAddFlight({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc })
+      const toAdd: Omit<FlightItem, 'id'>[] = []
+      if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc })
+      if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc })
+      onAddFlight(toAdd)
       setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
       setFlightLat(null); setFlightLng(null)
       showSuccess('비행기가 등록되었습니다'); return
@@ -1330,11 +1332,51 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* 환율 */
   const [rates, setRates] = useState<Record<string, number>>({ KRW: 1 })
 
+  /* 비행기 / 숙소 수정 */
+  const [editingFlight, setEditingFlight] = useState<FlightItem | null>(null)
+  const [editingAcc,    setEditingAcc]    = useState<AccommodationItem | null>(null)
+
   /* 지도 포커스 */
-  const [focusItemId, setFocusItemId] = useState<string | undefined>(undefined)
+  const [focusItemId,   setFocusItemId]   = useState<string | undefined>(undefined)
+  const [focusTrigger,  setFocusTrigger]  = useState(0)
+
+  /* 좌우 패널 리사이즈 */
+  const [leftWidth, setLeftWidth] = useState(420)
+  const isDraggingRef   = useRef(false)
+  const dragStartXRef   = useRef(0)
+  const dragStartWRef   = useRef(420)
+
+  const handleResizeStart = useCallback((e: React.MouseEvent) => {
+    isDraggingRef.current  = true
+    dragStartXRef.current  = e.clientX
+    dragStartWRef.current  = leftWidth
+    document.body.style.cursor     = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [leftWidth])
+
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return
+      const next = Math.min(720, Math.max(280, dragStartWRef.current + e.clientX - dragStartXRef.current))
+      setLeftWidth(next)
+    }
+    const onUp = () => {
+      if (!isDraggingRef.current) return
+      isDraggingRef.current          = false
+      document.body.style.cursor     = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMove)
+    document.addEventListener('mouseup',   onUp)
+    return () => {
+      document.removeEventListener('mousemove', onMove)
+      document.removeEventListener('mouseup',   onUp)
+    }
+  }, [])
 
   const handleFocusMap = (itemId: string) => {
     setFocusItemId(itemId)
+    setFocusTrigger(t => t + 1)
     setMobileTab('map')
   }
 
@@ -1466,13 +1508,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const result: Record<string, number> = {}
     meta.members.forEach(m => { result[m.id] = 0 })
     Object.values(dayItems).flat().forEach(item => {
-      const krw = toKRW(item.price, item.currency, rates)
-      if (krw === 0) return
+      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
+      if (!krw || krw <= 0) return
       if (item.participantIds && item.participantIds.length > 0) {
         const share = krw / item.participantIds.length
         item.participantIds.forEach(id => { if (result[id] !== undefined) result[id] += share })
       } else {
-        const share = krw / meta.members.length
+        const divisor = item.participants || meta.members.length
+        const share = krw / divisor
         meta.members.forEach(m => { result[m.id] += share })
       }
     })
@@ -1496,6 +1539,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* ── 아이템 추가 ── */
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
     if (!activeDay) return
+    const tempId = `temp_${Date.now()}`
+    const newItem: PlanItem = { ...partial, id: tempId, order: currentItems.length } as PlanItem
+    setDayItems(prev => ({ ...prev, [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), newItem] }))
     await setDoc(
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId),
       { label: activeDay.label, date: activeDay.date },
@@ -1510,12 +1556,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* ── 아이템 삭제 ── */
   const handleDelete = async (itemId: string) => {
     if (!activeDay) return
+    setDayItems(prev => ({ ...prev, [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== itemId) }))
     await deleteDoc(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId))
   }
 
   /* ── 아이템 수정 (범용) ── */
   const handleUpdate = async (itemId: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
     if (!activeDay) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i => i.id === itemId ? { ...i, ...updates } : i),
+    }))
     await updateDoc(
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId),
       updates
@@ -1581,34 +1632,50 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }
 
   /* ── 비행기 / 숙소 고정 일정 ── */
-  const handleAddFlight = async (f: Omit<FlightItem, 'id'>) => {
+  const handleAddFlight = async (fs: Omit<FlightItem, 'id'>[]) => {
     if (!meta) return
-    const newFlight: FlightItem = { ...f, id: generateCode(8) }
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), {
-      flights: [...(meta.flights ?? []), newFlight],
-    })
+    const newFlights: FlightItem[] = fs.map(f => ({ ...f, id: generateCode(8) }))
+    const flights = [...(meta.flights ?? []), ...newFlights]
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
+    setMeta({ ...meta, flights })
   }
 
   const handleDeleteFlight = async (id: string) => {
     if (!meta) return
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), {
-      flights: (meta.flights ?? []).filter(f => f.id !== id),
-    })
+    const flights = (meta.flights ?? []).filter(f => f.id !== id)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
+    setMeta({ ...meta, flights })
   }
 
   const handleAddAccommodation = async (a: Omit<AccommodationItem, 'id'>) => {
     if (!meta) return
     const newAcc: AccommodationItem = { ...a, id: generateCode(8) }
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), {
-      accommodations: [...(meta.accommodations ?? []), newAcc],
-    })
+    const accommodations = [...(meta.accommodations ?? []), newAcc]
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
+    setMeta({ ...meta, accommodations })
   }
 
   const handleDeleteAccommodation = async (id: string) => {
     if (!meta) return
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), {
-      accommodations: (meta.accommodations ?? []).filter(a => a.id !== id),
-    })
+    const accommodations = (meta.accommodations ?? []).filter(a => a.id !== id)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
+    setMeta({ ...meta, accommodations })
+  }
+
+  const handleUpdateFlight = async (updated: FlightItem) => {
+    if (!meta) return
+    const flights = (meta.flights ?? []).map(f => f.id === updated.id ? updated : f)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
+    setMeta({ ...meta, flights })
+    setEditingFlight(null)
+  }
+
+  const handleUpdateAccommodation = async (updated: AccommodationItem) => {
+    if (!meta) return
+    const accommodations = (meta.accommodations ?? []).map(a => a.id === updated.id ? updated : a)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
+    setMeta({ ...meta, accommodations })
+    setEditingAcc(null)
   }
 
   /* ── 멤버 관리 ── */
@@ -1750,28 +1817,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const toggleCheck = async (id: string) => {
     if (!meta) return
-    const updated = checkItems.map(c => c.id === id ? { ...c, done: !c.done } : c)
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist: updated })
+    const checklist = checkItems.map(c => c.id === id ? { ...c, done: !c.done } : c)
+    setMeta({ ...meta, checklist })
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
   }
 
   const addCheckItem = async () => {
     if (!checkInput.trim() || !meta) return
-    const updated = [...checkItems, { id: `${Date.now()}`, label: checkInput.trim(), done: false }]
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist: updated })
+    const checklist = [...checkItems, { id: `${Date.now()}`, label: checkInput.trim(), done: false }]
+    setMeta({ ...meta, checklist })
     setCheckInput('')
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
   }
 
   const deleteCheckItem = async (id: string) => {
     if (!meta) return
-    const updated = checkItems.filter(c => c.id !== id)
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist: updated })
+    const checklist = checkItems.filter(c => c.id !== id)
+    setMeta({ ...meta, checklist })
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
   }
 
   const saveCheckEdit = async (id: string) => {
     if (!checkEditVal.trim() || !meta) return
-    const updated = checkItems.map(c => c.id === id ? { ...c, label: checkEditVal.trim() } : c)
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist: updated })
+    const checklist = checkItems.map(c => c.id === id ? { ...c, label: checkEditVal.trim() } : c)
+    setMeta({ ...meta, checklist })
     setCheckEditId(null)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
   }
 
   /* 시간대 순 정렬된 그룹 */
@@ -2018,7 +2089,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── 일정 패널 ── */}
-        <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[420px] flex-shrink-0 flex-col bg-[#F8FAFC] overflow-hidden lg:border-r border-gray-200`}>
+        <div
+          className={`${mobileTab === 'map' ? 'hidden' : 'flex'} lg:flex w-full flex-shrink-0 flex-col bg-[#F8FAFC] overflow-hidden lg:border-r border-gray-200`}
+          style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? leftWidth : undefined }}
+        >
 
           <div className="px-5 py-4 flex items-center justify-between flex-shrink-0">
             <div>
@@ -2080,10 +2154,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           </p>
                         )}
                       </div>
-                      <button onClick={() => handleDeleteFlight(f.id)}
-                        className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-sky-200 text-sky-400 flex-shrink-0 transition-colors">
-                        <X className="w-3 h-3" />
-                      </button>
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <button onClick={() => setEditingFlight(f)}
+                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-sky-200 text-sky-400 transition-colors">
+                          <Pencil className="w-2.5 h-2.5" />
+                        </button>
+                        <button onClick={() => handleDeleteFlight(f.id)}
+                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-sky-200 text-sky-400 transition-colors">
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                   {dayAccs.map(({ acc, role }) => (
@@ -2103,10 +2183,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         )}
                       </div>
                       {role !== 'stay' && (
-                        <button onClick={() => handleDeleteAccommodation(acc.id)}
-                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-violet-200 text-violet-400 flex-shrink-0 transition-colors">
-                          <X className="w-3 h-3" />
-                        </button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <button onClick={() => setEditingAcc(acc)}
+                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-violet-200 text-violet-400 transition-colors">
+                            <Pencil className="w-2.5 h-2.5" />
+                          </button>
+                          <button onClick={() => handleDeleteAccommodation(acc.id)}
+                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-violet-200 text-violet-400 transition-colors">
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
                       )}
                     </div>
                   ))}
@@ -2253,6 +2339,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
           </div>
         </div>
 
+        {/* ── 리사이즈 핸들 (데스크톱 전용) ── */}
+        <div
+          onMouseDown={handleResizeStart}
+          className="hidden lg:flex w-2 flex-shrink-0 items-center justify-center cursor-col-resize group hover:bg-blue-50 active:bg-blue-100 transition-colors z-10 relative"
+        >
+          <div className="w-[3px] h-10 rounded-full bg-gray-200 group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
+        </div>
+
         {/* ── 지도 ── */}
         <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 relative overflow-hidden`}>
           {/* 도시 라벨 */}
@@ -2265,7 +2359,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </span>
             )}
           </div>
-          {mapMounted && <TripMap city={meta.city} items={mapItems} focusId={focusItemId} members={mapAvatarMembers} />}
+          {mapMounted && <TripMap city={meta.city} items={mapItems} focusId={focusItemId} focusTrigger={focusTrigger} members={mapAvatarMembers} />}
         </div>
       </div>
 
@@ -2656,8 +2750,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     <span className="text-sm text-gray-800 flex-1 font-medium">{m.name}</span>
                     <span className="text-sm font-bold text-gray-900">
                       {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                        ? formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency)
-                        : formatKRW(Math.round(amt))
+                        ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
+                        : (formatKRW(Math.round(amt)) || '0원')
                       }
                     </span>
                   </div>
@@ -2716,6 +2810,124 @@ function PlannerContent({ tripId }: { tripId: string }) {
           </div>
         </div>
       )}
+      {/* ── 비행기 수정 모달 ── */}
+      {editingFlight && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingFlight(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">비행기 수정</h3>
+              <button onClick={() => setEditingFlight(null)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">항공명</label>
+              <input type="text" value={editingFlight.name}
+                onChange={e => setEditingFlight({ ...editingFlight, name: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">종류</label>
+              <div className="flex gap-2">
+                {(['inbound', 'outbound'] as const).map(t => (
+                  <button key={t} type="button"
+                    onClick={() => setEditingFlight({ ...editingFlight, type: t })}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${editingFlight.type === t ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>
+                    {t === 'inbound' ? '입국' : '출국'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">날짜</label>
+              <select value={editingFlight.dayId}
+                onChange={e => setEditingFlight({ ...editingFlight, dayId: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-gray-500">출발 시간</label>
+                <input type="time" value={editingFlight.departTime}
+                  onChange={e => setEditingFlight({ ...editingFlight, departTime: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[11px] font-semibold text-gray-500">도착 시간</label>
+                <input type="time" value={editingFlight.arriveTime}
+                  onChange={e => setEditingFlight({ ...editingFlight, arriveTime: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+            </div>
+            <button onClick={() => handleUpdateFlight(editingFlight)}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
+              저장
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 숙소 수정 모달 ── */}
+      {editingAcc && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingAcc(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">숙소 수정</h3>
+              <button onClick={() => setEditingAcc(null)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">숙소명</label>
+              <input type="text" value={editingAcc.name}
+                onChange={e => setEditingAcc({ ...editingAcc, name: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] font-semibold text-gray-600">체크인 날짜</label>
+                <select value={editingAcc.checkInDayId}
+                  onChange={e => setEditingAcc({ ...editingAcc, checkInDayId: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] font-semibold text-gray-600">체크인 시간</label>
+                <input type="time" value={editingAcc.checkInTime}
+                  onChange={e => setEditingAcc({ ...editingAcc, checkInTime: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] font-semibold text-gray-600">체크아웃 날짜</label>
+                <select value={editingAcc.checkOutDayId}
+                  onChange={e => setEditingAcc({ ...editingAcc, checkOutDayId: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-[12px] font-semibold text-gray-600">체크아웃 시간</label>
+                <input type="time" value={editingAcc.checkOutTime}
+                  onChange={e => setEditingAcc({ ...editingAcc, checkOutTime: e.target.value })}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+            </div>
+            <button onClick={() => handleUpdateAccommodation(editingAcc)}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
+              저장
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
