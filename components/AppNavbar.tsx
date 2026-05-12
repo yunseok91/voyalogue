@@ -111,6 +111,7 @@ export function AppNavbar({
           <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Voyalogue
           </span>
+          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">BETA</span>
         </div>
 
         {/* 가운데 탭 */}

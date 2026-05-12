@@ -37,6 +37,8 @@ interface Props {
   focusId?:      string
   focusTrigger?: number
   members?:      AvatarMember[]
+  previewPlace?: { name: string; lat: number; lng: number }
+  onDblClick?:   (lat: number, lng: number) => void
 }
 
 type MarkerEntry = {
@@ -44,16 +46,22 @@ type MarkerEntry = {
   iw:     google.maps.InfoWindow
 }
 
-export function TripMap({ city, items, focusId, focusTrigger, members }: Props) {
-  const containerRef  = useRef<HTMLDivElement>(null)
-  const mapRef        = useRef<google.maps.Map | null>(null)
-  const markerMapRef  = useRef<Map<string, MarkerEntry>>(new Map())
-  const polylineRef   = useRef<google.maps.Polyline | null>(null)
-  const myLocOverlay  = useRef<google.maps.OverlayView | null>(null)
-  const openIwRef     = useRef<google.maps.InfoWindow | null>(null)
-  const initDoneRef   = useRef(false)
-  const focusIdRef    = useRef(focusId)
-  focusIdRef.current  = focusId
+export function TripMap({ city, items, focusId, focusTrigger, members, previewPlace, onDblClick }: Props) {
+  const containerRef      = useRef<HTMLDivElement>(null)
+  const mapRef            = useRef<google.maps.Map | null>(null)
+  const markerMapRef      = useRef<Map<string, MarkerEntry>>(new Map())
+  const polylineRef       = useRef<google.maps.Polyline | null>(null)
+  const myLocOverlay      = useRef<google.maps.OverlayView | null>(null)
+  const openIwRef         = useRef<google.maps.InfoWindow | null>(null)
+  const previewMarkerRef  = useRef<google.maps.Marker | null>(null)
+  const initDoneRef       = useRef(false)
+  const focusIdRef        = useRef(focusId)
+  const onDblClickRef     = useRef(onDblClick)
+  focusIdRef.current      = focusId
+  onDblClickRef.current   = onDblClick
+
+  /* map init 후 즉시 마커 렌더링 — items effect 비동기 타이밍 우회 */
+  const syncMarkersRef = useRef<() => void>(() => {})
 
   /* ── 지도 최초 초기화 ── */
   useEffect(() => {
@@ -74,23 +82,30 @@ export function TripMap({ city, items, focusId, focusTrigger, members }: Props) 
       document.head.appendChild(style)
 
       const map = new google.maps.Map(containerRef.current, {
-        zoom:               13,
-        center:             { lat: 35.6762, lng: 139.6503 },
-        mapTypeControl:     false,
-        streetViewControl:  false,
-        fullscreenControl:  false,
-        zoomControlOptions: { position: google.maps.ControlPosition.RIGHT_BOTTOM },
-        gestureHandling:    'greedy',
+        zoom:                    13,
+        center:                  { lat: 35.6762, lng: 139.6503 },
+        mapTypeControl:          false,
+        streetViewControl:       false,
+        fullscreenControl:       false,
+        zoomControlOptions:      { position: google.maps.ControlPosition.RIGHT_BOTTOM },
+        gestureHandling:         'greedy',
+        disableDoubleClickZoom:  true,
         styles: [
           { featureType: 'poi',     elementType: 'labels', stylers: [{ visibility: 'off' }] },
           { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
         ],
       })
       mapRef.current = map
+      syncMarkersRef.current()   // 마커 즉시 렌더 (items effect 실행 전 map이 준비될 수 있음)
 
       map.addListener('click', () => {
         openIwRef.current?.close()
         openIwRef.current = null
+      })
+
+      map.addListener('dblclick', (event: google.maps.MapMouseEvent) => {
+        if (!event.latLng) return
+        onDblClickRef.current?.(event.latLng.lat(), event.latLng.lng())
       })
 
       new google.maps.Geocoder().geocode({ address: city }, (results, status) => {
@@ -103,137 +118,178 @@ export function TripMap({ city, items, focusId, focusTrigger, members }: Props) 
   }, [])
 
   /* ── 마커 & 경로선 업데이트 ── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
-    if (!mapRef.current) return
+    const render = () => {
+      if (!mapRef.current) return
 
-    markerMapRef.current.forEach(({ marker }) => marker.setMap(null))
-    markerMapRef.current.clear()
-    polylineRef.current?.setMap(null)
-    polylineRef.current = null
-    openIwRef.current?.close()
-    openIwRef.current = null
+      markerMapRef.current.forEach(({ marker }) => marker.setMap(null))
+      markerMapRef.current.clear()
+      polylineRef.current?.setMap(null)
+      polylineRef.current = null
+      openIwRef.current?.close()
+      openIwRef.current = null
 
-    const pinned = items
-      .map(i => ({ ...i, lat: Number(i.lat), lng: Number(i.lng) }))
-      .filter(i => isFinite(i.lat) && isFinite(i.lng) && (i.lat !== 0 || i.lng !== 0))
+      const pinned = items
+        .map(i => ({ ...i, lat: Number(i.lat), lng: Number(i.lng) }))
+        .filter(i => isFinite(i.lat) && isFinite(i.lng) && (i.lat !== 0 || i.lng !== 0))
 
-    let regularIdx = 0
-    pinned.forEach((item, idx) => {
-      const isSpecial = item.markerType === 'special'
-      const color = isSpecial
-        ? (SPECIAL_COLORS[item.timeSlot] ?? '#94A3B8')
-        : (SLOT_COLORS[item.timeSlot] ?? '#94A3B8')
+      let regularIdx = 0
+      pinned.forEach((item, idx) => {
+        const isSpecial = item.markerType === 'special'
+        const color = isSpecial
+          ? (SPECIAL_COLORS[item.timeSlot] ?? '#94A3B8')
+          : (SLOT_COLORS[item.timeSlot] ?? '#94A3B8')
 
-      let marker: google.maps.Marker
+        let marker: google.maps.Marker
 
-      if (isSpecial) {
-        const emoji = item.timeSlot === '비행기' ? '✈' : '⌂'
-        marker = new google.maps.Marker({
-          position:  { lat: item.lat, lng: item.lng },
-          map:       mapRef.current!,
-          icon: {
-            path:         google.maps.SymbolPath.CIRCLE,
-            fillColor:    color,
-            fillOpacity:  1,
-            strokeColor:  'white',
-            strokeWeight: 2.5,
-            scale:        12,
-          },
-          title:     item.name,
-          zIndex:    idx + 5,
-          clickable: true,
-        })
-        const iw = new google.maps.InfoWindow({
-          content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
-            <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${color};
-              color:#fff;text-align:center;line-height:22px;font-size:13px;">${emoji}</span>
-            <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
-          </div>`,
-          pixelOffset: new google.maps.Size(0, -4),
-        })
-        marker.addListener('click', () => {
-          openIwRef.current?.close()
-          iw.open(mapRef.current!, marker)
-          openIwRef.current = iw
-        })
-        markerMapRef.current.set(item.id, { marker, iw })
-      } else {
-        regularIdx++
-        const num = regularIdx
-        marker = new google.maps.Marker({
-          position:  { lat: item.lat, lng: item.lng },
-          map:       mapRef.current!,
-          label:     { text: String(num), color: 'white', fontWeight: 'bold', fontSize: '11px' },
-          icon: {
-            path:         google.maps.SymbolPath.CIRCLE,
-            fillColor:    color,
-            fillOpacity:  1,
-            strokeColor:  'white',
-            strokeWeight: 2.5,
-            scale:        14,
-          },
-          title:     item.name,
-          zIndex:    idx + 10,
-          clickable: true,
-        })
-        const iw = new google.maps.InfoWindow({
-          content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
-            <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${color};
-              color:#fff;text-align:center;line-height:20px;font-size:11px;font-weight:700;">${num}</span>
-            <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
-          </div>`,
-          pixelOffset: new google.maps.Size(0, -4),
-        })
-        marker.addListener('click', () => {
-          openIwRef.current?.close()
-          iw.open(mapRef.current!, marker)
-          openIwRef.current = iw
-        })
-        markerMapRef.current.set(item.id, { marker, iw })
-      }
-    })
-
-    const regularPinned = pinned.filter(i => i.markerType !== 'special')
-    if (regularPinned.length > 1) {
-      polylineRef.current = new google.maps.Polyline({
-        path:          regularPinned.map(i => ({ lat: i.lat, lng: i.lng })),
-        geodesic:      true,
-        strokeColor:   '#3B82F6',
-        strokeOpacity: 0.55,
-        strokeWeight:  2,
-        icons: [{
-          icon:   { path: google.maps.SymbolPath.FORWARD_CLOSED_ARROW, scale: 2.5 },
-          offset: '100%',
-        }],
-        map: mapRef.current!,
+        if (isSpecial) {
+          const emoji = item.timeSlot === '비행기' ? '✈' : '⌂'
+          marker = new google.maps.Marker({
+            position:  { lat: item.lat, lng: item.lng },
+            map:       mapRef.current!,
+            icon: {
+              path:         google.maps.SymbolPath.CIRCLE,
+              fillColor:    color,
+              fillOpacity:  1,
+              strokeColor:  'white',
+              strokeWeight: 2.5,
+              scale:        12,
+            },
+            title:     item.name,
+            zIndex:    idx + 5,
+            clickable: true,
+          })
+          const iw = new google.maps.InfoWindow({
+            content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
+              <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${color};
+                color:#fff;text-align:center;line-height:22px;font-size:13px;">${emoji}</span>
+              <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
+            </div>`,
+            pixelOffset: new google.maps.Size(0, -4),
+          })
+          marker.addListener('click', () => {
+            openIwRef.current?.close()
+            iw.open(mapRef.current!, marker)
+            openIwRef.current = iw
+          })
+          markerMapRef.current.set(item.id, { marker, iw })
+        } else {
+          regularIdx++
+          const num = regularIdx
+          marker = new google.maps.Marker({
+            position:  { lat: item.lat, lng: item.lng },
+            map:       mapRef.current!,
+            label:     { text: String(num), color: 'white', fontWeight: 'bold', fontSize: '11px' },
+            icon: {
+              path:         google.maps.SymbolPath.CIRCLE,
+              fillColor:    color,
+              fillOpacity:  1,
+              strokeColor:  'white',
+              strokeWeight: 2.5,
+              scale:        14,
+            },
+            title:     item.name,
+            zIndex:    idx + 10,
+            clickable: true,
+          })
+          const iw = new google.maps.InfoWindow({
+            content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
+              <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${color};
+                color:#fff;text-align:center;line-height:20px;font-size:11px;font-weight:700;">${num}</span>
+              <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
+            </div>`,
+            pixelOffset: new google.maps.Size(0, -4),
+          })
+          marker.addListener('click', () => {
+            openIwRef.current?.close()
+            iw.open(mapRef.current!, marker)
+            openIwRef.current = iw
+          })
+          markerMapRef.current.set(item.id, { marker, iw })
+        }
       })
-    }
 
-    if (regularPinned.length === 1) {
-      mapRef.current.panTo({ lat: regularPinned[0].lat, lng: regularPinned[0].lng })
-    } else if (regularPinned.length > 1) {
-      const bounds = new google.maps.LatLngBounds()
-      regularPinned.forEach(i => bounds.extend({ lat: i.lat, lng: i.lng }))
-      mapRef.current.fitBounds(bounds, 60)
-    } else if (pinned.length > 0) {
-      mapRef.current.panTo({ lat: pinned[0].lat, lng: pinned[0].lng })
-    }
+      const regularPinned = pinned.filter(i => i.markerType !== 'special')
+      if (regularPinned.length > 1) {
+        polylineRef.current = new google.maps.Polyline({
+          path:          regularPinned.map(i => ({ lat: i.lat, lng: i.lng })),
+          geodesic:      true,
+          strokeColor:   '#EF4444',
+          strokeOpacity: 0.75,
+          strokeWeight:  2.5,
+          icons: [
+            {
+              icon: {
+                path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                fillColor:   '#EF4444',
+                fillOpacity: 1,
+                strokeColor: '#EF4444',
+                scale:       3,
+              },
+              offset: '100%',
+            },
+            {
+              icon: {
+                path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                fillColor:   '#EF4444',
+                fillOpacity: 0.7,
+                strokeColor: '#EF4444',
+                scale:       2.5,
+              },
+              offset: '50%',
+            },
+          ],
+          map: mapRef.current!,
+        })
+      }
 
-    /* 마커 재생성 후 기존 focusId 복원 */
-    const fid = focusIdRef.current
-    if (fid) {
-      const entry = markerMapRef.current.get(fid)
-      if (entry) {
-        const pos = entry.marker.getPosition()
-        if (pos) {
-          mapRef.current.panTo(pos)
-          mapRef.current.setZoom(16)
-          entry.iw.open(mapRef.current, entry.marker)
-          openIwRef.current = entry.iw
+      if (regularPinned.length === 1) {
+        mapRef.current.panTo({ lat: regularPinned[0].lat, lng: regularPinned[0].lng })
+      } else if (regularPinned.length > 1) {
+        const bounds = new google.maps.LatLngBounds()
+        regularPinned.forEach(i => bounds.extend({ lat: i.lat, lng: i.lng }))
+        mapRef.current.fitBounds(bounds, 60)
+      } else if (pinned.length > 0) {
+        mapRef.current.panTo({ lat: pinned[0].lat, lng: pinned[0].lng })
+      }
+
+      /* 마커 재생성 후 기존 focusId 복원 */
+      const fid = focusIdRef.current
+      if (fid) {
+        const entry = markerMapRef.current.get(fid)
+        if (entry) {
+          const pos = entry.marker.getPosition()
+          if (pos) {
+            mapRef.current.panTo(pos)
+            mapRef.current.setZoom(16)
+            entry.iw.open(mapRef.current, entry.marker)
+            openIwRef.current = entry.iw
+          }
         }
       }
     }
+
+    /* items가 바뀔 때 즉시 렌더, map init 콜백에서도 호출됨 */
+    syncMarkersRef.current = render
+    render()
   }, [items])
+
+  /* ── 미리보기 마커 (검색 / 더블클릭) ── */
+  useEffect(() => {
+    previewMarkerRef.current?.setMap(null)
+    previewMarkerRef.current = null
+    if (!previewPlace || !mapRef.current) return
+    const marker = new google.maps.Marker({
+      position:  { lat: previewPlace.lat, lng: previewPlace.lng },
+      map:       mapRef.current,
+      animation: google.maps.Animation.DROP,
+      zIndex:    2000,
+    })
+    previewMarkerRef.current = marker
+    mapRef.current.panTo({ lat: previewPlace.lat, lng: previewPlace.lng })
+    mapRef.current.setZoom(16)
+  }, [previewPlace])
 
   /* ── focusId / focusTrigger 변경 → 마커 팬 & InfoWindow ── */
   useEffect(() => {
@@ -358,7 +414,7 @@ export function TripMap({ city, items, focusId, focusTrigger, members }: Props) 
       {/* 현재 위치 버튼 */}
       <button
         onClick={handleLocate}
-        className="absolute bottom-6 right-4 w-10 h-10 bg-white shadow-md border border-gray-200 rounded-xl flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 transition-colors z-10"
+        className="absolute bottom-6 left-4 w-10 h-10 bg-white shadow-md border border-gray-200 rounded-xl flex items-center justify-center hover:bg-blue-50 hover:border-blue-300 transition-colors z-10"
         title="현재 위치"
         aria-label="현재 위치"
       >

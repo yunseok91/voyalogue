@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { collection, getDocs, doc, deleteDoc, Timestamp, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, deleteDoc, Timestamp, updateDoc, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send } from 'lucide-react'
+import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send, Users } from 'lucide-react'
 
 type UserRow = {
   uid: string
@@ -24,6 +24,12 @@ type TripItem = {
 
 type MsgModal = { uid: string; displayName: string } | null
 
+type BetaSettings = {
+  betaEnabled: boolean
+  maxUsers: number
+  userCount: number
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers]         = useState<UserRow[]>([])
   const [loading, setLoading]     = useState(true)
@@ -39,8 +45,13 @@ export default function AdminUsersPage() {
   const [sending, setSending]     = useState(false)
   const [toast, setToast]         = useState('')
 
+  const [beta, setBeta]           = useState<BetaSettings | null>(null)
+  const [betaMaxInput, setBetaMaxInput] = useState('')
+  const [betaSaving, setBetaSaving]     = useState(false)
+
   useEffect(() => {
     const load = async () => {
+      /* 사용자 목록 */
       try {
         const snap = await getDocs(collection(db, 'users'))
         const rows: UserRow[] = await Promise.all(
@@ -61,9 +72,56 @@ export default function AdminUsersPage() {
       } catch { /* silent */ } finally {
         setLoading(false)
       }
+
+      /* 베타 설정 (별도 에러 처리) */
+      try {
+        const betaSnap = await getDoc(doc(db, 'config', 'betaSettings'))
+        if (betaSnap.exists()) {
+          const d = betaSnap.data() as Partial<BetaSettings>
+          const settings: BetaSettings = {
+            betaEnabled: d.betaEnabled ?? true,
+            maxUsers:    d.maxUsers    ?? 1500,
+            userCount:   d.userCount   ?? 0,
+          }
+          setBeta(settings)
+          setBetaMaxInput(String(settings.maxUsers))
+        } else {
+          const defaults: BetaSettings = { betaEnabled: true, maxUsers: 1500, userCount: 0 }
+          setBeta(defaults)
+          setBetaMaxInput('1500')
+        }
+      } catch { /* 권한 없으면 베타 카드 숨김 */ }
     }
     load()
   }, [])
+
+  const handleBetaSave = async () => {
+    if (!beta) return
+    const max = parseInt(betaMaxInput, 10)
+    if (isNaN(max) || max < 1) return
+    setBetaSaving(true)
+    try {
+      await setDoc(doc(db, 'config', 'betaSettings'), {
+        betaEnabled: beta.betaEnabled,
+        maxUsers:    max,
+        userCount:   beta.userCount,
+      })
+      setBeta(prev => prev ? { ...prev, maxUsers: max } : prev)
+      showToast('베타 설정이 저장되었습니다')
+    } catch { showToast('저장 실패') } finally {
+      setBetaSaving(false)
+    }
+  }
+
+  const handleBetaToggle = async () => {
+    if (!beta) return
+    const next = !beta.betaEnabled
+    try {
+      await setDoc(doc(db, 'config', 'betaSettings'), { betaEnabled: next }, { merge: true })
+      setBeta(prev => prev ? { ...prev, betaEnabled: next } : prev)
+      showToast(next ? '베타 한도 체크 활성화' : '베타 한도 체크 비활성화')
+    } catch { showToast('저장 실패') }
+  }
 
   const filtered = users.filter(u =>
     u.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,6 +234,62 @@ export default function AdminUsersPage() {
       <h1 className="text-2xl font-extrabold text-gray-900 mb-6" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
         사용자 관리
       </h1>
+
+      {/* ── 베타 설정 카드 ── */}
+      {beta && (
+        <div className="bg-white rounded-2xl border border-gray-200 p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <Users className="w-5 h-5 text-blue-600" />
+              <h2 className="text-base font-bold text-gray-900">베타 설정</h2>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">BETA</span>
+            </div>
+            <button
+              onClick={handleBetaToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${beta.betaEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${beta.betaEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-sm text-gray-600">현재 가입자</span>
+            <span className="text-2xl font-extrabold text-gray-900">{beta.userCount}</span>
+            <span className="text-sm text-gray-400">/ {beta.maxUsers}명</span>
+          </div>
+
+          <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
+            <div
+              className={`h-2 rounded-full transition-all ${
+                beta.userCount / beta.maxUsers > 0.9 ? 'bg-red-500' :
+                beta.userCount / beta.maxUsers > 0.7 ? 'bg-amber-500' : 'bg-blue-500'
+              }`}
+              style={{ width: `${Math.min(100, (beta.userCount / beta.maxUsers) * 100).toFixed(1)}%` }}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="text-sm text-gray-600 flex-shrink-0">최대 인원</label>
+            <input
+              type="number"
+              min={1}
+              value={betaMaxInput}
+              onChange={e => setBetaMaxInput(e.target.value)}
+              className="w-28 px-3 py-2 border border-gray-200 rounded-xl text-sm outline-none focus:border-blue-400"
+            />
+            <button
+              onClick={handleBetaSave}
+              disabled={betaSaving}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl transition-colors disabled:opacity-60"
+            >
+              {betaSaving ? '저장 중…' : '저장'}
+            </button>
+          </div>
+          {!beta.betaEnabled && (
+            <p className="text-xs text-gray-400 mt-2">한도 체크가 꺼져 있습니다. 신규 가입자 제한이 없습니다.</p>
+          )}
+        </div>
+      )}
 
       <div className="relative mb-4 max-w-sm">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />

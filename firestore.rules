@@ -92,5 +92,11 @@ service cloud.firestore {
     match /admins/{uid} {
       allow read: if isAdmin();
     }
+
+    // Beta / app-level config: authenticated users read, admin write
+    match /config/{docId} {
+      allow read:  if request.auth != null;
+      allow write: if isAdmin();
+    }
   }
 }

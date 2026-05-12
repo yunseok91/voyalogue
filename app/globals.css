@@ -19,6 +19,11 @@
   }
 }
 
+/* Google Places 자동완성 드롭다운이 지도 위에 표시되도록 */
+.pac-container {
+  z-index: 9999 !important;
+}
+
 @layer components {
   /* 모든 페이지 공통 Navbar 높이 + 좌우 패딩 */
   .nav-bar {

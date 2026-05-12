@@ -120,15 +120,15 @@ const CAT_COLORS: Record<Category, string> = {
   식사: 'bg-orange-100 text-orange-700',
   장소: 'bg-blue-100 text-blue-700',
   쇼핑: 'bg-pink-100 text-pink-700',
-  교통: 'bg-gray-100 text-gray-600',
-  기타: 'bg-gray-100 text-gray-600',
+  교통: 'bg-teal-100 text-teal-700',
+  기타: 'bg-gray-100 text-gray-500',
 }
 
 const CAT_DOTS: Record<Category, string> = {
   식사: 'bg-orange-500',
   장소: 'bg-blue-500',
   쇼핑: 'bg-pink-500',
-  교통: 'bg-gray-500',
+  교통: 'bg-teal-500',
   기타: 'bg-gray-400',
 }
 
@@ -351,21 +351,23 @@ function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onVi
             const hasReceipts = !!(item.receipts && item.receipts.length > 0)
             return (
               <>
+                {hasReceipts && (
+                  <button
+                    onMouseDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
+                    className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
+                  >
+                    <Camera className="w-2.5 h-2.5" />
+                    <span>{item.receipts!.length}</span>
+                  </button>
+                )}
                 <button
                   onMouseDown={e => e.stopPropagation()}
-                  onClick={e => {
-                    e.stopPropagation()
-                    if (hasReceipts) onViewReceipts(item.receipts!)
-                    else cameraRef.current?.click()
-                  }}
-                  className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 ${
-                    hasReceipts
-                      ? 'text-violet-600 bg-violet-50 hover:bg-violet-100'
-                      : 'text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600'
-                  }`}
+                  onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
+                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
+                  title="사진 업로드"
                 >
                   <Camera className="w-2.5 h-2.5" />
-                  {hasReceipts && <span>{item.receipts!.length}</span>}
                 </button>
                 <input
                   ref={cameraRef}
@@ -459,7 +461,7 @@ function SortableItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusM
 /* ── 장소 추가 패널 ── */
 type AddMode = 'normal' | 'flight' | 'accommodation'
 
-function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, members, uid, tripId, days, activeDayId, onAddFlight, onAddAccommodation }: {
+function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, members, uid, tripId, days, activeDayId, onAddFlight, onAddAccommodation, defaultPlace }: {
   onAdd:                (item: Omit<PlanItem, 'id' | 'order'>) => void
   onClose:              () => void
   defaultCurrency:      string
@@ -470,20 +472,21 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   tripId:               string
   days:                 Day[]
   activeDayId:          string
-  onAddFlight:          (fs: Omit<FlightItem, 'id'>[]) => void
-  onAddAccommodation:   (a: Omit<AccommodationItem, 'id'>) => void
+  onAddFlight:          (fs: Omit<FlightItem, 'id'>[]) => Promise<void>
+  onAddAccommodation:   (a: Omit<AccommodationItem, 'id'>) => Promise<void>
+  defaultPlace?:        { name: string; lat: number; lng: number }
 }) {
   const { avatarColor, avatarHexColor, user: authUser } = useAuthStore()
   const [mode,           setMode]           = useState<AddMode>('normal')
   const [successMsg,     setSuccessMsg]     = useState('')
-  const [name,           setName]           = useState('')
+  const [name,           setName]           = useState(defaultPlace?.name ?? '')
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>('미정')
   const [cat,            setCat]            = useState<Category>('장소')
   const [price,          setPrice]          = useState('')
   const [currency,       setCurrency]       = useState(defaultCurrency)
   const [comment,        setComment]        = useState('')
-  const [lat,            setLat]            = useState<number | null>(null)
-  const [lng,            setLng]            = useState<number | null>(null)
+  const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
+  const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
   const [participantIds, setParticipantIds] = useState<string[]>(members.map(m => m.id))
   const [receiptFiles,    setReceiptFiles]    = useState<File[]>([])
   const [receiptPreviews, setReceiptPreviews] = useState<string[]>([])
@@ -635,56 +638,64 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
     setTimeout(() => setSuccessMsg(''), 2000)
   }
 
+  const [submitting, setSubmitting] = useState(false)
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (mode === 'flight') {
-      if (!flightName.trim()) return
-      if (!inEnabled && !outEnabled) return
-      const loc = flightLat !== null ? { lat: flightLat, lng: flightLng ?? 0 } : {}
-      const toAdd: Omit<FlightItem, 'id'>[] = []
-      if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc })
-      if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc })
-      onAddFlight(toAdd)
-      setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
-      setFlightLat(null); setFlightLng(null)
-      showSuccess('비행기가 등록되었습니다'); return
+    if (submitting) return
+    setSubmitting(true)
+    try {
+      if (mode === 'flight') {
+        if (!flightName.trim()) return
+        if (!inEnabled && !outEnabled) return
+        const loc = flightLat !== null ? { lat: flightLat, lng: flightLng ?? 0 } : {}
+        const toAdd: Omit<FlightItem, 'id'>[] = []
+        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc })
+        if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc })
+        await onAddFlight(toAdd)
+        setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
+        setFlightLat(null); setFlightLng(null)
+        showSuccess('비행기가 등록되었습니다'); return
+      }
+      if (mode === 'accommodation') {
+        if (!accName.trim()) return
+        await onAddAccommodation({ name: accName.trim(), checkInDayId, checkInTime, checkOutDayId, checkOutTime,
+          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}) })
+        setAccName(''); setCheckInTime(''); setCheckOutTime(''); setAccLat(null); setAccLng(null)
+        showSuccess('숙소가 등록되었습니다'); return
+      }
+      if (!ok) return
+      setUploading(true)
+      const receiptURLs: string[] = []
+      if (receiptFiles.length > 0) {
+        const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+          import('@/lib/firebase'),
+          import('firebase/storage'),
+        ])
+        const ts = Date.now()
+        await Promise.all(receiptFiles.map(async (file, i) => {
+          const blob = await compressImage(file)
+          const r = sRef(storage, `users/${uid}/trips/${tripId}/receipts/${ts}_${i}.jpg`)
+          await uploadBytes(r, blob)
+          receiptURLs.push(await getDownloadURL(r))
+        }))
+      }
+      receiptPreviews.forEach(u => URL.revokeObjectURL(u))
+      onAdd({
+        name: name.trim(), timeSlot, cat,
+        price: Number(price) || 0, currency,
+        comment, rating: 0,
+        lat: lat ?? 0, lng: lng ?? 0,
+        participants: participantIds.length || people,
+        participantIds,
+        ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
+      })
+      setName(''); setPrice(''); setComment(''); setLat(null); setLng(null)
+      setReceiptFiles([]); setReceiptPreviews([]); setUploading(false)
+      showSuccess('일정이 등록되었습니다')
+    } finally {
+      setSubmitting(false)
     }
-    if (mode === 'accommodation') {
-      if (!accName.trim()) return
-      onAddAccommodation({ name: accName.trim(), checkInDayId, checkInTime, checkOutDayId, checkOutTime,
-        ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}) })
-      setAccName(''); setCheckInTime(''); setCheckOutTime(''); setAccLat(null); setAccLng(null)
-      showSuccess('숙소가 등록되었습니다'); return
-    }
-    if (!ok) return
-    setUploading(true)
-    const receiptURLs: string[] = []
-    if (receiptFiles.length > 0) {
-      const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
-        import('@/lib/firebase'),
-        import('firebase/storage'),
-      ])
-      const ts = Date.now()
-      await Promise.all(receiptFiles.map(async (file, i) => {
-        const blob = await compressImage(file)
-        const r = sRef(storage, `users/${uid}/trips/${tripId}/receipts/${ts}_${i}.jpg`)
-        await uploadBytes(r, blob)
-        receiptURLs.push(await getDownloadURL(r))
-      }))
-    }
-    receiptPreviews.forEach(u => URL.revokeObjectURL(u))
-    onAdd({
-      name: name.trim(), timeSlot, cat,
-      price: Number(price) || 0, currency,
-      comment, rating: 0,
-      lat: lat ?? 0, lng: lng ?? 0,
-      participants: participantIds.length || people,
-      participantIds,
-      ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
-    })
-    setName(''); setPrice(''); setComment(''); setLat(null); setLng(null)
-    setReceiptFiles([]); setReceiptPreviews([]); setUploading(false)
-    showSuccess('일정이 등록되었습니다')
   }
 
   const inputCls = "w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
@@ -693,41 +704,47 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl p-6 flex flex-col gap-5">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-gray-900">일정 추가</h3>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
-            <X className="w-4 h-4" />
-          </button>
-        </div>
+      <div className="relative z-50 w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90vh] sm:max-h-[88vh]">
 
-        {/* 등록 성공 토스트 */}
-        {successMsg && (
-          <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-medium animate-in fade-in slide-in-from-top-2 duration-200">
-            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-            {successMsg}
+        {/* 고정 헤더 */}
+        <div className="flex-shrink-0 px-6 pt-6 pb-0 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-gray-900">일정 추가</h3>
+            <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+              <X className="w-4 h-4" />
+            </button>
           </div>
-        )}
 
-        {/* 모드 탭 */}
-        <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
-          {(['normal', 'flight', 'accommodation'] as AddMode[]).map(m => {
-            const labels: Record<AddMode, string> = { normal: '장소 / 일정', flight: '비행기', accommodation: '숙소' }
-            return (
-              <button key={m} type="button"
-                onClick={() => setMode(m)}
-                className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
-                  mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                }`}>
-                {labels[m]}
-              </button>
-            )
-          })}
+          {/* 등록 성공 토스트 */}
+          {successMsg && (
+            <div className="flex items-center gap-2 px-4 py-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-sm font-medium">
+              <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+              {successMsg}
+            </div>
+          )}
+
+          {/* 모드 탭 */}
+          <div className="flex gap-1.5 p-1 bg-gray-100 rounded-xl">
+            {(['normal', 'flight', 'accommodation'] as AddMode[]).map(m => {
+              const labels: Record<AddMode, string> = { normal: '장소 / 일정', flight: '비행기', accommodation: '숙소' }
+              return (
+                <button key={m} type="button"
+                  onClick={() => setMode(m)}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${
+                    mode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}>
+                  {labels[m]}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
-        <form onSubmit={submit} className="flex flex-col gap-4">
+        {/* 스크롤 영역 */}
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <form onSubmit={submit} className="flex flex-col gap-4" onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}>
 
           {/* ── 비행기 폼 ── */}
           {mode === 'flight' && (
@@ -808,9 +825,9 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 )}
               </div>
 
-              <button type="submit" disabled={!flightName.trim() || (!inEnabled && !outEnabled)}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
-                비행기 추가
+              <button type="submit" disabled={!flightName.trim() || (!inEnabled && !outEnabled) || submitting}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '비행기 추가'}
               </button>
             </>
           )}
@@ -860,7 +877,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   <input type="time" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className={inputCls} />
                 </div>
               </div>
-              <button type="submit" disabled={!accName.trim()}
+              <button type="submit" disabled={!accName.trim() || submitting}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
                 숙소 추가
               </button>
@@ -871,13 +888,19 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
           {mode === 'normal' && (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-[12px] font-semibold text-gray-600">
-                  장소명 * {lat !== null && <span className="text-blue-500 font-normal">위치 확인됨</span>}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-semibold text-gray-600">
+                    항목명 *
+                    {lat !== null && <span className="ml-1.5 text-blue-500 font-normal">위치 확인됨</span>}
+                  </label>
+                  {lat === null && name.trim().length > 0 && (
+                    <span className="text-[11px] text-gray-400">위치 없이 추가 가능</span>
+                  )}
+                </div>
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="장소 검색 (예: 센소지, Tsujihan…)"
+                  placeholder="장소 검색 또는 직접 입력 (예: 택시, 교통카드, 기념품…)"
                   value={name}
                   onChange={e => { setName(e.target.value); setLat(null); setLng(null) }}
                   onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
@@ -1018,6 +1041,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
             </>
           )}
         </form>
+        </div>{/* 스크롤 영역 끝 */}
       </div>
     </div>
   )
@@ -1313,6 +1337,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showChecklist, setChecklist]     = useState(false)
   const [mobileTab,     setMobileTab]     = useState<'schedule' | 'map'>('schedule')
   const [mapMounted,    setMapMounted]    = useState(false)  // lazy mount — 처음 지도 탭 열릴 때 true
+  const [isDesktop,     setIsDesktop]     = useState(false)  // window >= 1024, reactive to resize
   const [showEdit,      setShowEdit]      = useState(false)
   const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1 })
   const [editSaving,    setEditSaving]    = useState(false)
@@ -1339,6 +1364,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* 지도 포커스 */
   const [focusItemId,   setFocusItemId]   = useState<string | undefined>(undefined)
   const [focusTrigger,  setFocusTrigger]  = useState(0)
+
+  /* 지도 검색 / 더블클릭 → 일정 추가 */
+  const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
+  const mapSearchRef    = useRef<HTMLInputElement>(null)
+  const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
+
+  const handleMapDblClick = useCallback((lat: number, lng: number) => {
+    setPendingPlace({ name: '', lat, lng })
+  }, [])
 
   /* 좌우 패널 리사이즈 */
   const [leftWidth, setLeftWidth] = useState(420)
@@ -1383,9 +1417,48 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* DnD — restrictToFirstScrollableAncestor: 스크롤 상단 이동 버그 방지 */
   const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
 
-  /* ── 데스크톱에서는 지도 즉시 마운트 ── */
+  /* ── isDesktop: window resize에 반응 ── */
   useEffect(() => {
-    if (window.innerWidth >= 1024) setMapMounted(true)
+    const check = () => {
+      const desktop = window.innerWidth >= 1024
+      setIsDesktop(desktop)
+      if (desktop) setMapMounted(true)
+    }
+    check()
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
+
+  /* ── 지도 패널 검색 Autocomplete: input이 DOM에 마운트될 때 초기화 ── */
+  const initMapSearchAc = useCallback((el: HTMLInputElement | null) => {
+    // el이 null = 언마운트: 기존 인스턴스 정리
+    if (!el) {
+      if (mapSearchAcRef.current) {
+        google.maps.event.clearInstanceListeners(mapSearchAcRef.current)
+        mapSearchAcRef.current = null
+      }
+      return
+    }
+    // ref 동기화
+    ;(mapSearchRef as React.MutableRefObject<HTMLInputElement | null>).current = el
+    // 이미 초기화됐으면 재초기화 안 함
+    if (mapSearchAcRef.current) return
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!el.isConnected) return   // 이미 언마운트된 경우 스킵
+      const ac = new google.maps.places.Autocomplete(el, { fields: ['name', 'geometry'] })
+      mapSearchAcRef.current = ac
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace()
+        if (!place.geometry?.location) return
+        setPendingPlace({
+          name: place.name ?? '',
+          lat:  place.geometry.location.lat(),
+          lng:  place.geometry.location.lng(),
+        })
+        el.value = ''
+      })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   /* ── 여행 메타 1회 로드 ── */
@@ -1510,12 +1583,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
     Object.values(dayItems).flat().forEach(item => {
       const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
       if (!krw || krw <= 0) return
-      if (item.participantIds && item.participantIds.length > 0) {
-        const share = krw / item.participantIds.length
-        item.participantIds.forEach(id => { if (result[id] !== undefined) result[id] += share })
+      const allIds   = item.participantIds ?? []
+      const validIds = allIds.filter(id => result[id] !== undefined)
+      if (allIds.length > 0) {
+        // 원본 참여 인원 수 기준으로 1인 몫 계산 (탈퇴 멤버 포함해 나눔)
+        const share = krw / allIds.length
+        validIds.forEach(id => { result[id] += share })
       } else {
-        const divisor = item.participants || meta.members.length
-        const share = krw / divisor
+        // participantIds 없음 → 현재 전원 균등 분배
+        const share = krw / meta.members.length
         meta.members.forEach(m => { result[m.id] += share })
       }
     })
@@ -1528,6 +1604,24 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const first = amounts[0]
     return amounts.some(a => Math.abs(a - first) > 1)
   }, [memberSpent])
+
+  /* 정산 모달이 열릴 때 모든 Day 데이터 최신화 */
+  useEffect(() => {
+    if (!showSettlement || !days.length) return
+    Promise.all(
+      days.map(day =>
+        getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
+          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+      )
+    ).then(results => {
+      setDayItems(prev => {
+        const next = { ...prev }
+        results.forEach(r => { next[r.dayId] = r.items })
+        return next
+      })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSettlement])
 
   const avgPerPerson = (meta?.members?.length ?? 1) > 1 && totalSpent > 0
     ? totalSpent / (meta?.members?.length ?? 1)
@@ -1582,21 +1676,43 @@ function PlannerContent({ tripId }: { tripId: string }) {
     )
   }
 
-  /* ── 드래그 후 순서 변경 ── */
+  /* ── 드래그 후 순서 변경 (시간대 간 이동 포함) ── */
   const handleReorder = async (activeId: string, overId: string) => {
     if (!activeDay) return
-    const sorted = [...currentItems].sort((a, b) => a.order - b.order)
-    const oldIdx = sorted.findIndex(i => i.id === activeId)
-    const newIdx = sorted.findIndex(i => i.id === overId)
+    const sorted   = [...currentItems].sort((a, b) => a.order - b.order)
+    const oldIdx   = sorted.findIndex(i => i.id === activeId)
+    const newIdx   = sorted.findIndex(i => i.id === overId)
     if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return
 
+    const draggedItem = sorted[oldIdx]
+    const targetItem  = sorted[newIdx]
+    const newSlot     = targetItem.timeSlot
+
     const reordered = arrayMove(sorted, oldIdx, newIdx)
-    const batch     = writeBatch(db)
+
+    /* 낙관적 로컬 업데이트 — 즉각 반영 */
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: reordered.map((item, idx) => ({
+        ...item,
+        order:    idx,
+        timeSlot: item.id === activeId ? newSlot : item.timeSlot,
+      })),
+    }))
+
+    const batch = writeBatch(db)
     reordered.forEach((item, idx) => {
-      batch.update(
-        doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
-        { order: idx }
-      )
+      if (item.id === activeId && newSlot !== draggedItem.timeSlot) {
+        batch.update(
+          doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
+          { order: idx, timeSlot: newSlot }
+        )
+      } else {
+        batch.update(
+          doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
+          { order: idx }
+        )
+      }
     })
     await batch.commit()
   }
@@ -1909,10 +2025,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }, [meta?.members, avatarColor, avatarHexColor, user?.photoURL])
 
   /* 전체 아이템 ID 목록 (DnD 전체 컨텍스트용) */
-  const allItemIds = useMemo(
-    () => [...currentItems].sort((a, b) => a.order - b.order).map(i => i.id),
-    [currentItems]
-  )
+  const allItemIds = useMemo(() => {
+    const slotOrder: Record<TimeSlot, number> = { 아침: 0, 점심: 1, 저녁: 2, 미정: 3 }
+    return [...currentItems]
+      .sort((a, b) => {
+        const sd = slotOrder[a.timeSlot] - slotOrder[b.timeSlot]
+        return sd !== 0 ? sd : a.order - b.order
+      })
+      .map(i => i.id)
+  }, [currentItems])
 
   /* ── 로딩 ── */
   if (metaLoading || !meta) {
@@ -2091,7 +2212,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         {/* ── 일정 패널 ── */}
         <div
           className={`${mobileTab === 'map' ? 'hidden' : 'flex'} lg:flex w-full flex-shrink-0 flex-col bg-[#F8FAFC] overflow-hidden lg:border-r border-gray-200`}
-          style={{ width: typeof window !== 'undefined' && window.innerWidth >= 1024 ? leftWidth : undefined }}
+          style={{ width: isDesktop ? leftWidth : undefined }}
         >
 
           <div className="px-5 py-4 flex items-center justify-between flex-shrink-0">
@@ -2108,7 +2229,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 }`}
               </p>
             </div>
-            <button onClick={() => setShowAdd(true)}
+            <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
               <Plus className="w-3.5 h-3.5" /> 추가
             </button>
@@ -2201,7 +2322,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
             })()}
 
             {currentItems.length === 0 ? (
-              <div onClick={() => setShowAdd(true)}
+              <div onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
                 className="flex flex-col items-center justify-center py-16 gap-3 cursor-pointer group">
                 <div className="w-12 h-12 rounded-2xl bg-white border-2 border-dashed border-gray-200 group-hover:border-blue-400 flex items-center justify-center transition-colors">
                   <Plus className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
@@ -2233,17 +2354,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         : formatKRW(slotKRW)
                       : ''
                     return (
-                      <div key={slot} className="flex flex-col gap-2">
+                      <div key={slot} className="flex flex-col gap-2 mt-1">
                         {/* 시간대 구분선 */}
-                        <div className="flex items-center gap-2.5 py-1">
+                        <div className="flex items-center gap-2.5 py-1.5">
                           <div className="flex-1 h-px bg-gray-200" />
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className={`flex items-center gap-1.5 flex-shrink-0 px-2.5 py-1 rounded-full border ${SLOT_STYLES[slot]}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${SLOT_DOT[slot]}`} />
-                            <span className="text-[11px] font-bold text-gray-400">{slot}</span>
+                            <span className="text-[11px] font-bold">{slot}</span>
                             {slotAmtStr && (
-                              <span className="text-[10px] text-emerald-600 font-semibold">{slotAmtStr}</span>
+                              <span className="text-[10px] text-emerald-600 font-semibold ml-0.5">{slotAmtStr}</span>
                             )}
-                            <span className="text-[10px] text-gray-300">{slotItems.length}개</span>
+                            <span className="text-[10px] text-gray-400">{slotItems.length}개</span>
                           </div>
                           <div className="flex-1 h-px bg-gray-200" />
                         </div>
@@ -2311,8 +2432,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {(meta.members ?? []).length > 1 && totalSpent > 0 && (
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <div
-                  className={`flex items-center justify-between ${hasUnevenParticipants ? 'cursor-pointer group' : ''}`}
-                  onClick={() => hasUnevenParticipants && setShowSettlement(true)}
+                  className="flex items-center justify-between cursor-pointer group"
+                  onClick={() => setShowSettlement(true)}
                 >
                   <span className="flex items-center gap-1 text-[11px] text-gray-400">
                     <Users className="w-3 h-3" />1인 평균
@@ -2324,11 +2445,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         : formatKRW(Math.round(avgPerPerson))
                       }
                     </span>
-                    {hasUnevenParticipants && (
-                      <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 group-hover:bg-blue-100 transition-colors">
-                        명세 <ChevronRight className="w-2.5 h-2.5" />
-                      </span>
-                    )}
+                    <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 group-hover:bg-blue-100 transition-colors">
+                      명세 <ChevronRight className="w-2.5 h-2.5" />
+                    </span>
                   </div>
                 </div>
                 {hasUnevenParticipants && (
@@ -2347,26 +2466,99 @@ function PlannerContent({ tripId }: { tripId: string }) {
           <div className="w-[3px] h-10 rounded-full bg-gray-200 group-hover:bg-blue-400 group-active:bg-blue-500 transition-colors" />
         </div>
 
-        {/* ── 지도 ── */}
-        <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 relative overflow-hidden`}>
-          {/* 도시 라벨 */}
-          <div className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-sm border border-gray-100 flex items-center gap-1.5">
-            <MapPin className="w-3 h-3 text-blue-600" />
-            <span className="text-xs font-semibold text-gray-700">{meta.city}</span>
-            {mapItems.filter(i => i.lat && i.lng).length > 0 && (
-              <span className="text-[10px] text-gray-400 ml-1">
-                {mapItems.filter(i => i.lat && i.lng).length}개 핀
-              </span>
+        {/* ── 지도 컬럼 ── */}
+        <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 flex-col overflow-hidden`}>
+          {/* 장소 검색바 — overflow-hidden 바깥에 위치 (드롭다운 클리핑 방지) */}
+          <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-gray-100">
+            <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-200 hover:border-blue-300 focus-within:border-blue-400 focus-within:bg-white transition-colors">
+              <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+              </svg>
+              <input
+                ref={initMapSearchAc}
+                type="text"
+                placeholder="장소 검색 후 일정 추가…"
+                className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder:text-gray-400 min-w-0"
+              />
+            </div>
+          </div>
+          {/* 지도 */}
+          <div className="flex-1 relative overflow-hidden">
+            {/* 도시 라벨 */}
+            <div className="absolute top-3 right-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-1.5 shadow-sm border border-gray-100 flex items-center gap-1.5">
+              <MapPin className="w-3 h-3 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">{meta.city}</span>
+              {mapItems.filter(i => i.lat && i.lng).length > 0 && (
+                <span className="text-[10px] text-gray-400 ml-1">
+                  {mapItems.filter(i => i.lat && i.lng).length}개 핀
+                </span>
+              )}
+            </div>
+            {/* 더블클릭 힌트 */}
+            {!pendingPlace && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                <span className="text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-gray-100">
+                  더블클릭으로 위치 직접 추가
+                </span>
+              </div>
+            )}
+            {mapMounted && (
+              <TripMap
+                city={meta.city}
+                items={mapItems}
+                focusId={focusItemId}
+                focusTrigger={focusTrigger}
+                members={mapAvatarMembers}
+                previewPlace={pendingPlace}
+                onDblClick={handleMapDblClick}
+              />
+            )}
+
+            {/* 장소 미리보기 카드 */}
+            {pendingPlace && (
+              <div className="absolute bottom-4 left-3 right-3 z-20 pointer-events-auto">
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-4.5 h-4.5 text-red-500" style={{ width: 18, height: 18 }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate leading-snug">
+                        {pendingPlace.name || '선택한 위치'}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {pendingPlace.name
+                          ? '검색된 장소 · 일정에 추가하시겠어요?'
+                          : `${pendingPlace.lat.toFixed(5)}, ${pendingPlace.lng.toFixed(5)}`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPendingPlace(undefined)}
+                      className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 flex-shrink-0 -mt-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="px-3 pb-3">
+                    <button
+                      onClick={() => setShowAdd(true)}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      이 장소를 일정에 추가하기
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
-          {mapMounted && <TripMap city={meta.city} items={mapItems} focusId={focusItemId} focusTrigger={focusTrigger} members={mapAvatarMembers} />}
         </div>
       </div>
 
       {showAdd && (
         <AddItemPanel
           onAdd={handleAdd}
-          onClose={() => setShowAdd(false)}
+          onClose={() => { setShowAdd(false); setPendingPlace(undefined) }}
           defaultCurrency={primaryCurrency}
           currencies={tripCurrencies}
           people={meta.people || 1}
@@ -2377,6 +2569,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           activeDayId={activeDay?.dayId ?? days[0]?.dayId ?? ''}
           onAddFlight={handleAddFlight}
           onAddAccommodation={handleAddAccommodation}
+          defaultPlace={pendingPlace}
         />
       )}
 
@@ -2565,6 +2758,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
               </button>
             </div>
+
+            {/* 여행 명세 */}
+            {totalSpent > 0 && (meta.members ?? []).length > 1 && (
+              <div className="border-t border-gray-100 px-5 pb-5 pt-4 flex-shrink-0">
+                <button
+                  onClick={() => { setShowMembers(false); setShowSettlement(true) }}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-colors group"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <Wallet className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <div className="text-left">
+                      <p className="text-xs font-semibold text-blue-700">여행 명세 (정산금액)</p>
+                      <p className="text-[11px] text-blue-500">멤버별 지출 내역 보기</p>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-blue-400" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
