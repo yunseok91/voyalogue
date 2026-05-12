@@ -236,11 +236,11 @@ function TripsContent() {
   )
 
   const counts = useMemo(() => ({
-    all:      tripsWithStatus.length,
+    all:      tripsWithStatus.length + invitedTrips.length,
     ongoing:  tripsWithStatus.filter(t => t.status === 'ongoing').length,
     upcoming: tripsWithStatus.filter(t => t.status === 'upcoming').length,
     done:     tripsWithStatus.filter(t => t.status === 'done').length,
-  }), [tripsWithStatus])
+  }), [tripsWithStatus, invitedTrips])
 
   const sorted = useMemo(() => {
     const filtered = filter === 'all'

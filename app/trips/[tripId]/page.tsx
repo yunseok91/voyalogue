@@ -1405,12 +1405,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, user?.photoURL])
 
-  /* ── 비활성 Day items 1회 로드 ── */
+  /* ── 전체 Day items 1회 로드 ── */
   useEffect(() => {
     if (!days.length) return
-    const inactiveDays = days.filter((_, i) => i !== activeDayIdx)
     Promise.all(
-      inactiveDays.map(day =>
+      days.map(day =>
         getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
           .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
       )

@@ -106,17 +106,27 @@ function StarRow({ rating }: { rating: number }) {
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, onEdit, onDelete }: {
+function ItemCard({ item, canEdit, onEdit, onDelete, mapIndex, onFocusMap }: {
   item: PlanItem; canEdit: boolean
   onEdit?: (item: PlanItem) => void
   onDelete?: (id: string) => void
+  mapIndex?: number
+  onFocusMap?: (id: string) => void
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
 
   return (
-    <div className="flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100">
+    <div
+      className="flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
+      onClick={() => { if (item.lat && item.lng && onFocusMap) onFocusMap(item.id) }}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-start gap-2 mb-1">
+          {mapIndex !== undefined && item.lat && item.lng && (
+            <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5 ${SLOT_DOT[item.timeSlot]}`}>
+              {mapIndex}
+            </span>
+          )}
           <span className="text-sm font-semibold text-gray-900 flex-1 min-w-0 break-words">{item.name}</span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{item.cat}</span>
         </div>
@@ -761,6 +771,18 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
     return sorted.map(i => ({ id: i.id, name: i.name, lat: i.lat, lng: i.lng, timeSlot: i.timeSlot }))
   }, [currentItems])
 
+  const mapIndexMap = useMemo(() => {
+    const m: Record<string, number> = {}
+    let n = 0
+    mapItems.forEach(item => {
+      const lat = Number(item.lat), lng = Number(item.lng)
+      if (isFinite(lat) && isFinite(lng) && (lat !== 0 || lng !== 0)) m[item.id] = ++n
+    })
+    return m
+  }, [mapItems])
+
+  const [focusItemId, setFocusItemId] = useState<string | undefined>(undefined)
+
   const totalSpent = useMemo(
     () => Object.values(dayItems).flat().reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
     [dayItems, rates]
@@ -1069,7 +1091,7 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
                     </div>
                     <div className="flex flex-col gap-2">
                       {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} onEdit={setEditingItem} />
+                        <ItemCard key={item.id} item={item} canEdit={canEdit} onEdit={setEditingItem} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                       ))}
                     </div>
                   </div>
@@ -1103,7 +1125,7 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
 
         {/* 지도 */}
         <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 relative overflow-hidden`}>
-          <TripMap city={trip.city} items={mapItems} />
+          <TripMap city={trip.city} items={mapItems} focusId={focusItemId} />
         </div>
       </div>
 
