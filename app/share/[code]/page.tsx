@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, use, useRef } from 'react'
+import { useState, useEffect, useMemo, use, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil } from 'lucide-react'
@@ -240,15 +240,16 @@ async function compressImg(file: File): Promise<Blob> {
 }
 
 /* ── 추가 패널 (총무 전용) ── */
-function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUid, tripId }: {
+function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUid, tripId, defaultPlace }: {
   onAdd:    (item: Omit<PlanItem, 'id' | 'order'>) => void
   onClose:  () => void
   defaultCurrency: string; currencies: string[]
   members: Member[]; tripUid: string; tripId: string
+  defaultPlace?: { name: string; lat: number; lng: number }
 }) {
-  const [name,           setName]           = useState('')
-  const [lat,            setLat]            = useState<number | null>(null)
-  const [lng,            setLng]            = useState<number | null>(null)
+  const [name,           setName]           = useState(defaultPlace?.name ?? '')
+  const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
+  const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>('미정')
   const [cat,            setCat]            = useState<Category>('장소')
   const [price,          setPrice]          = useState('')
@@ -681,6 +682,37 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
   const [mobileTab,    setMobileTab]   = useState<'schedule' | 'map'>('schedule')
   const [rates,        setRates]       = useState<Record<string, number>>({ KRW: 1 })
 
+  /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
+  const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
+  const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
+
+  const handleMapDblClick = useCallback((lat: number, lng: number) => {
+    setPendingPlace({ name: '', lat, lng })
+  }, [])
+
+  const initMapSearchAc = useCallback((el: HTMLInputElement | null) => {
+    if (!el) {
+      if (mapSearchAcRef.current) {
+        google.maps.event.clearInstanceListeners(mapSearchAcRef.current)
+        mapSearchAcRef.current = null
+      }
+      return
+    }
+    if (mapSearchAcRef.current) return
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!el.isConnected) return
+      const ac = new google.maps.places.Autocomplete(el, { fields: ['name', 'geometry'] })
+      mapSearchAcRef.current = ac
+      ac.addListener('place_changed', () => {
+        const place = ac.getPlace()
+        if (!place.geometry?.location) return
+        setPendingPlace({ name: place.name ?? '', lat: place.geometry.location.lat(), lng: place.geometry.location.lng() })
+        el.value = ''
+      })
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /* 접속 게이트 */
   type Gate = 'waiting' | 'choosing' | 'granted'
   const [gate,      setGate]     = useState<Gate>('waiting')
@@ -799,8 +831,13 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
     if (!activeDay || !trip) return
     await setDoc(doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId),
       { label: activeDay.label, date: activeDay.date }, { merge: true })
-    await addDoc(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items'),
-      { ...partial, order: currentItems.length, createdAt: serverTimestamp() })
+    const newOrder = currentItems.length
+    const docRef = await addDoc(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items'),
+      { ...partial, order: newOrder, createdAt: serverTimestamp() })
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), { id: docRef.id, ...partial, order: newOrder }],
+    }))
   }
 
   const handleDelete = async (itemId: string) => {
@@ -924,7 +961,7 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
               />
               {isTreasurer && (
                 <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-                  <Crown className="w-2.5 h-2.5 text-white" />
+                  <Wallet className="w-2.5 h-2.5 text-white" />
                 </span>
               )}
             </div>
@@ -964,9 +1001,14 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
                     size={22}
                     colorIndex={m.id === user?.uid ? (currentMember?.colorIndex ?? ((i % (CLAY.length - 1)) + 1)) : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
                   />
+                  {m.role === 'owner' && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
+                      <Crown className="w-1.5 h-1.5 text-white" />
+                    </span>
+                  )}
                   {m.role === 'treasurer' && (
                     <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center">
-                      <Crown className="w-1.5 h-1.5 text-white" />
+                      <Wallet className="w-1.5 h-1.5 text-white" />
                     </span>
                   )}
                 </div>
@@ -1124,20 +1166,91 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
         </div>
 
         {/* 지도 */}
-        <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 relative overflow-hidden`}>
-          <TripMap city={trip.city} items={mapItems} focusId={focusItemId} />
+        <div className={`${mobileTab === 'schedule' ? 'hidden' : 'flex'} lg:flex flex-1 flex-col overflow-hidden`}>
+          {/* 검색바 — canEdit(방장/총무) 전용 */}
+          {canEdit && (
+            <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-gray-100">
+              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-200 hover:border-blue-300 focus-within:border-blue-400 focus-within:bg-white transition-colors">
+                <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
+                </svg>
+                <input
+                  ref={initMapSearchAc}
+                  type="text"
+                  placeholder="장소 검색 후 일정 추가…"
+                  className="flex-1 text-xs bg-transparent outline-none text-gray-700 placeholder:text-gray-400 min-w-0"
+                />
+              </div>
+            </div>
+          )}
+          {/* 지도 */}
+          <div className="flex-1 relative overflow-hidden">
+            {/* 더블클릭 힌트 — canEdit 전용 */}
+            {canEdit && !pendingPlace && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+                <span className="text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-gray-100">
+                  더블클릭으로 위치 직접 추가
+                </span>
+              </div>
+            )}
+            <TripMap
+              city={trip.city}
+              items={mapItems}
+              focusId={focusItemId}
+              previewPlace={pendingPlace}
+              onDblClick={canEdit ? handleMapDblClick : undefined}
+            />
+            {/* 장소 미리보기 카드 — canEdit 전용 */}
+            {canEdit && pendingPlace && (
+              <div className="absolute bottom-4 left-3 right-3 z-20 pointer-events-auto">
+                <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 overflow-hidden">
+                  <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                      <MapPin className="w-4 h-4 text-red-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate leading-snug">
+                        {pendingPlace.name || '선택한 위치'}
+                      </p>
+                      <p className="text-[11px] text-gray-400 mt-0.5">
+                        {pendingPlace.name
+                          ? '검색된 장소 · 일정에 추가하시겠어요?'
+                          : `${pendingPlace.lat.toFixed(5)}, ${pendingPlace.lng.toFixed(5)}`}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setPendingPlace(undefined)}
+                      className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 flex-shrink-0 -mt-0.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                  <div className="px-3 pb-3">
+                    <button
+                      onClick={() => setShowAdd(true)}
+                      className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      이 장소를 일정에 추가하기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
       {showAdd && (
         <AddPanel
           onAdd={handleAdd}
-          onClose={() => setShowAdd(false)}
+          onClose={() => { setShowAdd(false); setPendingPlace(undefined) }}
           defaultCurrency={primaryCurrency}
           currencies={tripCurrencies}
           members={resolvedMembers}
           tripUid={trip.uid}
           tripId={trip.id}
+          defaultPlace={pendingPlace}
         />
       )}
 

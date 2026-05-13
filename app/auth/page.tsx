@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Globe, ArrowLeft } from 'lucide-react'
 import { motion } from 'motion/react'
 import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
+import { useAuthStore } from '@/features/auth/store'
 
 const googleProvider = new GoogleAuthProvider()
 googleProvider.setCustomParameters({ prompt: 'select_account' })
@@ -18,8 +19,14 @@ function AuthPageInner() {
   const errorParam   = searchParams.get('error')
   const suspendedParam = searchParams.get('suspended')
 
+  const { user, loading: authLoading } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
+
+  /* 이미 로그인된 경우 바로 리다이렉트 */
+  useEffect(() => {
+    if (!authLoading && user) router.replace(redirectTo)
+  }, [user, authLoading, router, redirectTo])
 
   const handleGoogle = async () => {
     setError('')

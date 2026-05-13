@@ -1,7 +1,8 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench } from 'lucide-react'
 import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, where, getDoc } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
@@ -52,16 +53,17 @@ type Announcement = {
 }
 
 const BANNER_META: Record<AnnouncementType, {
-  icon: typeof Info
-  bg: string
-  border: string
-  text: string
-  badge: string
-  label: string
+  icon:       typeof Info
+  label:      string
+  accentBg:   string
+  iconBg:     string
+  iconColor:  string
+  badge:      string
+  btnBg:      string
 }> = {
-  notice:      { icon: Info,   bg: 'bg-blue-50',   border: 'border-blue-200',  text: 'text-blue-800',  badge: 'bg-blue-100 text-blue-700',   label: '공지' },
-  event:       { icon: Zap,    bg: 'bg-green-50',  border: 'border-green-200', text: 'text-green-800', badge: 'bg-green-100 text-green-700', label: '이벤트' },
-  maintenance: { icon: Wrench, bg: 'bg-orange-50', border: 'border-orange-200',text: 'text-orange-800',badge: 'bg-orange-100 text-orange-700',label: '점검' },
+  notice:      { icon: Info,   label: '공지사항', accentBg: 'bg-blue-500',    iconBg: 'bg-blue-50',    iconColor: 'text-blue-600',    badge: 'bg-blue-100 text-blue-700',    btnBg: 'bg-blue-600 hover:bg-blue-700' },
+  event:       { icon: Zap,    label: '이벤트',   accentBg: 'bg-emerald-500', iconBg: 'bg-emerald-50', iconColor: 'text-emerald-600', badge: 'bg-emerald-100 text-emerald-700', btnBg: 'bg-emerald-600 hover:bg-emerald-700' },
+  maintenance: { icon: Wrench, label: '점검 안내', accentBg: 'bg-orange-500', iconBg: 'bg-orange-50',  iconColor: 'text-orange-600',  badge: 'bg-orange-100 text-orange-700',  btnBg: 'bg-orange-600 hover:bg-orange-700' },
 }
 
 const PAGE_SIZE   = 9
@@ -103,44 +105,103 @@ function darkenHex(hex: string): string {
   return `#${h(r)}${h(g)}${h(b)}`
 }
 
-/* ── 공지사항 배너 ── */
-function AnnouncementBanners() {
-  const [banners, setBanners]   = useState<Announcement[]>([])
-  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+/* ── 공지사항 팝업 ── */
+function AnnouncementModal() {
+  const [queue,     setQueue]     = useState<Announcement[]>([])
+  const [noShow24h, setNoShow24h] = useState(false)
 
   useEffect(() => {
-    getDocs(query(collection(db, 'announcements'), where('active', '==', true), orderBy('createdAt', 'desc')))
-      .then(snap => setBanners(snap.docs.map(d => ({ id: d.id, ...d.data() } as Announcement))))
-      .catch(() => {/* silent */})
+    getDocs(collection(db, 'announcements'))
+      .then(snap => {
+        const now = Date.now()
+        const list = snap.docs
+          .map(d => ({ id: d.id, ...d.data() } as Announcement))
+          .filter(a => a.active)
+          .filter(a => {
+            try {
+              const until = localStorage.getItem(`ann_24h_${a.id}`)
+              return !(until && now < parseInt(until))
+            } catch { return true }
+          })
+          .sort((a, b) => (b.createdAt?.toMillis?.() ?? 0) - (a.createdAt?.toMillis?.() ?? 0))
+        setQueue(list)
+      })
+      .catch(() => {})
   }, [])
 
-  const visible = banners.filter(b => !dismissed.has(b.id))
-  if (visible.length === 0) return null
+  const handleClose = () => {
+    const current = queue[0]
+    if (!current) return
+    if (noShow24h) {
+      try { localStorage.setItem(`ann_24h_${current.id}`, String(Date.now() + 24 * 3600 * 1000)) } catch {}
+    }
+    setNoShow24h(false)
+    setQueue(prev => prev.slice(1))
+  }
+
+  const current = queue[0]
+  if (!current) return null
+
+  const meta = BANNER_META[current.type]
+  const Icon = meta.icon
 
   return (
-    <div className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-4 space-y-2">
-      {visible.map(b => {
-        const meta = BANNER_META[b.type]
-        const Icon = meta.icon
-        return (
-          <div key={b.id} className={`flex items-start gap-3 px-4 py-3 rounded-xl border ${meta.bg} ${meta.border}`}>
-            <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${meta.text}`} />
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-0.5">
-                <span className={`text-[11px] font-semibold px-1.5 py-0.5 rounded ${meta.badge}`}>{meta.label}</span>
-                <span className={`text-sm font-semibold ${meta.text}`}>{b.title}</span>
-              </div>
-              <p className={`text-xs ${meta.text} opacity-80`}>{b.body}</p>
+    <div
+      className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-[2px] px-4 pb-4 sm:pb-0"
+      onClick={handleClose}
+    >
+      <div
+        className="w-full max-w-[440px] bg-white rounded-2xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 상단 컬러 스트라이프 */}
+        <div className={`h-1.5 ${meta.accentBg}`} />
+
+        {/* 헤더 */}
+        <div className="flex items-start justify-between px-6 pt-5 pb-4">
+          <div className="flex items-start gap-3.5">
+            <div className={`w-11 h-11 rounded-xl flex-shrink-0 flex items-center justify-center ${meta.iconBg}`}>
+              <Icon className={`w-5 h-5 ${meta.iconColor}`} />
             </div>
-            <button
-              onClick={() => setDismissed(prev => new Set([...prev, b.id]))}
-              className={`flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-full hover:bg-black/10 transition-colors ${meta.text}`}
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+            <div className="pt-0.5">
+              <span className={`inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-1.5 ${meta.badge}`}>
+                {meta.label}
+              </span>
+              <h3 className="text-[15px] font-bold text-gray-900 leading-snug">{current.title}</h3>
+            </div>
           </div>
-        )
-      })}
+          <button
+            onClick={handleClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors flex-shrink-0 ml-2 -mt-0.5"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* 본문 */}
+        <div className="px-6 pb-6 border-b border-gray-100">
+          <p className="text-sm text-gray-600 leading-[1.8] whitespace-pre-wrap">{current.body}</p>
+        </div>
+
+        {/* 푸터 */}
+        <div className="flex items-center justify-between px-6 py-3.5 bg-gray-50">
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={noShow24h}
+              onChange={e => setNoShow24h(e.target.checked)}
+              className="w-3.5 h-3.5 rounded accent-gray-700 cursor-pointer"
+            />
+            <span className="text-[12px] text-gray-500">24시간 동안 보지 않기</span>
+          </label>
+          <button
+            onClick={handleClose}
+            className={`px-5 py-2 rounded-lg text-xs font-bold text-white transition-colors ${meta.btnBg}`}
+          >
+            닫기
+          </button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -153,9 +214,18 @@ type AdminMessage = {
   read: boolean
 }
 
+function parseTripCountry(city: string): string {
+  const parts = city.split(',').map(s => s.trim())
+  return parts[1] ?? ''
+}
+
 /* ── 내부 컴포넌트 ── */
 function TripsContent() {
   const { user } = useAuthStore()
+  const searchParams = useSearchParams()
+  const router       = useRouter()
+  const countryFilter = searchParams.get('country') ?? null
+
   const [trips,         setTrips]         = useState<Trip[]>([])
   const [invitedTrips,  setInvitedTrips]  = useState<InvitedTrip[]>([])
   const [dbLoading,     setDbLoading]     = useState(true)
@@ -243,9 +313,12 @@ function TripsContent() {
   }), [tripsWithStatus, invitedTrips])
 
   const sorted = useMemo(() => {
-    const filtered = filter === 'all'
+    let filtered = filter === 'all'
       ? tripsWithStatus
       : tripsWithStatus.filter(t => t.status === filter)
+    if (countryFilter) {
+      filtered = filtered.filter(t => parseTripCountry(t.city) === countryFilter)
+    }
     return [...filtered].sort((a, b) => {
       const od = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
       if (od !== 0) return od
@@ -253,7 +326,7 @@ function TripsContent() {
       const tb = new Date(b.startDate).getTime()
       return a.status === 'done' ? tb - ta : ta - tb
     })
-  }, [tripsWithStatus, filter])
+  }, [tripsWithStatus, filter, countryFilter])
 
   const totalPages   = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const currentTrips = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -329,9 +402,22 @@ function TripsContent() {
 
       <AppNavbar active="trips" onExcel={() => setShowExcel(true)} />
 
-      <AnnouncementBanners />
+      <AnnouncementModal />
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">
+
+        {/* 국가 필터 칩 */}
+        {countryFilter && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-xs text-gray-500">필터:</span>
+            <span className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 border border-blue-200 text-blue-700 text-xs font-semibold rounded-full">
+              {countryFilter}
+              <button onClick={() => router.push('/trips')} className="ml-0.5 hover:text-blue-900 transition-colors">
+                <X className="w-3 h-3" />
+              </button>
+            </span>
+          </div>
+        )}
 
         <div className="mb-5 sm:mb-6">
           <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900 mb-1" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -626,5 +712,11 @@ function TripsContent() {
 }
 
 export default function TripsPage() {
-  return <AuthGuard><TripsContent /></AuthGuard>
+  return (
+    <AuthGuard>
+      <Suspense>
+        <TripsContent />
+      </Suspense>
+    </AuthGuard>
+  )
 }

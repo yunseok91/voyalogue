@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setUser } = useAuthStore()
+  const { setUser, setLoading } = useAuthStore()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async user => {
@@ -15,6 +15,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(null)
         return
       }
+
+      /* 비동기 체크가 완료될 때까지 로딩 유지 — AuthGuard 조기 리다이렉트 방지 */
+      setLoading(true)
 
       const userRef     = doc(db, 'users', user.uid)
       const betaRef     = doc(db, 'config', 'betaSettings')

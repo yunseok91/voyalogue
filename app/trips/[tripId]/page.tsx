@@ -346,42 +346,39 @@ function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onVi
             </span>
           )}
 
-          {/* 사진 아이콘 — 항상 표시: 사진 없으면 회색(클릭 시 업로드), 있으면 보라색+개수(클릭 시 라이트박스) */}
-          {(() => {
-            const hasReceipts = !!(item.receipts && item.receipts.length > 0)
-            return (
-              <>
-                {hasReceipts && (
-                  <button
-                    onMouseDown={e => e.stopPropagation()}
-                    onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
-                    className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
-                  >
-                    <Camera className="w-2.5 h-2.5" />
-                    <span>{item.receipts!.length}</span>
-                  </button>
-                )}
-                <button
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
-                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
-                  title="사진 업로드"
-                >
-                  <Camera className="w-2.5 h-2.5" />
-                </button>
-                <input
-                  ref={cameraRef}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  onChange={e => {
-                    if (e.target.files?.length) { onUploadReceipt?.(e.target.files); e.target.value = '' }
-                  }}
-                />
-              </>
-            )
-          })()}
+          {/* 사진 아이콘 — 사진 있으면 보라색+개수(클릭 시 라이트박스) + 회색(업로드), 없으면 회색(업로드)만 */}
+          {item.receipts && item.receipts.length > 0 && (
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
+              className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
+            >
+              <Camera className="w-2.5 h-2.5" />
+              <span>{item.receipts.length}</span>
+            </button>
+          )}
+          {(!item.receipts || item.receipts.length < 3) && (
+            <>
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
+                title="사진 업로드"
+              >
+                <Camera className="w-2.5 h-2.5" />
+              </button>
+              <input
+                ref={cameraRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  if (e.target.files?.length) { onUploadReceipt?.(e.target.files); e.target.value = '' }
+                }}
+              />
+            </>
+          )}
         </div>
       </div>
 
@@ -1476,6 +1473,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setDoc(doc(db, 'shareIndex', meta.editCode), { uid, tripId, canEdit: true })
   }, [meta?.viewCode, meta?.editCode])
 
+  /* ── 오너 이름 동기화: displayName이 있으면 '나' 플레이스홀더 덮어쓰기 ── */
+  useEffect(() => {
+    if (!meta || !user?.displayName) return
+    const owner = (meta.members ?? []).find(m => m.role === 'owner')
+    if (!owner || owner.name === user.displayName) return
+    const updated = meta.members.map(m =>
+      m.role === 'owner' ? { ...m, name: user.displayName! } : m
+    )
+    setMeta(prev => prev ? { ...prev, members: updated } : prev)
+    updateDoc(doc(db, 'users', uid, 'trips', tripId), { members: updated }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta?.members, user?.displayName])
+
   /* ── 통화 감지 & 환율 로드 ── */
   const tripCurrencies = useMemo(
     () => meta ? detectCurrencies(meta.city) : ['KRW'],
@@ -1526,12 +1536,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
     Promise.all(
       days.map(day =>
         getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
-          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+          .then(snap => ({
+            dayId:     day.dayId,
+            items:     snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            fromCache: snap.metadata.fromCache,
+            empty:     snap.empty,
+          }))
       )
     ).then(results => {
       setDayItems(prev => {
         const next = { ...prev }
-        results.forEach(r => { next[r.dayId] = r.items })
+        results.forEach(r => {
+          if (r.empty && r.fromCache) return  // 빈 캐시 결과 무시
+          next[r.dayId] = r.items
+        })
         return next
       })
     }).catch(() => {})
@@ -1549,6 +1567,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
     const col = collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items')
     const unsub = onSnapshot(col, snap => {
+      // 캐시 미스 직후 빈 스냅샷 무시 — 서버 데이터가 곧 도착하므로 마커 깜빡임 방지
+      if (snap.empty && snap.metadata.fromCache) return
       const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
       setDayItems(prev => ({ ...prev, [day.dayId]: items }))
     })
@@ -1741,10 +1761,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
       await uploadBytes(r, blob)
       newURLs.push(await getDownloadURL(r))
     }))
+    const updatedReceipts = [...existing, ...newURLs]
     await updateDoc(
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId),
-      { receipts: [...existing, ...newURLs] }
+      { receipts: updatedReceipts }
     )
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id === itemId ? { ...i, receipts: updatedReceipts } : i
+      ),
+    }))
   }
 
   /* ── 비행기 / 숙소 고정 일정 ── */
@@ -2095,9 +2122,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     }
                     hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
                   />
+                  {m.role === 'owner' && (
+                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center">
+                      <Crown className="w-2 h-2 text-white" />
+                    </span>
+                  )}
                   {m.role === 'treasurer' && (
                     <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center">
-                      <Crown className="w-2 h-2 text-white" />
+                      <Wallet className="w-2 h-2 text-white" />
                     </span>
                   )}
                 </div>
@@ -2639,7 +2671,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             className="hover:opacity-75 transition-opacity"
                           />
                         </label>
-                        {/* 크라운 뱃지 — 총무: amber, 일반: 회색 흐림 / 클릭 시 총무 토글 */}
+                        {/* 총무 지정 버튼 — amber Wallet */}
                         <button
                           type="button"
                           onClick={() => setTreasurer(m.id)}
@@ -2650,7 +2682,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               : 'bg-gray-200 hover:bg-amber-300'
                           }`}
                         >
-                          <Crown className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
+                          <Wallet className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
                         </button>
                       </div>
                     ) : (
@@ -2662,6 +2694,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           colorIndex={effectiveColorIdx}
                           hexColor={effectiveHex}
                         />
+                        {/* 주선자(오너) 뱃지 */}
+                        <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
+                          <Crown className="w-3 h-3 text-white" />
+                        </span>
                       </div>
                     )}
 
@@ -2673,7 +2709,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
                           :                          'bg-gray-100 text-gray-500'
                         }`}>
-                          {m.role === 'owner' ? '오너' : m.role === 'treasurer' ? '총무' : '멤버'}
+                          {m.role === 'owner' ? '주선자' : m.role === 'treasurer' ? '총무' : '멤버'}
                         </span>
                       </div>
                       <p className="text-[11px] mt-0.5 text-gray-400">
