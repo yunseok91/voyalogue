@@ -393,9 +393,9 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
 
         {/* 메모 — 시각적으로 구분되는 스타일 */}
         {item.comment && (
-          <div className="flex items-start gap-1.5 mb-1.5 mt-0.5">
-            <span className="mt-[5px] w-1 h-1 rounded-full bg-slate-300 flex-shrink-0" />
-            <p className="text-xs text-slate-500 leading-snug italic">{item.comment}</p>
+          <div className="flex mb-1.5 mt-1">
+            <div className="w-0.5 rounded-full bg-amber-300 flex-shrink-0 mr-2" />
+            <p className="text-xs text-amber-800 leading-snug italic">{item.comment}</p>
           </div>
         )}
 

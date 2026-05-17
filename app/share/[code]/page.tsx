@@ -150,7 +150,12 @@ function ItemCard({ item, canEdit, myUid, onEdit, onDelete, onRate, mapIndex, on
           <span className="text-sm font-semibold text-gray-900 flex-1 min-w-0 break-words">{item.name}</span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{item.cat}</span>
         </div>
-        {item.comment && <p className="text-xs text-slate-500 italic mb-1">{item.comment}</p>}
+        {item.comment && (
+          <div className="flex mb-1 mt-0.5">
+            <div className="w-0.5 rounded-full bg-amber-300 flex-shrink-0 mr-2" />
+            <p className="text-xs text-amber-800 leading-snug italic">{item.comment}</p>
+          </div>
+        )}
         <div className="flex items-center gap-2 flex-wrap mt-1">
           <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
             { 아침: 'border-amber-200 text-amber-700 bg-amber-50', 점심: 'border-green-200 text-green-700 bg-green-50',
