@@ -65,7 +65,7 @@ type TripMeta = {
 type PlanItem = {
   id: string; name: string; timeSlot: TimeSlot; cat: Category
   price: number; currency: string; comment: string; order: number
-  lat: number; lng: number; rating: number; participants: number
+  lat: number; lng: number; rating: number; ratings?: Record<string, number>; participants: number
   participantIds?: string[]
   receipts?: string[]
 }
@@ -97,21 +97,39 @@ function buildDays(meta: TripMeta): Day[] {
 }
 
 /* ── 별점 ── */
-function StarRow({ rating }: { rating: number }) {
+function StarRow({ myRating = 0, ratings = {}, onChange }: {
+  myRating?: number
+  ratings?: Record<string, number>
+  onChange?: (v: number) => void
+}) {
+  const vals = Object.values(ratings).filter(v => v > 0)
+  const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
+  const count = vals.length
   return (
-    <span className="flex gap-0.5">
-      {[1,2,3,4,5].map(v => (
-        <Star key={v} className={`w-3 h-3 ${v <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
-      ))}
+    <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+      <span className="flex gap-0.5">
+        {[1,2,3,4,5].map(v => (
+          <Star key={v}
+            className={`w-3 h-3 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
+            onClick={e => { e.stopPropagation(); onChange?.(v) }}
+          />
+        ))}
+      </span>
+      {count >= 1 && (
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+          avg {avg.toFixed(1)} · {count}명
+        </span>
+      )}
     </span>
   )
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, onEdit, onDelete, mapIndex, onFocusMap }: {
-  item: PlanItem; canEdit: boolean
+function ItemCard({ item, canEdit, myUid, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
+  item: PlanItem; canEdit: boolean; myUid?: string
   onEdit?: (item: PlanItem) => void
   onDelete?: (id: string) => void
+  onRate?: (id: string, v: number) => void
   mapIndex?: number
   onFocusMap?: (id: string) => void
 }) {
@@ -141,7 +159,11 @@ function ItemCard({ item, canEdit, onEdit, onDelete, mapIndex, onFocusMap }: {
             <span className={`w-1.5 h-1.5 rounded-full ${SLOT_DOT[item.timeSlot]}`} />
             {item.timeSlot}
           </span>
-          {item.rating > 0 && <StarRow rating={item.rating} />}
+          <StarRow
+            myRating={myUid ? (item.ratings?.[myUid] ?? 0) : 0}
+            ratings={item.ratings}
+            onChange={canEdit && onRate ? v => onRate(item.id, v) : undefined}
+          />
           {item.price > 0 && (
             <span className="text-xs font-semibold text-emerald-600 ml-auto">
               {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
@@ -864,6 +886,20 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
     )
   }
 
+  const handleRate = async (itemId: string, stars: number) => {
+    if (!activeDay || !trip || !user) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id !== itemId ? i : { ...i, ratings: { ...(i.ratings ?? {}), [user.uid]: stars } }
+      ),
+    }))
+    await updateDoc(
+      doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId),
+      { [`ratings.${user.uid}`]: stars }
+    )
+  }
+
   /* ── 로딩 ── */
   if (!trip && !notFound) {
     return (
@@ -1201,7 +1237,7 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
                     </div>
                     <div className="flex flex-col gap-2">
                       {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} onEdit={setEditingItem} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} onEdit={setEditingItem} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                       ))}
                     </div>
                   </div>

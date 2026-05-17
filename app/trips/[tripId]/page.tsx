@@ -49,6 +49,7 @@ type PlanItem = {
   lat:          number
   lng:          number
   rating:       number
+  ratings?:     Record<string, number>
   participants:    number
   participantIds?: string[]
   receipts?:       string[]
@@ -107,6 +108,7 @@ type TripMeta = {
   flights?:        FlightItem[]
   accommodations?: AccommodationItem[]
   currency?:       string
+  dayRates?:       Record<string, number>
 }
 
 type Day = {
@@ -183,23 +185,108 @@ async function compressImage(file: File): Promise<Blob> {
   })
 }
 
-/* ── 별점 ── */
-function StarRow({ rating, onChange }: { rating: number; onChange?: (v: number) => void }) {
-  return (
-    <span className="flex gap-0.5" onClick={e => e.stopPropagation()}>
-      {[1, 2, 3, 4, 5].map(v => (
-        <Star key={v}
-          className={`w-3.5 h-3.5 transition-colors ${v <= rating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
-          onClick={e => { e.stopPropagation(); onChange?.(v) }}
+/* ── 환율 위젯 ── */
+function RateWidget({
+  currency, liveRate, customRate, onSave, onReset,
+}: {
+  currency:   string
+  liveRate:   number
+  customRate?: number
+  onSave:     (rate: number) => void
+  onReset:    () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [input,   setInput]   = useState('')
+  const isCustom = customRate !== undefined
+  const displayRate = customRate ?? liveRate
+  const symbol = CURRENCY_SYMBOLS[currency] ?? currency
+
+  const submit = () => {
+    const n = parseFloat(input.replace(/,/g, ''))
+    if (!isNaN(n) && n > 0) { onSave(n); setEditing(false) }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
+        <span className="text-[11px] text-gray-500">{symbol}1 = ₩</span>
+        <input
+          type="number"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setEditing(false) }}
+          className="w-20 border border-blue-300 rounded-md px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500"
+          autoFocus
         />
-      ))}
+        <button onClick={submit} className="px-2 py-0.5 bg-blue-600 text-white rounded-md text-[11px] font-semibold">저장</button>
+        <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600 text-[11px]">취소</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <span className={`text-[11px] font-medium ${isCustom ? 'text-orange-600' : 'text-gray-500'}`}>
+        {symbol}1 = ₩{displayRate.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}
+      </span>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isCustom ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+        {isCustom ? '고정' : '실시간'}
+      </span>
+      <button
+        onClick={() => { setInput(String(displayRate)); setEditing(true) }}
+        className="text-gray-300 hover:text-blue-500 transition-colors"
+        title="환율 수정"
+      >
+        <Pencil className="w-2.5 h-2.5" />
+      </button>
+      {isCustom && (
+        <button onClick={onReset} className="text-[10px] text-orange-400 hover:text-orange-600 transition-colors">
+          초기화
+        </button>
+      )}
+    </div>
+  )
+}
+
+/* ── 별점 ── */
+function calcAvg(ratings: Record<string, number> = {}) {
+  const vals = Object.values(ratings).filter(v => v > 0)
+  return { avg: vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0, count: vals.length }
+}
+
+function StarRow({
+  myRating,
+  ratings = {},
+  onChange,
+}: {
+  myRating: number
+  ratings?: Record<string, number>
+  onChange?: (v: number) => void
+}) {
+  const { avg, count } = calcAvg(ratings)
+  return (
+    <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
+      <span className="flex gap-0.5">
+        {[1, 2, 3, 4, 5].map(v => (
+          <Star key={v}
+            className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
+            onClick={e => { e.stopPropagation(); onChange?.(v) }}
+          />
+        ))}
+      </span>
+      {count >= 1 && (
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+          avg {avg.toFixed(1)} · {count}명
+        </span>
+      )}
     </span>
   )
 }
 
 /* ── 아이템 행 ── */
-function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, dragHandleProps }: {
+function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, dragHandleProps }: {
   item:              PlanItem
+  myUid:             string
   onDelete:          (id: string) => void
   onEdit:            (item: PlanItem) => void
   onChangeCat:       (id: string, cat: Category) => void
@@ -320,8 +407,12 @@ function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onVi
             title={item.timeSlot}
           />
 
-          {/* 별점 — stopPropagation은 StarRow 내부에서 처리 */}
-          <StarRow rating={item.rating} onChange={v => onRate(item.id, v)} />
+          {/* 별점 — 내 별점 클릭 + 전체 평균 표시 */}
+          <StarRow
+            myRating={item.ratings?.[myUid] ?? 0}
+            ratings={item.ratings}
+            onChange={v => onRate(item.id, v)}
+          />
 
           {/* ÷N 배지 — 클릭 시 1인 금액 인라인 표시 */}
           {totalPeople > 1 && item.price > 0 && (
@@ -414,8 +505,9 @@ function ItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onVi
 }
 
 /* ── Sortable 아이템 행 ── */
-function SortableItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople }: {
+function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople }: {
   item:             PlanItem
+  myUid:            string
   onDelete:         (id: string) => void
   onEdit:           (item: PlanItem) => void
   onChangeCat:      (id: string, cat: Category) => void
@@ -441,6 +533,7 @@ function SortableItemRow({ item, onDelete, onEdit, onChangeCat, onRate, onFocusM
     >
       <ItemRow
         item={item}
+        myUid={myUid}
         onDelete={onDelete}
         onEdit={onEdit}
         onChangeCat={onChangeCat}
@@ -1354,7 +1447,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showSettlement,  setShowSettlement]  = useState(false)
 
   /* 환율 */
-  const [rates, setRates] = useState<Record<string, number>>({ KRW: 1 })
+  const [rates,    setRates]    = useState<Record<string, number>>({ KRW: 1 })
+  const [dayRates, setDayRates] = useState<Record<string, number>>({})
 
   /* 비행기 / 숙소 수정 */
   const [editingFlight, setEditingFlight] = useState<FlightItem | null>(null)
@@ -1465,7 +1559,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* ── 여행 메타 1회 로드 ── */
   useEffect(() => {
     getDoc(doc(db, 'users', uid, 'trips', tripId))
-      .then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) })
+      .then(snap => {
+        if (snap.exists()) {
+          const data = snap.data() as TripMeta
+          setMeta(data)
+          setDayRates(data.dayRates ?? {})
+        }
+      })
       .catch(() => {})
       .finally(() => setMetaLoading(false))
   }, [uid, tripId])
@@ -1654,7 +1754,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
     ? totalSpent / (meta?.members?.length ?? 1)
     : 0
 
-  const daySpent = currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
+  /* 현재 Day의 유효 환율 (고정값 우선, 없으면 실시간) */
+  const effectiveRates = useMemo(() => {
+    if (primaryCurrency === 'KRW' || !activeDay) return rates
+    const custom = dayRates[activeDay.dayId]
+    return custom ? { ...rates, [primaryCurrency]: custom } : rates
+  }, [rates, dayRates, activeDay, primaryCurrency])
+
+  const daySpent = currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, effectiveRates), 0)
   const budgetPct = meta ? Math.min(100, Math.round((totalSpent / (meta.budget || 1)) * 100)) : 0
 
   /* ── 아이템 추가 ── */
@@ -1753,8 +1860,29 @@ function PlannerContent({ tripId }: { tripId: string }) {
     await batch.commit()
   }
 
-  /* ── 별점 ── */
-  const handleRate = (itemId: string, rating: number) => handleUpdate(itemId, { rating })
+  /* ── 일별 환율 고정 ── */
+  const handleSetDayRate = async (dayId: string, rate: number | null) => {
+    const next = { ...dayRates }
+    if (rate === null || rate <= 0) delete next[dayId]
+    else next[dayId] = rate
+    setDayRates(next)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { dayRates: next })
+  }
+
+  /* ── 별점 (멤버별 개인 투표 → ratings.{uid}) ── */
+  const handleRate = async (itemId: string, stars: number) => {
+    if (!activeDay) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id !== itemId ? i : { ...i, ratings: { ...(i.ratings ?? {}), [uid]: stars } }
+      ),
+    }))
+    await updateDoc(
+      doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId),
+      { [`ratings.${uid}`]: stars }
+    )
+  }
 
   /* ── 사진 즉시 업로드 (아이템 행 카메라 아이콘 클릭) ── */
   const handleUploadReceipts = async (itemId: string, files: FileList) => {
@@ -2322,11 +2450,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
               <p className="text-xs text-gray-400 mt-0.5">
                 {currentItems.length > 0 ? `${currentItems.length}개 일정` : '일정을 추가해보세요'}
                 {daySpent > 0 && ` · ${
-                  primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                    ? formatLocal(Math.round(daySpent / rates[primaryCurrency]), primaryCurrency)
+                  primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency]
+                    ? formatLocal(Math.round(daySpent / effectiveRates[primaryCurrency]), primaryCurrency)
                     : formatKRW(daySpent)
                 }`}
               </p>
+              {primaryCurrency !== 'KRW' && rates[primaryCurrency] > 0 && activeDay && (
+                <RateWidget
+                  currency={primaryCurrency}
+                  liveRate={rates[primaryCurrency]}
+                  customRate={dayRates[activeDay.dayId]}
+                  onSave={rate => handleSetDayRate(activeDay.dayId, rate)}
+                  onReset={() => handleSetDayRate(activeDay.dayId, null)}
+                />
+              )}
             </div>
             <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
               className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
@@ -2483,6 +2620,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           <SortableItemRow
                             key={item.id}
                             item={item}
+                            myUid={uid}
                             onDelete={handleDelete}
                             onEdit={setEditItem}
                             onChangeCat={handleChangeCat}
@@ -2491,7 +2629,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             onViewReceipts={r => setLightbox({ receipts: r, idx: 0 })}
                             onUploadReceipt={files => handleUploadReceipts(item.id, files)}
                             mapIndex={mapIndexMap[item.id]}
-                            rates={rates}
+                            rates={effectiveRates}
                             totalPeople={meta.people || 1}
                           />
                         ))}
@@ -2859,10 +2997,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {/* 초대 링크 */}
             <div className="border-t border-gray-100 px-5 pb-5 pt-4 flex flex-col gap-2 flex-shrink-0">
               <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">초대 링크</p>
+
+              {/* 편집 참여 링크 */}
+              <button onClick={() => copyLink('edit')}
+                className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-blue-200 bg-blue-50/60 hover:border-blue-400 hover:bg-blue-100/60 transition-colors group">
+                <div className="w-8 h-8 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-xs font-semibold text-blue-700">여행 초대 링크 복사</p>
+                  <p className="text-[11px] text-blue-400">일정 편집 · 멤버로 참여 가능</p>
+                </div>
+                {copied === 'edit'
+                  ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  : <Copy className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
+              </button>
+
+              {/* 뷰어 링크 */}
               <button onClick={() => copyLink('view')}
-                className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/60 transition-colors group">
-                <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 transition-colors">
-                  <Link2 className="w-3.5 h-3.5 text-gray-500 group-hover:text-blue-600" />
+                className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors group">
+                <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <Link2 className="w-3.5 h-3.5 text-gray-500" />
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-xs font-semibold text-gray-700">뷰어 링크 복사</p>

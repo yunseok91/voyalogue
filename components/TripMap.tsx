@@ -90,10 +90,6 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
         zoomControlOptions:      { position: google.maps.ControlPosition.RIGHT_BOTTOM },
         gestureHandling:         'greedy',
         disableDoubleClickZoom:  true,
-        styles: [
-          { featureType: 'poi',     elementType: 'labels', stylers: [{ visibility: 'off' }] },
-          { featureType: 'transit', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-        ],
       })
       mapRef.current = map
       syncMarkersRef.current()   // 마커 즉시 렌더 (items effect 실행 전 map이 준비될 수 있음)
