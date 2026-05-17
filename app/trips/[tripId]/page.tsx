@@ -65,6 +65,7 @@ type Member = {
   colorIndex?:  number
   hexColor?:    string
   inviteCode?:  string
+  left?:        boolean
 }
 
 type CheckItem = { id: string; label: string; done: boolean }
@@ -585,7 +586,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [comment,        setComment]        = useState('')
   const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
   const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
-  const [participantIds, setParticipantIds] = useState<string[]>(members.map(m => m.id))
+  const [participantIds, setParticipantIds] = useState<string[]>(members.filter(m => !m.left).map(m => m.id))
   const [receiptFiles,    setReceiptFiles]    = useState<File[]>([])
   const [receiptPreviews, setReceiptPreviews] = useState<string[]>([])
   const [uploading,       setUploading]       = useState(false)
@@ -1045,7 +1046,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     </span>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    {members.map((m, mi) => {
+                    {members.filter(m => !m.left).map((m, mi) => {
                       const selected = participantIds.includes(m.id)
                       const ci = m.role === 'owner'
                         ? (avatarHexColor ? undefined : (avatarColor ?? 0))
@@ -1168,10 +1169,10 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
   const [participantIds, setParticipantIds] = useState<string[]>(() => {
     const validIds = new Set(members.map(m => m.id))
     if (item.participantIds) {
-      // 유령 ID(연동 전 임시 ID) 제거
+      // 유령 ID(연동 전 임시 ID) 제거, 탈퇴 멤버는 유지(과거 참석 보존)
       return item.participantIds.filter(id => validIds.has(id))
     }
-    return members.map(m => m.id)
+    return members.filter(m => !m.left).map(m => m.id)
   })
   const [saving,         setSaving]         = useState(false)
   const [receipts,     setReceipts]     = useState<string[]>(item.receipts ?? [])
@@ -1321,7 +1322,7 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
                 </span>
               </div>
               <div className="flex gap-2 flex-wrap">
-                {members.map((m, mi) => {
+                {members.filter(m => !m.left).map((m, mi) => {
                   const selected = participantIds.includes(m.id)
                   const ci = m.role === 'owner'
                     ? (avatarHexColor ? undefined : (avatarColor ?? 0))
@@ -2001,7 +2002,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const addMember = async () => {
     if (!newMemberName.trim() || !meta) return
-    if ((meta.members ?? []).length >= (meta.people || 1)) return
+    const activeCount = (meta.members ?? []).filter(m => !m.left).length
+    if (activeCount >= (meta.people || 1)) return
     const members = [...(meta.members ?? []), {
       id: generateCode(6), name: newMemberName.trim(), role: 'member' as const,
     }]
@@ -2012,7 +2014,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const removeMember = async (id: string) => {
     if (!meta) return
-    const members = meta.members.filter(m => m.id !== id)
+    const members = meta.members.map(m => m.id === id ? { ...m, left: true } : m)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
+  }
+
+  const restoreMember = async (id: string) => {
+    if (!meta) return
+    const members = meta.members.map(m => m.id === id ? { ...m, left: false } : m)
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
     setMeta({ ...meta, members })
   }
@@ -2882,8 +2891,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
               <div>
                 <h3 className="text-base font-bold text-gray-900">여행 멤버</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">
-                  {(meta.members ?? []).length} / {meta.people || 1}명
-                  {(meta.members ?? []).length >= (meta.people || 1) && (
+                  {(meta.members ?? []).filter(m => !m.left).length} / {meta.people || 1}명
+                  {(meta.members ?? []).filter(m => !m.left).length >= (meta.people || 1) && (
                     <span className="ml-1.5 text-orange-500 font-semibold">정원 초과</span>
                   )}
                 </p>
@@ -2903,39 +2912,50 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 const effectiveHex = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
                 const initialHex = m.hexColor ?? (effectiveColorIdx !== undefined ? CLAY[effectiveColorIdx].base : '#4A90E8')
                 return (
-                  <div key={m.id} className="flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-gray-50/80 group transition-colors">
-                    {/* 아바타 — 멤버는 label로 감싸서 클릭 즉시 팔레트 열림 */}
+                  <div key={m.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-gray-50/80 group transition-colors ${m.left ? 'opacity-50' : ''}`}>
+                    {/* 아바타 */}
                     {m.role !== 'owner' ? (
                       <div className="relative flex-shrink-0">
-                        <label className="cursor-pointer">
-                          <input
-                            type="color"
-                            value={initialHex}
-                            onChange={e => setMemberCustomColor(m.id, e.target.value)}
-                            style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                          />
+                        {!m.left ? (
+                          <label className="cursor-pointer">
+                            <input
+                              type="color"
+                              value={initialHex}
+                              onChange={e => setMemberCustomColor(m.id, e.target.value)}
+                              style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                            />
+                            <PersonAvatar
+                              name={m.name}
+                              photoURL={m.photoURL}
+                              size={42}
+                              colorIndex={effectiveColorIdx}
+                              hexColor={effectiveHex}
+                              className="hover:opacity-75 transition-opacity"
+                            />
+                          </label>
+                        ) : (
                           <PersonAvatar
                             name={m.name}
                             photoURL={m.photoURL}
                             size={42}
                             colorIndex={effectiveColorIdx}
                             hexColor={effectiveHex}
-                            className="hover:opacity-75 transition-opacity"
                           />
-                        </label>
-                        {/* 총무 지정 버튼 — amber Wallet */}
-                        <button
-                          type="button"
-                          onClick={() => setTreasurer(m.id)}
-                          title={m.role === 'treasurer' ? '총무 해제' : '총무 지정'}
-                          className={`absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
-                            m.role === 'treasurer'
-                              ? 'bg-amber-400 hover:bg-amber-500'
-                              : 'bg-gray-200 hover:bg-amber-300'
-                          }`}
-                        >
-                          <Wallet className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
-                        </button>
+                        )}
+                        {!m.left && (
+                          <button
+                            type="button"
+                            onClick={() => setTreasurer(m.id)}
+                            title={m.role === 'treasurer' ? '총무 해제' : '총무 지정'}
+                            className={`absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                              m.role === 'treasurer'
+                                ? 'bg-amber-400 hover:bg-amber-500'
+                                : 'bg-gray-200 hover:bg-amber-300'
+                            }`}
+                          >
+                            <Wallet className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
+                          </button>
+                        )}
                       </div>
                     ) : (
                       <div className="relative flex-shrink-0">
@@ -2946,7 +2966,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           colorIndex={effectiveColorIdx}
                           hexColor={effectiveHex}
                         />
-                        {/* 주선자(오너) 뱃지 */}
                         <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
                           <Crown className="w-3 h-3 text-white" />
                         </span>
@@ -2956,40 +2975,55 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
-                        <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                          m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
-                          : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
-                          :                          'bg-gray-100 text-gray-500'
-                        }`}>
-                          {m.role === 'owner' ? '주선자' : m.role === 'treasurer' ? '총무' : '멤버'}
-                        </span>
+                        {m.left ? (
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-400">
+                            탈퇴
+                          </span>
+                        ) : (
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                            m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
+                            : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
+                            :                          'bg-gray-100 text-gray-500'
+                          }`}>
+                            {m.role === 'owner' ? '주선자' : m.role === 'treasurer' ? '총무' : '멤버'}
+                          </span>
+                        )}
                       </div>
                       <p className="text-[11px] mt-0.5 text-gray-400">
-                        {m.role === 'owner' ? '마이페이지에서 색상 변경' : '아바타 클릭 → 색상 변경'}
+                        {m.left ? '지출 내역은 유지됩니다' : m.role === 'owner' ? '마이페이지에서 색상 변경' : '아바타 클릭 → 색상 변경'}
                       </p>
                     </div>
 
                     <div className="flex items-center gap-1">
                       {m.role !== 'owner' && (
-                        <>
+                        m.left ? (
                           <button
-                            onClick={() => copyMemberInvite(m.id)}
-                            title="개인 초대 링크 복사"
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/60 transition-colors group">
-                            {copiedMember === m.id ? (
-                              <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <Link2 className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-                            )}
-                            <span className="text-[11px] font-semibold text-gray-500 group-hover:text-blue-600 leading-none">
-                              {copiedMember === m.id ? '복사됨' : '초대링크'}
-                            </span>
+                            onClick={() => restoreMember(m.id)}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/60 transition-colors text-[11px] font-semibold text-gray-500 hover:text-blue-600"
+                          >
+                            복원
                           </button>
-                          <button onClick={() => removeMember(m.id)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => copyMemberInvite(m.id)}
+                              title="개인 초대 링크 복사"
+                              className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/60 transition-colors group">
+                              {copiedMember === m.id ? (
+                                <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
+                              ) : (
+                                <Link2 className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
+                              )}
+                              <span className="text-[11px] font-semibold text-gray-500 group-hover:text-blue-600 leading-none">
+                                {copiedMember === m.id ? '복사됨' : '초대링크'}
+                              </span>
+                            </button>
+                            <button onClick={() => removeMember(m.id)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )
                       )}
                     </div>
                   </div>
@@ -2999,7 +3033,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
             {/* 멤버 추가 */}
             <div className="border-t border-gray-100 px-5 pt-4 pb-3 flex-shrink-0">
-              {(meta.members ?? []).length >= (meta.people || 1) ? (
+              {(meta.members ?? []).filter(m => !m.left).length >= (meta.people || 1) ? (
                 <div className="flex items-center gap-2 px-3 py-2.5 bg-orange-50 rounded-xl border border-orange-100">
                   <span className="text-xs text-orange-600 font-semibold">
                     인원이 가득 찼어요. 여행 정보 편집에서 인원수를 늘려보세요.
@@ -3008,7 +3042,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               ) : (
                 <>
                   <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-2.5">
-                    멤버 추가 ({(meta.people || 1) - (meta.members ?? []).length}명 추가 가능)
+                    멤버 추가 ({(meta.people || 1) - (meta.members ?? []).filter(m => !m.left).length}명 추가 가능)
                   </p>
                   <div className="flex gap-2 items-center">
                     <PersonAvatar name={newMemberName || '?'} size={36} className="flex-shrink-0" />
@@ -3280,7 +3314,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 return (
                   <div key={m.id} className="flex items-center gap-3">
                     <PersonAvatar name={m.name} size={32} colorIndex={ci} hexColor={hexC} photoURL={photoURL} />
-                    <span className="text-sm text-gray-800 flex-1 font-medium">{m.name}</span>
+                    <span className={`text-sm flex-1 font-medium ${m.left ? 'text-gray-400' : 'text-gray-800'}`}>
+                      {m.name}{m.left && <span className="ml-1 text-[10px] bg-gray-100 text-gray-400 px-1 py-0.5 rounded-full">탈퇴</span>}
+                    </span>
                     <div className="text-right">
                       <span className="text-sm font-bold text-gray-900 block">
                         {primaryCurrency !== 'KRW' && rates[primaryCurrency]
