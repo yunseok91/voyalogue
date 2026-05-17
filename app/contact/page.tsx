@@ -22,7 +22,7 @@ const FAQS = [
   },
   {
     q: '초대 링크를 받았는데 접속이 안 돼요.',
-    a: '초대 링크는 Google 계정으로 로그인 후 이용하실 수 있습니다. 로그인 후 다시 링크에 접속해 주세요. 문제가 지속된다면 contact@voyalogue.com으로 문의해 주세요.',
+    a: '초대 링크는 Google 계정으로 로그인 후 이용하실 수 있습니다. 로그인 후 다시 링크에 접속해 주세요. 문제가 지속된다면 lyuns1105@gmail.com으로 문의해 주세요.',
   },
   {
     q: '광고를 보고 싶지 않아요.',
@@ -81,8 +81,8 @@ export default function ContactPage() {
               </div>
               <div>
                 <p className="text-xs text-gray-400">이메일 문의</p>
-                <a href="mailto:contact@voyalogue.com" className="text-sm font-semibold text-blue-600 hover:underline">
-                  contact@voyalogue.com
+                <a href="mailto:lyuns1105@gmail.com" className="text-sm font-semibold text-blue-600 hover:underline">
+                  lyuns1105@gmail.com
                 </a>
               </div>
             </div>
