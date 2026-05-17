@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
+import { InAppBrowserGate } from '@/components/InAppBrowserGate'
 
 export const metadata: Metadata = {
   title: {
@@ -43,7 +44,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="lazyOnload"
         />
         */}
-        <AuthProvider>{children}</AuthProvider>
+        <InAppBrowserGate>
+          <AuthProvider>{children}</AuthProvider>
+        </InAppBrowserGate>
       </body>
     </html>
   )

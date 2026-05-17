@@ -2,7 +2,7 @@
 
 import { useEffect, useState, use } from 'react'
 import { useRouter } from 'next/navigation'
-import { getDoc, doc, updateDoc, setDoc } from 'firebase/firestore'
+import { getDoc, doc, updateDoc, setDoc, getDocs, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { gradientStyle, gradientTextColor } from '@/lib/tripGradient'
@@ -113,6 +113,31 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
       await updateDoc(doc(db, 'users', invite.ownerUid, 'trips', invite.tripId), {
         members: updatedMembers,
       })
+
+      /* 기존 임시 ID → user.uid 로 participantIds 일괄 교체 */
+      if (preIdx >= 0) {
+        const oldId = invite.memberId
+        const daysSnap = await getDocs(
+          collection(db, 'users', invite.ownerUid, 'trips', invite.tripId, 'days')
+        )
+        await Promise.all(
+          daysSnap.docs.map(async dayDoc => {
+            const itemsSnap = await getDocs(
+              collection(db, 'users', invite.ownerUid, 'trips', invite.tripId, 'days', dayDoc.id, 'items')
+            )
+            await Promise.all(
+              itemsSnap.docs
+                .filter(itemDoc => (itemDoc.data().participantIds ?? []).includes(oldId))
+                .map(itemDoc => {
+                  const pids: string[] = itemDoc.data().participantIds
+                  return updateDoc(itemDoc.ref, {
+                    participantIds: pids.map(id => (id === oldId ? user.uid : id)),
+                  })
+                })
+            )
+          })
+        )
+      }
 
       await setDoc(doc(db, 'users', user.uid, 'invitedTrips', invite.tripId), {
         ownerUid: invite.ownerUid, tripId: invite.tripId, viewCode: invite.viewCode,

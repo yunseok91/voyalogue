@@ -284,7 +284,7 @@ function StarRow({
 }
 
 /* ── 아이템 행 ── */
-function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, dragHandleProps }: {
+function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, dragHandleProps }: {
   item:              PlanItem
   myUid:             string
   onDelete:          (id: string) => void
@@ -297,6 +297,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
   mapIndex?:         number
   rates:             Record<string, number>
   totalPeople:       number
+  memberIds?:        string[]
   dragHandleProps?:  Record<string, unknown>
 }) {
   const [menu,         setMenu]         = useState(false)
@@ -323,7 +324,10 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
     return () => clearTimeout(t)
   }, [showPP])
 
-  const actualPart   = item.participantIds?.length ?? item.participants ?? totalPeople
+  const validSet     = memberIds ? new Set(memberIds) : null
+  const actualPart   = item.participantIds
+    ? (validSet ? item.participantIds.filter(id => validSet.has(id)).length : item.participantIds.length) || totalPeople
+    : (item.participants ?? totalPeople)
   const perPersonKRW = item.price > 0
     ? Math.round(toKRW(item.price, item.currency, rates) / actualPart)
     : 0
@@ -505,7 +509,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
 }
 
 /* ── Sortable 아이템 행 ── */
-function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople }: {
+function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds }: {
   item:             PlanItem
   myUid:            string
   onDelete:         (id: string) => void
@@ -518,6 +522,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, o
   mapIndex?:        number
   rates:            Record<string, number>
   totalPeople:      number
+  memberIds?:       string[]
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   return (
@@ -544,6 +549,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, o
         mapIndex={mapIndex}
         rates={rates}
         totalPeople={totalPeople}
+        memberIds={memberIds}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>
@@ -1159,9 +1165,14 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
   const [comment,        setComment]        = useState(item.comment)
   const [lat,            setLat]            = useState<number>(item.lat)
   const [lng,            setLng]            = useState<number>(item.lng)
-  const [participantIds, setParticipantIds] = useState<string[]>(
-    item.participantIds ?? members.map(m => m.id)
-  )
+  const [participantIds, setParticipantIds] = useState<string[]>(() => {
+    const validIds = new Set(members.map(m => m.id))
+    if (item.participantIds) {
+      // 유령 ID(연동 전 임시 ID) 제거
+      return item.participantIds.filter(id => validIds.has(id))
+    }
+    return members.map(m => m.id)
+  })
   const [saving,         setSaving]         = useState(false)
   const [receipts,     setReceipts]     = useState<string[]>(item.receipts ?? [])
   const [newFiles,     setNewFiles]     = useState<File[]>([])
@@ -1713,8 +1724,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
       const allIds   = item.participantIds ?? []
       const validIds = allIds.filter(id => result[id] !== undefined)
       if (allIds.length > 0) {
-        // 원본 참여 인원 수 기준으로 1인 몫 계산 (탈퇴 멤버 포함해 나눔)
-        const share = krw / allIds.length
+        // 유효 멤버 수 기준으로 분할 (연동 전 유령 ID는 제외)
+        const divisor = validIds.length > 0 ? validIds.length : allIds.length
+        const share = krw / divisor
         validIds.forEach(id => { result[id] += share })
       } else {
         // participantIds 없음 → 현재 전원 균등 분배
@@ -2653,6 +2665,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             mapIndex={mapIndexMap[item.id]}
                             rates={effectiveRates}
                             totalPeople={meta.people || 1}
+                            memberIds={(meta.members ?? []).map(m => m.id)}
                           />
                         ))}
                       </div>
@@ -3268,12 +3281,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   <div key={m.id} className="flex items-center gap-3">
                     <PersonAvatar name={m.name} size={32} colorIndex={ci} hexColor={hexC} photoURL={photoURL} />
                     <span className="text-sm text-gray-800 flex-1 font-medium">{m.name}</span>
-                    <span className="text-sm font-bold text-gray-900">
-                      {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                        ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
-                        : (formatKRW(Math.round(amt)) || '0원')
-                      }
-                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-900 block">
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                          ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
+                          : (formatKRW(Math.round(amt)) || '0원')
+                        }
+                      </span>
+                      {primaryCurrency !== 'KRW' && (
+                        <span className="text-[11px] text-gray-400">{formatKRW(Math.round(amt))}</span>
+                      )}
+                    </div>
                   </div>
                 )
               })}
@@ -3281,12 +3299,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <span className="text-[11px] text-gray-400 flex items-center gap-1">
                   <Users className="w-3 h-3" />합계
                 </span>
-                <span className="text-xs font-bold text-gray-700">
-                  {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                    ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
-                    : formatKRW(totalSpent)
-                  }
-                </span>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-gray-700 block">
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                      ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
+                      : formatKRW(totalSpent)
+                    }
+                  </span>
+                  {primaryCurrency !== 'KRW' && (
+                    <span className="text-[11px] text-gray-400">{formatKRW(totalSpent)}</span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
