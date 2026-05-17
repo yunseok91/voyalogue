@@ -32,6 +32,7 @@ import { gradientStyle, THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -1467,6 +1468,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [editingAcc,    setEditingAcc]    = useState<AccommodationItem | null>(null)
   const editFlightInputRef = useRef<HTMLInputElement>(null)
   const editAccInputRef    = useRef<HTMLInputElement>(null)
+
+  /* 모달 열릴 때 배경 스크롤 잠금 */
+  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc
+  useScrollLock(anyModalOpen)
 
   /* 지도 포커스 */
   const [focusItemId,   setFocusItemId]   = useState<string | undefined>(undefined)

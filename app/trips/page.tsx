@@ -14,6 +14,7 @@ import { AppNavbar } from '@/components/AppNavbar'
 import { AdUnit } from '@/components/AdUnit'
 // import { AdFreeButton } from '@/components/AdFreeButton'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 /* ── 타입 ── */
 type TripStatus = 'ongoing' | 'upcoming' | 'done'
@@ -236,6 +237,8 @@ function TripsContent() {
   const [showExcel, setShowExcel] = useState(false)
   const [darkOverride, setDarkOverride] = useState<Record<string, boolean>>({})
   const [popupMsg, setPopupMsg] = useState<AdminMessage | null>(null)
+
+  useScrollLock(showExcel || !!popupMsg)
 
   /* Firestore 1회 읽기 (onSnapshot 대신 getDocs — 비용 절감) */
   const fetchTrips = async (uid: string) => {

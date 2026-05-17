@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, FileSpreadsheet, User, LogOut } from 'lucide-react'
+import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -120,6 +120,25 @@ export function AppNavbar({
                 <div className="px-4 py-3 border-b border-gray-100">
                   <p className="text-sm font-semibold text-gray-900 truncate">{displayName}</p>
                   <p className="text-xs text-gray-400 truncate mt-0.5">{user?.email}</p>
+                </div>
+                {/* 모바일 전용 탭 메뉴 */}
+                <div className="sm:hidden border-b border-gray-100">
+                  <Link
+                    href="/trips"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Plane className="w-4 h-4 text-gray-400" />
+                    내 여행
+                  </Link>
+                  <Link
+                    href="/collection"
+                    onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <BookOpen className="w-4 h-4 text-gray-400" />
+                    컬렉션
+                  </Link>
                 </div>
                 <Link
                   href="/profile"

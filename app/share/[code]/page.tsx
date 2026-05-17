@@ -17,6 +17,7 @@ import { TripMap, type MapItem } from '@/components/TripMap'
 import { useAuthStore } from '@/features/auth/store'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { NotificationBell } from '@/components/NotificationBell'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -710,6 +711,8 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
   const [editingItem,  setEditingItem] = useState<PlanItem | null>(null)
   const [mobileTab,    setMobileTab]   = useState<'schedule' | 'map'>('schedule')
   const [rates,        setRates]       = useState<Record<string, number>>({ KRW: 1 })
+
+  useScrollLock(showAdd || !!editingItem)
 
   /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
