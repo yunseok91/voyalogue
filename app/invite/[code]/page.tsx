@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useParams } from 'next/navigation'
 import { getDoc, doc, updateDoc, setDoc, getDocs, collection } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -23,11 +23,11 @@ type TripSnap = {
   startDate:  string
   endDate:    string
   people:     number
-  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string }>
+  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string; left?: boolean }>
 }
 
-export default function InvitePage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = use(params)
+export default function InvitePage() {
+  const { code } = useParams<{ code: string }>()
   const router   = useRouter()
   const { user, loading: authLoading } = useAuthStore()
 
@@ -96,8 +96,9 @@ export default function InvitePage({ params }: { params: Promise<{ code: string 
             : m
         )
       } else {
-        /* 빈 슬롯 — 인원 여유가 있으면 신규 추가 */
-        if (members.length >= (trip.people || 1)) {
+        /* 빈 슬롯 — 인원 여유가 있으면 신규 추가 (탈퇴 멤버 제외 카운트) */
+        const activeCount = members.filter(m => !m.left).length
+        if (activeCount >= (trip.people || 1)) {
           setError('이미 인원이 가득 찼어요. 방장에게 문의해주세요.')
           setClaiming(false)
           return
