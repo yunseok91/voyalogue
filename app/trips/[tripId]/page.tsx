@@ -1754,6 +1754,18 @@ function PlannerContent({ tripId }: { tripId: string }) {
     ? totalSpent / (meta?.members?.length ?? 1)
     : 0
 
+  /* 일별 지출 합계 (탭 표시용) */
+  const daySpentMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    days.forEach(d => {
+      const items = dayItems[d.dayId] ?? []
+      const custom = primaryCurrency !== 'KRW' ? dayRates[d.dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      map[d.dayId] = items.reduce((s, i) => s + toKRW(i.price, i.currency, r), 0)
+    })
+    return map
+  }, [dayItems, rates, dayRates, primaryCurrency, days])
+
   /* 현재 Day의 유효 환율 (고정값 우선, 없으면 실시간) */
   const effectiveRates = useMemo(() => {
     if (primaryCurrency === 'KRW' || !activeDay) return rates
@@ -2198,7 +2210,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       const sd = slotOrder[a.timeSlot] - slotOrder[b.timeSlot]
       return sd !== 0 ? sd : a.order - b.order
     })
-    const items: MapItem[] = sorted.map(i => ({ id: i.id, name: i.name, lat: i.lat, lng: i.lng, timeSlot: i.timeSlot }))
+    const items: MapItem[] = sorted.map(i => ({ id: i.id, name: i.name, lat: i.lat, lng: i.lng, timeSlot: i.timeSlot, cat: i.cat }))
 
     const adId = activeDay?.dayId
     if (adId && meta) {
@@ -2412,9 +2424,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       {d.label}
                       {isToday && <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />}
                     </span>
-                    <span className={`block text-[10px] font-medium mt-1.5 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
+                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
                       {formatDate(d.date)}
                     </span>
+                    {(daySpentMap[d.dayId] ?? 0) > 0 && (
+                      <span className={`block text-[10px] font-bold mt-0.5 tabular-nums ${
+                        isActive ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                          ? formatLocal(Math.round((daySpentMap[d.dayId] ?? 0) / (dayRates[d.dayId] ?? rates[primaryCurrency])), primaryCurrency)
+                          : formatKRW(daySpentMap[d.dayId] ?? 0)
+                        }
+                      </span>
+                    )}
                   </button>
                 </div>
               )

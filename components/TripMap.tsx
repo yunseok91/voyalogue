@@ -10,6 +10,7 @@ export type MapItem = {
   lat:         number
   lng:         number
   timeSlot:    string
+  cat?:        string
   markerType?: 'special'
 }
 
@@ -182,17 +183,15 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
         } else {
           regularIdx++
           const num = regularIdx
+          const catLabel = item.cat ?? ''
+          const pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="s"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.22)"/></filter></defs><path d="M22 3C13.716 3 7 9.716 7 18c0 11 15 33 15 33S37 29 37 18C37 9.716 30.284 3 22 3Z" fill="${color}" filter="url(#s)"/><text x="22" y="${catLabel ? '14' : '18'}" font-family="Arial,sans-serif" font-size="${catLabel ? '12' : '13'}" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="white">${num}</text>${catLabel ? `<rect x="9" y="22" width="26" height="10" rx="5" fill="rgba(255,255,255,0.28)"/><text x="22" y="27" font-family="Arial,sans-serif" font-size="8" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="white">${catLabel}</text>` : ''}</svg>`
           marker = new google.maps.Marker({
             position:  { lat: item.lat, lng: item.lng },
             map:       mapRef.current!,
-            label:     { text: String(num), color: 'white', fontWeight: 'bold', fontSize: '11px' },
             icon: {
-              path:         google.maps.SymbolPath.CIRCLE,
-              fillColor:    color,
-              fillOpacity:  1,
-              strokeColor:  'white',
-              strokeWeight: 2.5,
-              scale:        14,
+              url:        `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(pinSvg)}`,
+              scaledSize: new google.maps.Size(44, 54),
+              anchor:     new google.maps.Point(22, 51),
             },
             title:     item.name,
             zIndex:    idx + 10,
