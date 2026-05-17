@@ -11,6 +11,8 @@ import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ExcelModal } from '@/components/organisms/ExcelModal'
 import { AppNavbar } from '@/components/AppNavbar'
+import { AdUnit } from '@/components/AdUnit'
+// import { AdFreeButton } from '@/components/AdFreeButton'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 
 /* ── 타입 ── */
@@ -420,9 +422,12 @@ function TripsContent() {
         )}
 
         <div className="mb-5 sm:mb-6">
-          <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900 mb-1" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            내 일정
-          </h1>
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              내 일정
+            </h1>
+            {/* <AdFreeButton /> */}
+          </div>
           {dbLoading
             ? <p className="text-sm text-gray-400">불러오는 중…</p>
             : <p className="text-sm text-gray-500">총 {counts.all}개의 여행 · {totalNights}박 계획 중</p>
@@ -586,6 +591,9 @@ function TripsContent() {
             )}
           </>
         )}
+
+        {/* 광고 배너 */}
+        <AdUnit slot="REPLACE_WITH_AD_SLOT_ID" className="my-6 rounded-xl overflow-hidden" />
 
         {/* 초대받은 여행 */}
         {!dbLoading && invitedTrips.length > 0 && (

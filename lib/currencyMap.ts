@@ -93,6 +93,51 @@ const MAP: [string, string[]][] = [
   ['퀸스타운', ['NZD']], ['queenstown', ['NZD']],
   // ─ 모로코
   ['마라케시', ['MAD']], ['marrakech', ['MAD']], ['카사블랑카', ['MAD']], ['모로코', ['MAD']], ['morocco', ['MAD']],
+  // ─ 라오스
+  ['비엔티안', ['LAK']], ['vientiane', ['LAK']], ['루앙프라방', ['LAK']], ['luang prabang', ['LAK']],
+  ['라오스', ['LAK']], ['laos', ['LAK']],
+  // ─ 미얀마
+  ['양곤', ['MMK']], ['yangon', ['MMK']], ['만달레이', ['MMK']], ['mandalay', ['MMK']],
+  ['미얀마', ['MMK']], ['myanmar', ['MMK']], ['버마', ['MMK']], ['burma', ['MMK']],
+  // ─ 스리랑카
+  ['콜롬보', ['LKR']], ['colombo', ['LKR']], ['스리랑카', ['LKR']], ['sri lanka', ['LKR']],
+  // ─ 네팔
+  ['카트만두', ['NPR']], ['kathmandu', ['NPR']], ['네팔', ['NPR']], ['nepal', ['NPR']],
+  // ─ 방글라데시
+  ['다카', ['BDT']], ['dhaka', ['BDT']], ['방글라데시', ['BDT']], ['bangladesh', ['BDT']],
+  // ─ 브라질
+  ['상파울루', ['BRL']], ['sao paulo', ['BRL']], ['리우데자네이루', ['BRL']], ['rio', ['BRL']],
+  ['브라질', ['BRL']], ['brazil', ['BRL']],
+  // ─ 아르헨티나
+  ['부에노스아이레스', ['ARS']], ['buenos aires', ['ARS']], ['아르헨티나', ['ARS']], ['argentina', ['ARS']],
+  // ─ 콜롬비아
+  ['보고타', ['COP']], ['bogota', ['COP']], ['콜롬비아', ['COP']], ['colombia', ['COP']],
+  // ─ 페루
+  ['리마', ['PEN']], ['lima', ['PEN']], ['페루', ['PEN']], ['peru', ['PEN']],
+  // ─ 남아프리카공화국
+  ['케이프타운', ['ZAR']], ['cape town', ['ZAR']], ['요하네스버그', ['ZAR']], ['johannesburg', ['ZAR']],
+  ['남아공', ['ZAR']], ['south africa', ['ZAR']],
+  // ─ 이집트
+  ['카이로', ['EGP']], ['cairo', ['EGP']], ['이집트', ['EGP']], ['egypt', ['EGP']],
+  // ─ 체코 (CZK)
+  ['프라하', ['CZK']], ['prague', ['CZK']], ['체코', ['CZK']], ['czech', ['CZK']],
+  // ─ 헝가리
+  ['부다페스트', ['HUF']], ['budapest', ['HUF']], ['헝가리', ['HUF']], ['hungary', ['HUF']],
+  // ─ 폴란드
+  ['바르샤바', ['PLN']], ['warsaw', ['PLN']], ['크라쿠프', ['PLN']], ['krakow', ['PLN']],
+  ['폴란드', ['PLN']], ['poland', ['PLN']],
+  // ─ 덴마크
+  ['코펜하겐', ['DKK']], ['copenhagen', ['DKK']], ['덴마크', ['DKK']], ['denmark', ['DKK']],
+  // ─ 스웨덴
+  ['스톡홀름', ['SEK']], ['stockholm', ['SEK']], ['스웨덴', ['SEK']], ['sweden', ['SEK']],
+  // ─ 노르웨이
+  ['오슬로', ['NOK']], ['oslo', ['NOK']], ['노르웨이', ['NOK']], ['norway', ['NOK']],
+  // ─ 사우디아라비아
+  ['리야드', ['SAR']], ['riyadh', ['SAR']], ['제다', ['SAR']], ['jeddah', ['SAR']],
+  ['사우디', ['SAR']], ['saudi', ['SAR']], ['saudi arabia', ['SAR']],
+  // ─ 이스라엘
+  ['텔아비브', ['ILS']], ['tel aviv', ['ILS']], ['예루살렘', ['ILS']], ['jerusalem', ['ILS']],
+  ['이스라엘', ['ILS']], ['israel', ['ILS']],
 ]
 
 export function detectCurrencies(city: string): string[] {
@@ -108,6 +153,10 @@ export const CURRENCY_SYMBOLS: Record<string, string> = {
   VND: '₫', TWD: 'NT$', HKD: 'HK$', SGD: 'S$', CNY: '¥', IDR: 'Rp',
   PHP: '₱', MYR: 'RM', AUD: 'A$', CAD: 'C$', TRY: '₺', INR: '₹',
   AED: 'د.إ', CHF: 'CHF', KHR: '៛', MXN: '$', NZD: 'NZ$', MAD: 'MAD',
+  LAK: '₭', MMK: 'K', LKR: 'Rs', NPR: 'Rs', BDT: '৳',
+  BRL: 'R$', ARS: '$', COP: '$', PEN: 'S/', ZAR: 'R',
+  EGP: 'E£', CZK: 'Kč', HUF: 'Ft', PLN: 'zł',
+  DKK: 'kr', SEK: 'kr', NOK: 'kr', SAR: '﷼', ILS: '₪',
 }
 
 export const CURRENCY_NAMES: Record<string, string> = {
@@ -117,7 +166,13 @@ export const CURRENCY_NAMES: Record<string, string> = {
   MYR: '말레이시아 링깃', AUD: '호주 달러', CAD: '캐나다 달러', TRY: '튀르키예 리라',
   INR: '인도 루피', AED: '아랍에미리트 디르함', CHF: '스위스 프랑',
   KHR: '캄보디아 리엘', MXN: '멕시코 페소', NZD: '뉴질랜드 달러', MAD: '모로코 디르함',
+  LAK: '라오스 킵', MMK: '미얀마 짯', LKR: '스리랑카 루피', NPR: '네팔 루피',
+  BDT: '방글라데시 타카', BRL: '브라질 헤알', ARS: '아르헨티나 페소',
+  COP: '콜롬비아 페소', PEN: '페루 솔', ZAR: '남아공 랜드',
+  EGP: '이집트 파운드', CZK: '체코 코루나', HUF: '헝가리 포린트',
+  PLN: '폴란드 즐로티', DKK: '덴마크 크로네', SEK: '스웨덴 크로나',
+  NOK: '노르웨이 크로네', SAR: '사우디 리얄', ILS: '이스라엘 세켈',
 }
 
 /** 소수점 없이 표시하는 통화 (정수 단위가 기본인 통화) */
-export const ZERO_DECIMAL: Set<string> = new Set(['JPY', 'VND', 'IDR', 'KRW', 'KHR'])
+export const ZERO_DECIMAL: Set<string> = new Set(['JPY', 'VND', 'IDR', 'KRW', 'KHR', 'LAK', 'MMK', 'HUF'])

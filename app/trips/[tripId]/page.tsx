@@ -31,6 +31,7 @@ import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate
 import { gradientStyle, THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
+import { notifyTripMembers } from '@/lib/tripNotification'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -105,6 +106,7 @@ type TripMeta = {
   checklist?:      CheckItem[]
   flights?:        FlightItem[]
   accommodations?: AccommodationItem[]
+  currency?:       string
 }
 
 type Day = {
@@ -1336,7 +1338,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [mapMounted,    setMapMounted]    = useState(false)  // lazy mount — 처음 지도 탭 열릴 때 true
   const [isDesktop,     setIsDesktop]     = useState(false)  // window >= 1024, reactive to resize
   const [showEdit,      setShowEdit]      = useState(false)
-  const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1 })
+  const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1, currency: 'KRW' })
   const [editSaving,    setEditSaving]    = useState(false)
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
@@ -1357,6 +1359,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* 비행기 / 숙소 수정 */
   const [editingFlight, setEditingFlight] = useState<FlightItem | null>(null)
   const [editingAcc,    setEditingAcc]    = useState<AccommodationItem | null>(null)
+  const editFlightInputRef = useRef<HTMLInputElement>(null)
+  const editAccInputRef    = useRef<HTMLInputElement>(null)
 
   /* 지도 포커스 */
   const [focusItemId,   setFocusItemId]   = useState<string | undefined>(undefined)
@@ -1488,7 +1492,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── 통화 감지 & 환율 로드 ── */
   const tripCurrencies = useMemo(
-    () => meta ? detectCurrencies(meta.city) : ['KRW'],
+    () => {
+      if (meta?.currency) return [meta.currency]
+      return meta ? detectCurrencies(meta.city) : ['KRW']
+    },
     [meta]
   )
   const primaryCurrency = tripCurrencies[0]
@@ -1652,7 +1659,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── 아이템 추가 ── */
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
-    if (!activeDay) return
+    if (!activeDay || !meta) return
     const tempId = `temp_${Date.now()}`
     const newItem: PlanItem = { ...partial, id: tempId, order: currentItems.length } as PlanItem
     setDayItems(prev => ({ ...prev, [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), newItem] }))
@@ -1665,6 +1672,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
       collection(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items'),
       { ...partial, order: currentItems.length, createdAt: serverTimestamp() }
     )
+    /* 멤버들에게 알림 */
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 추가했습니다`,
+      body:     `${meta.title || meta.city} · ${partial.name}`,
+      tripPath: `/trips/${tripId}`,
+    })
   }
 
   /* ── 아이템 삭제 ── */
@@ -1917,10 +1933,60 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setTimeout(() => setCopiedMember(null), 2000)
   }
 
+  /* ── 수정 모달 자동완성 (비행기) ── */
+  useEffect(() => {
+    if (!editingFlight) return
+    let ac: google.maps.places.Autocomplete | null = null
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!editFlightInputRef.current) return
+      ac = new google.maps.places.Autocomplete(editFlightInputRef.current, {
+        fields: ['name', 'geometry'], types: ['airport'],
+      })
+      ac.addListener('place_changed', () => {
+        const p = ac!.getPlace()
+        if (!p.name) return
+        const lat = p.geometry?.location?.lat()
+        const lng = p.geometry?.location?.lng()
+        setEditingFlight(prev => prev ? {
+          ...prev,
+          name: p.name!,
+          ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}),
+        } : prev)
+      })
+    }).catch(() => {})
+    return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingFlight?.id])
+
+  /* ── 수정 모달 자동완성 (숙소) ── */
+  useEffect(() => {
+    if (!editingAcc) return
+    let ac: google.maps.places.Autocomplete | null = null
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!editAccInputRef.current) return
+      ac = new google.maps.places.Autocomplete(editAccInputRef.current, {
+        fields: ['name', 'geometry'], types: ['lodging'],
+      })
+      ac.addListener('place_changed', () => {
+        const p = ac!.getPlace()
+        if (!p.name) return
+        const lat = p.geometry?.location?.lat()
+        const lng = p.geometry?.location?.lng()
+        setEditingAcc(prev => prev ? {
+          ...prev,
+          name: p.name!,
+          ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}),
+        } : prev)
+      })
+    }).catch(() => {})
+    return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingAcc?.id])
+
   /* ── 여행 정보 편집 ── */
   const openEdit = () => {
     if (!meta) return
-    setEditForm({ title: meta.title ?? '', startDate: meta.startDate, endDate: meta.endDate, people: meta.people || 1 })
+    setEditForm({ title: meta.title ?? '', startDate: meta.startDate, endDate: meta.endDate, people: meta.people || 1, currency: primaryCurrency })
     setShowEdit(true)
   }
 
@@ -1940,6 +2006,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       endDate: editForm.endDate,
       nights, days: daysCount,
       people: Math.max(1, editForm.people),
+      currency: editForm.currency || null,
     })
     for (let i = 0; i < daysCount; i++) {
       const d = new Date(start)
@@ -2291,16 +2358,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <div className="flex flex-col gap-2">
                   <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">고정 일정</span>
                   {dayFlights.map(f => (
-                    <div key={f.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-sky-50 border border-sky-200 rounded-xl">
-                      <div className="w-7 h-7 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
-                        <Plane className="w-3.5 h-3.5 text-sky-600" />
+                    <div key={f.id} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-sky-200 rounded-xl overflow-hidden shadow-sm">
+                      {/* 왼쪽 컬러 스트라이프 */}
+                      <div className="w-10 h-full min-h-[52px] bg-sky-500 flex items-center justify-center flex-shrink-0">
+                        <Plane className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-sky-800 leading-none">
-                          {f.type === 'inbound' ? '입국' : '출국'} · {f.name}
-                        </p>
+                      <div className="flex-1 min-w-0 py-2.5">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${f.type === 'inbound' ? 'bg-sky-100 text-sky-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {f.type === 'inbound' ? '✈ 입국' : '✈ 출국'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-900 leading-snug truncate">{f.name}</p>
                         {(f.departTime || f.arriveTime) && (
-                          <p className="text-[10px] text-sky-600 mt-0.5">
+                          <p className="text-[10px] text-gray-400 mt-0.5">
                             {f.departTime && `출발 ${f.departTime}`}
                             {f.departTime && f.arriveTime && ' → '}
                             {f.arriveTime && `도착 ${f.arriveTime}`}
@@ -2309,41 +2380,49 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0">
                         <button onClick={() => setEditingFlight(f)}
-                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-sky-200 text-sky-400 transition-colors">
-                          <Pencil className="w-2.5 h-2.5" />
+                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-sky-50 text-gray-400 hover:text-sky-600 transition-colors">
+                          <Pencil className="w-3 h-3" />
                         </button>
                         <button onClick={() => handleDeleteFlight(f.id)}
-                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-sky-200 text-sky-400 transition-colors">
-                          <X className="w-3 h-3" />
+                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                          <X className="w-3.5 h-3.5" />
                         </button>
                       </div>
                     </div>
                   ))}
                   {dayAccs.map(({ acc, role }) => (
-                    <div key={`${acc.id}-${role}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-xl">
-                      <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                        <BedDouble className="w-3.5 h-3.5 text-violet-600" />
+                    <div key={`${acc.id}-${role}`} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-violet-200 rounded-xl overflow-hidden shadow-sm">
+                      {/* 왼쪽 컬러 스트라이프 */}
+                      <div className={`w-10 h-full min-h-[52px] flex items-center justify-center flex-shrink-0 ${role === 'stay' ? 'bg-violet-300' : 'bg-violet-500'}`}>
+                        <BedDouble className="text-white" style={{ width: 18, height: 18 }} />
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-violet-800 leading-none">
-                          {role === 'checkin' ? '체크인' : role === 'checkout' ? '체크아웃' : '숙박중'} · {acc.name}
-                        </p>
+                      <div className="flex-1 min-w-0 py-2.5">
+                        <div className="flex items-center gap-1.5 mb-0.5">
+                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                            role === 'checkin' ? 'bg-violet-100 text-violet-700'
+                            : role === 'checkout' ? 'bg-pink-100 text-pink-700'
+                            : 'bg-gray-100 text-gray-500'
+                          }`}>
+                            {role === 'checkin' ? '🏨 체크인' : role === 'checkout' ? '🚪 체크아웃' : '🛏 숙박중'}
+                          </span>
+                        </div>
+                        <p className="text-xs font-bold text-gray-900 leading-snug truncate">{acc.name}</p>
                         {role === 'checkin' && acc.checkInTime && (
-                          <p className="text-[10px] text-violet-600 mt-0.5">체크인 {acc.checkInTime}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">체크인 {acc.checkInTime}</p>
                         )}
                         {role === 'checkout' && acc.checkOutTime && (
-                          <p className="text-[10px] text-violet-600 mt-0.5">체크아웃 {acc.checkOutTime}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">체크아웃 {acc.checkOutTime}</p>
                         )}
                       </div>
                       {role !== 'stay' && (
                         <div className="flex items-center gap-1 flex-shrink-0">
                           <button onClick={() => setEditingAcc(acc)}
-                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-violet-200 text-violet-400 transition-colors">
-                            <Pencil className="w-2.5 h-2.5" />
+                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-violet-50 text-gray-400 hover:text-violet-600 transition-colors">
+                            <Pencil className="w-3 h-3" />
                           </button>
                           <button onClick={() => handleDeleteAccommodation(acc.id)}
-                            className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-violet-200 text-violet-400 transition-colors">
-                            <X className="w-3 h-3" />
+                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                            <X className="w-3.5 h-3.5" />
                           </button>
                         </div>
                       )}
@@ -2931,6 +3010,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
               </div>
               <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-500">현지 통화</label>
+                <select
+                  value={editForm.currency}
+                  onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all bg-white"
+                >
+                  {Object.entries(CURRENCY_NAMES).map(([code, name]) => (
+                    <option key={code} value={code}>
+                      {CURRENCY_SYMBOLS[code]} {code} — {name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1.5">
                 <label className="text-xs font-semibold text-gray-500">인원수</label>
                 <div className="flex items-center gap-3">
                   <button type="button"
@@ -3073,9 +3166,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[12px] font-semibold text-gray-600">항공명</label>
-              <input type="text" value={editingFlight.name}
+              <label className="text-[12px] font-semibold text-gray-600">항공명 (공항 검색)</label>
+              <input ref={editFlightInputRef} type="text" value={editingFlight.name}
                 onChange={e => setEditingFlight({ ...editingFlight, name: e.target.value })}
+                placeholder="공항명 검색..."
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
             </div>
             <div className="flex flex-col gap-1">
@@ -3133,9 +3227,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[12px] font-semibold text-gray-600">숙소명</label>
-              <input type="text" value={editingAcc.name}
+              <label className="text-[12px] font-semibold text-gray-600">숙소명 (숙소 검색)</label>
+              <input ref={editAccInputRef} type="text" value={editingAcc.name}
                 onChange={e => setEditingAcc({ ...editingAcc, name: e.target.value })}
+                placeholder="호텔·숙소명 검색..."
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
             </div>
             <div className="grid grid-cols-2 gap-2">

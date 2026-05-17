@@ -2,24 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, FileSpreadsheet, User, LogOut, Bell } from 'lucide-react'
+import { Plus, FileSpreadsheet, User, LogOut } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
-import { collection, getDocs, updateDoc, doc, getDoc, query, orderBy } from 'firebase/firestore'
-import type { Timestamp } from 'firebase/firestore'
+import { doc, getDoc } from 'firebase/firestore'
 import { useAuthStore } from '@/features/auth/store'
 import { PersonAvatar } from '@/components/PersonAvatar'
+import { NotificationBell } from '@/components/NotificationBell'
 import { useRouter } from 'next/navigation'
 
 type ActiveTab = 'trips' | 'collection' | 'profile'
-
-type AdminMessage = {
-  id: string
-  title: string
-  body: string
-  createdAt: Timestamp
-  read: boolean
-}
 
 export function AppNavbar({
   active,
@@ -35,11 +27,6 @@ export function AppNavbar({
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  const [bellOpen, setBellOpen]         = useState(false)
-  const [messages, setMessages]         = useState<AdminMessage[]>([])
-  const [unreadCount, setUnreadCount]   = useState(0)
-  const bellRef = useRef<HTMLDivElement>(null)
-
   useEffect(() => {
     if (!user || avatarColor !== null) return
     getDoc(doc(db, 'users', user.uid)).then(snap => {
@@ -52,26 +39,9 @@ export function AppNavbar({
   }, [user?.uid])
 
   useEffect(() => {
-    if (!user) return
-    const fetchMessages = async () => {
-      try {
-        const q = query(collection(db, 'users', user.uid, 'messages'), orderBy('createdAt', 'desc'))
-        const snap = await getDocs(q)
-        const msgs = snap.docs.slice(0, 10).map(d => ({ id: d.id, ...d.data() } as AdminMessage))
-        setMessages(msgs)
-        setUnreadCount(msgs.filter(m => !m.read).length)
-      } catch { /* silent */ }
-    }
-    fetchMessages()
-  }, [user?.uid])
-
-  useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
         setDropdownOpen(false)
-      }
-      if (bellRef.current && !bellRef.current.contains(e.target as Node)) {
-        setBellOpen(false)
       }
     }
     document.addEventListener('mousedown', handleClickOutside)
@@ -82,24 +52,6 @@ export function AppNavbar({
     await signOut(auth)
     setShowLogoutConfirm(false)
     router.push('/auth')
-  }
-
-  const handleReadMessage = async (msg: AdminMessage) => {
-    if (!user || msg.read) return
-    try {
-      await updateDoc(doc(db, 'users', user.uid, 'messages', msg.id), { read: true })
-      setMessages(prev => prev.map(m => m.id === msg.id ? { ...m, read: true } : m))
-      setUnreadCount(prev => Math.max(0, prev - 1))
-    } catch { /* silent */ }
-  }
-
-  const formatMsgDate = (ts: Timestamp) => {
-    try {
-      const d = ts.toDate()
-      return `${d.getMonth() + 1}.${d.getDate()}`
-    } catch {
-      return ''
-    }
   }
 
   return (
@@ -138,52 +90,7 @@ export function AppNavbar({
             </button>
           )}
 
-          {/* 벨 알림 */}
-          <div className="relative" ref={bellRef}>
-            <button
-              onClick={() => setBellOpen(v => !v)}
-              className="relative w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors"
-            >
-              <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1 leading-none">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </button>
-
-            {bellOpen && (
-              <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-lg z-50 overflow-hidden">
-                <div className="px-4 py-3 border-b border-gray-100">
-                  <p className="text-sm font-bold text-gray-900">알림</p>
-                </div>
-                {messages.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-sm text-gray-400">새 알림이 없습니다</div>
-                ) : (
-                  <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
-                    {messages.map(msg => (
-                      <button
-                        key={msg.id}
-                        onClick={() => handleReadMessage(msg)}
-                        className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${!msg.read ? 'bg-blue-50/40' : ''}`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-1.5 mb-0.5">
-                              {!msg.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" />}
-                              <p className="text-sm font-semibold text-gray-900 truncate">{msg.title}</p>
-                            </div>
-                            <p className="text-xs text-gray-500 line-clamp-2">{msg.body}</p>
-                          </div>
-                          <span className="text-[11px] text-gray-400 flex-shrink-0 mt-0.5">{formatMsgDate(msg.createdAt)}</span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
+          <NotificationBell />
 
           <Link
             href="/trips/new"

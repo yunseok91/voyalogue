@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setUser, setLoading } = useAuthStore()
+  const { setUser, setLoading, setAdFree } = useAuthStore()
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async user => {
@@ -56,6 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       setUser(user)
+      if (snap?.exists()) setAdFree(snap.data().adFree === true)
 
       await setDoc(
         userRef,

@@ -144,29 +144,38 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
         let marker: google.maps.Marker
 
         if (isSpecial) {
-          const emoji = item.timeSlot === '비행기' ? '✈' : '⌂'
+          const isFlightType = item.timeSlot === '비행기'
+
+          /* 비행기 핀: 핀 모양 + 비행기 아이콘 */
+          const flightSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="d"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs><path d="M22 4C14.268 4 8 10.268 8 18c0 10.5 14 32 14 32S36 28.5 36 18C36 10.268 29.732 4 22 4Z" fill="${color}" filter="url(#d)"/><circle cx="22" cy="18" r="10" fill="rgba(255,255,255,0.18)"/><text x="22" y="18" font-family="Arial,sans-serif" font-size="15" text-anchor="middle" dominant-baseline="central" fill="white">&#x2708;</text></svg>`
+
+          /* 숙소 핀: 핀 모양 + 집/호텔 아이콘 */
+          const hotelSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="d"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs><path d="M22 4C14.268 4 8 10.268 8 18c0 10.5 14 32 14 32S36 28.5 36 18C36 10.268 29.732 4 22 4Z" fill="${color}" filter="url(#d)"/><circle cx="22" cy="18" r="10" fill="rgba(255,255,255,0.18)"/><polygon points="22,9 13,16 31,16" fill="white"/><rect x="14" y="15" width="16" height="11" fill="white" rx="0.5"/><rect x="20" y="20" width="4" height="6" fill="${color}" rx="0.5"/><rect x="15.5" y="16.5" width="3.5" height="2.5" fill="${color}" rx="0.3"/><rect x="25" y="16.5" width="3.5" height="2.5" fill="${color}" rx="0.3"/></svg>`
+
+          const iconSvg = isFlightType ? flightSvg : hotelSvg
+
           marker = new google.maps.Marker({
             position:  { lat: item.lat, lng: item.lng },
             map:       mapRef.current!,
             icon: {
-              path:         google.maps.SymbolPath.CIRCLE,
-              fillColor:    color,
-              fillOpacity:  1,
-              strokeColor:  'white',
-              strokeWeight: 2.5,
-              scale:        12,
+              url:        `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(iconSvg)}`,
+              scaledSize: new google.maps.Size(44, 54),
+              anchor:     new google.maps.Point(22, 54),
             },
             title:     item.name,
             zIndex:    idx + 5,
             clickable: true,
           })
+
+          const typeLabel = isFlightType ? '✈&nbsp;비행기' : '🏨&nbsp;숙소'
           const iw = new google.maps.InfoWindow({
-            content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
-              <span style="flex-shrink:0;width:22px;height:22px;border-radius:50%;background:${color};
-                color:#fff;text-align:center;line-height:22px;font-size:13px;">${emoji}</span>
-              <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
+            content: `<div style="padding:10px 14px 10px 12px;">
+              <div style="margin-bottom:5px;">
+                <span style="font-size:11px;font-weight:700;color:${color};background:${color}22;padding:2px 8px 2px 7px;border-radius:20px;">${typeLabel}</span>
+              </div>
+              <div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</div>
             </div>`,
-            pixelOffset: new google.maps.Size(0, -4),
+            pixelOffset: new google.maps.Size(0, -6),
           })
           marker.addListener('click', () => {
             openIwRef.current?.close()

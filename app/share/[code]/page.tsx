@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, use, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil, UserPlus } from 'lucide-react'
 import {
   collection, getDoc, getDocs, orderBy,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
@@ -15,6 +15,8 @@ import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/curren
 import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate'
 import { TripMap, type MapItem } from '@/components/TripMap'
 import { useAuthStore } from '@/features/auth/store'
+import { notifyTripMembers } from '@/lib/tripNotification'
+import { NotificationBell } from '@/components/NotificationBell'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -838,6 +840,15 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
       ...prev,
       [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), { id: docRef.id, ...partial, order: newOrder }],
     }))
+    /* 멤버들에게 알림 */
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '총무'}이(가) 일정을 추가했습니다`,
+      body:     `${trip.title || trip.city} · ${partial.name}`,
+      tripPath: `/share/${code}`,
+    })
   }
 
   const handleDelete = async (itemId: string) => {
@@ -920,6 +931,37 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
 
   /* 현재 접속자 정보 */
   const currentMember   = user ? (trip.members ?? []).find(m => m.id === user.uid) ?? null : null
+
+  /* ── 대표 초대링크 참여 ── */
+  const [joining, setJoining] = useState(false)
+  const [joinError, setJoinError] = useState('')
+
+  const handleJoinTrip = async () => {
+    if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
+    const members = trip.members ?? []
+    if (members.length >= (trip.people || 1)) {
+      setJoinError('여행 인원이 가득 찼습니다. 방장에게 인원 증가를 요청하세요.')
+      return
+    }
+    setJoining(true)
+    try {
+      const updatedMembers = [...members, {
+        id:       user.uid,
+        name:     user.displayName || user.email?.split('@')[0] || '멤버',
+        photoURL: user.photoURL ?? undefined,
+        role:     'member' as const,
+      }]
+      await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
+      await setDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id), {
+        ownerUid: trip.uid, tripId: trip.id, viewCode: trip.viewCode,
+      })
+      setTrip(prev => prev ? { ...prev, members: updatedMembers } : prev)
+    } catch {
+      setJoinError('참여 중 오류가 발생했습니다. 다시 시도해 주세요.')
+    } finally {
+      setJoining(false)
+    }
+  }
   const currentName     = user ? (user.displayName || user.email?.split('@')[0] || '나') : (guestName || '나')
   const currentPhotoURL = user?.photoURL ?? undefined
   const isTreasurer     = currentMember?.role === 'treasurer'
@@ -951,6 +993,7 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {user && <NotificationBell />}
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
             <div className="relative flex-shrink-0">
               <PersonAvatar
@@ -974,6 +1017,31 @@ export default function SharePage({ params }: { params: Promise<{ code: string }
           </div>
         </div>
       </nav>
+
+      {/* ── 참여 배너 (로그인 유저이지만 멤버가 아닌 경우) ── */}
+      {user && !currentMember && !guestName && (
+        <div className="flex-shrink-0 px-4 pt-3">
+          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+              <UserPlus className="w-4 h-4 text-blue-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-bold text-blue-900 leading-snug">이 여행에 참여하시겠어요?</p>
+              <p className="text-[11px] text-blue-500 leading-snug mt-0.5">
+                {joinError || '참여하면 멤버로 등록되어 알림을 받을 수 있어요.'}
+              </p>
+            </div>
+            <button
+              onClick={handleJoinTrip}
+              disabled={joining}
+              className="flex-shrink-0 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-60 flex items-center gap-1.5"
+            >
+              {joining ? <Loader2 className="w-3 h-3 animate-spin" /> : <UserPlus className="w-3 h-3" />}
+              참여하기
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* 헤더 카드 */}
       <div className="flex-shrink-0 p-4 pb-0">

@@ -429,9 +429,9 @@ export default function LandingPage() {
           </div>
           <p className="text-xs text-gray-400">© 2026 Voyalogue Inc. All rights reserved.</p>
           <nav className="flex gap-6">
-            {['개인정보처리방침', '이용약관', '문의하기'].map(l => (
-              <a key={l} href="#" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">{l}</a>
-            ))}
+            <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">개인정보처리방침</Link>
+            <Link href="/terms" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">이용약관</Link>
+            <Link href="/contact" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">문의하기</Link>
           </nav>
         </div>
       </footer>
