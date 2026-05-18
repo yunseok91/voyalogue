@@ -1231,32 +1231,35 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
     e.preventDefault()
     if (!ok) return
     setSaving(true)
-    const uploadedURLs: string[] = []
-    if (newFiles.length > 0) {
-      const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
-        import('@/lib/firebase'),
-        import('firebase/storage'),
-      ])
-      const ts = Date.now()
-      await Promise.all(newFiles.map(async (file, i) => {
-        const blob = await compressImage(file)
-        const r = sRef(storage, `users/${uid}/trips/${tripId}/receipts/${ts}_${i}.jpg`)
-        await uploadBytes(r, blob)
-        uploadedURLs.push(await getDownloadURL(r))
-      }))
+    try {
+      const uploadedURLs: string[] = []
+      if (newFiles.length > 0) {
+        const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+          import('@/lib/firebase'),
+          import('firebase/storage'),
+        ])
+        const ts = Date.now()
+        await Promise.all(newFiles.map(async (file, i) => {
+          const blob = await compressImage(file)
+          const r = sRef(storage, `users/${uid}/trips/${tripId}/receipts/${ts}_${i}.jpg`)
+          await uploadBytes(r, blob)
+          uploadedURLs.push(await getDownloadURL(r))
+        }))
+      }
+      newPreviews.forEach(u => URL.revokeObjectURL(u))
+      const finalReceipts = [...receipts, ...uploadedURLs]
+      await onUpdate(item.id, {
+        name: name.trim(), timeSlot, cat,
+        price: Number(price) || 0, currency,
+        comment, lat, lng,
+        participants: participantIds.length || people,
+        participantIds,
+        receipts: finalReceipts.length > 0 ? finalReceipts : [],
+      })
+      onClose()
+    } finally {
+      setSaving(false)
     }
-    newPreviews.forEach(u => URL.revokeObjectURL(u))
-    const finalReceipts = [...receipts, ...uploadedURLs]
-    await onUpdate(item.id, {
-      name: name.trim(), timeSlot, cat,
-      price: Number(price) || 0, currency,
-      comment, lat, lng,
-      participants: participantIds.length || people,
-      participantIds,
-      receipts: finalReceipts.length > 0 ? finalReceipts : [],
-    })
-    setSaving(false)
-    onClose()
   }
 
   return (
@@ -1608,7 +1611,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setMeta(prev => prev ? { ...prev, members: updated } : prev)
     updateDoc(doc(db, 'users', uid, 'trips', tripId), { members: updated }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta?.members, user?.displayName])
+  }, [meta?.members?.find(m => m.role === 'owner')?.name, user?.displayName])
 
   /* ── 통화 감지 & 환율 로드 ── */
   const tripCurrencies = useMemo(
@@ -1808,10 +1811,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
       { label: activeDay.label, date: activeDay.date },
       { merge: true }
     )
-    await addDoc(
+    const ref = await addDoc(
       collection(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items'),
       { ...partial, order: currentItems.length, createdAt: serverTimestamp() }
     )
+    /* temp ID → 실제 Firestore ID로 즉시 교체 (onSnapshot 대기 없이 수정 가능하도록) */
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id === tempId ? { ...i, id: ref.id } : i
+      ),
+    }))
     /* 멤버들에게 알림 */
     notifyTripMembers({
       ownerUid: uid,

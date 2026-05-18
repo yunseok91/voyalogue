@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 export const CLAY = [
   { base: '#E2E8F0', hi: '#FFFFFF', sh: '#64748B' }, // 0: white/gray
@@ -34,6 +34,10 @@ interface Props {
 
 export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
   const [imgFailed, setImgFailed] = useState(false)
+
+  useEffect(() => {
+    setImgFailed(false)
+  }, [photoURL])
 
   const clay    = colorIndex !== undefined ? CLAY[colorIndex % CLAY.length] : getColor(name)
   const base    = hexColor ?? clay.base
