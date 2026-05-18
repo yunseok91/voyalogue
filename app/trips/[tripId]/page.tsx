@@ -32,6 +32,7 @@ import { gradientStyle, THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'
+import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { useParams } from 'next/navigation'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
@@ -2370,6 +2371,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               )}
             </div>
           </button>
+          <NotificationBell />
           <button onClick={() => setChecklist(v => !v)}
             className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
             <CheckSquare className="w-3.5 h-3.5" />

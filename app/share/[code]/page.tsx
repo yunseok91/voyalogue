@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2 } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare } from 'lucide-react'
 import {
   collection, getDoc, getDocs,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -25,7 +25,7 @@ type TimeSlot = '아침' | '점심' | '저녁' | '미정'
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
 type MemberRole = 'owner' | 'treasurer' | 'member'
 
-type Member = { id: string; name: string; photoURL?: string; role: MemberRole; colorIndex?: number; left?: boolean }
+type Member = { id: string; name: string; photoURL?: string; role: MemberRole; colorIndex?: number; hexColor?: string; left?: boolean }
 
 type FlightItem = {
   id:          string
@@ -45,6 +45,8 @@ type AccommodationItem = {
   checkOutTime:   string
 }
 
+type CheckItem = { id: string; label: string; done: boolean }
+
 type TripMeta = {
   uid:             string
   id:              string
@@ -62,6 +64,7 @@ type TripMeta = {
   members:         Member[]
   flights?:        FlightItem[]
   accommodations?: AccommodationItem[]
+  checklist?:      CheckItem[]
 }
 
 type PlanItem = {
@@ -769,8 +772,13 @@ export default function SharePage() {
   const [rates,        setRates]       = useState<Record<string, number>>({ KRW: 1 })
   const [joining,      setJoining]     = useState(false)
   const [joinError,    setJoinError]   = useState('')
+  const [showChecklist, setShowChecklist] = useState(false)
+  const [checkInput,    setCheckInput]    = useState('')
+  const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
+  const [checkEditVal,  setCheckEditVal]  = useState('')
+  const [showSettlement, setShowSettlement] = useState(false)
 
-  useScrollLock(showAdd || !!editingItem)
+  useScrollLock(showAdd || !!editingItem || showSettlement)
 
   /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
@@ -828,6 +836,11 @@ export default function SharePage() {
   useEffect(() => {
     if (authLoading || !trip) return
     if (user) {
+      /* 주선자는 자신의 여행 편집 페이지로 리다이렉트 */
+      if (user.uid === trip.uid) {
+        router.replace(`/trips/${trip.id}`)
+        return
+      }
       setGate('granted')
       /* 총무 역할이면 편집 권한 부여 */
       const member = (trip.members ?? []).find(m => m.id === user.uid)
@@ -845,6 +858,20 @@ export default function SharePage() {
   }, [primaryCurrency])
 
   const days = useMemo(() => trip ? buildDays(trip) : [], [trip])
+
+  /* ── 당일 자동 선택 (여행 기간 내인 경우) ── */
+  const autoSelectedRef = useRef(false)
+  useEffect(() => {
+    if (!days.length || autoSelectedRef.current) return
+    const today = new Date().toISOString().slice(0, 10)
+    const idx   = days.findIndex(d => d.date === today)
+    if (idx !== -1) {
+      setActiveDayIdx(idx)
+      autoSelectedRef.current = true
+    } else if (days.length > 0) {
+      autoSelectedRef.current = true
+    }
+  }, [days])
 
   /* 아이템 1회 로드 */
   useEffect(() => {
@@ -902,6 +929,53 @@ export default function SharePage() {
     ),
     [dayItems, rates, trip]
   )
+
+  const daySpent = useMemo(
+    () => currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
+    [currentItems, rates]
+  )
+
+  const daySpentMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    days.forEach(d => {
+      map[d.dayId] = (dayItems[d.dayId] ?? []).reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
+    })
+    return map
+  }, [dayItems, rates, days])
+
+  const memberSpent = useMemo(() => {
+    if (!trip?.members?.length) return {} as Record<string, number>
+    const result: Record<string, number> = {}
+    trip.members.forEach(m => { result[m.id] = 0 })
+    Object.values(dayItems).flat().forEach(item => {
+      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
+      if (!krw || krw <= 0) return
+      const allIds   = item.participantIds ?? []
+      const validIds = allIds.filter(id => result[id] !== undefined)
+      if (allIds.length > 0) {
+        const divisor = validIds.length > 0 ? validIds.length : allIds.length
+        const share = krw / divisor
+        validIds.forEach(id => { result[id] += share })
+      } else {
+        const share = krw / trip.members.length
+        trip.members.forEach(m => { result[m.id] += share })
+      }
+    })
+    return result
+  }, [dayItems, rates, trip])
+
+  const hasUnevenParticipants = useMemo(() => {
+    const amounts = Object.values(memberSpent)
+    if (amounts.length <= 1) return false
+    const first = amounts[0]
+    return amounts.some(a => Math.abs(a - first) > 1)
+  }, [memberSpent])
+
+  const avgPerPerson = (trip?.members?.length ?? 1) > 1 && totalSpent > 0
+    ? totalSpent / (trip?.members?.length ?? 1)
+    : 0
+
+  const budgetPct = trip ? Math.min(100, Math.round((totalSpent / (trip.budget || 1)) * 100)) : 0
 
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
     if (!activeDay || !trip) return
@@ -1052,6 +1126,36 @@ export default function SharePage() {
   /* 현재 접속자 정보 */
   const currentMember   = user ? (trip.members ?? []).find(m => m.id === user.uid) ?? null : null
 
+  /* ── 체크리스트 ── */
+  const checkItems: CheckItem[] = trip?.checklist ?? []
+
+  const toggleCheck = async (id: string) => {
+    if (!trip) return
+    const checklist = checkItems.map(c => c.id === id ? { ...c, done: !c.done } : c)
+    setTrip(prev => prev ? { ...prev, checklist } : prev)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+  }
+  const addCheckItem = async () => {
+    if (!checkInput.trim() || !trip) return
+    const checklist = [...checkItems, { id: `${Date.now()}`, label: checkInput.trim(), done: false }]
+    setTrip(prev => prev ? { ...prev, checklist } : prev)
+    setCheckInput('')
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+  }
+  const deleteCheckItem = async (id: string) => {
+    if (!trip) return
+    const checklist = checkItems.filter(c => c.id !== id)
+    setTrip(prev => prev ? { ...prev, checklist } : prev)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+  }
+  const saveCheckEdit = async (id: string) => {
+    if (!checkEditVal.trim() || !trip) { setCheckEditId(null); return }
+    const checklist = checkItems.map(c => c.id === id ? { ...c, label: checkEditVal.trim() } : c)
+    setTrip(prev => prev ? { ...prev, checklist } : prev)
+    setCheckEditId(null)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+  }
+
   /* ── 대표 초대링크 참여 ── */
   const handleJoinTrip = async () => {
     if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
@@ -1127,6 +1231,20 @@ export default function SharePage() {
           </div>
         </div>
         <div className="flex items-center gap-2 flex-shrink-0">
+          {canEdit && (
+            <button onClick={() => setShowChecklist(v => !v)}
+              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+              <CheckSquare className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">체크리스트</span>
+            </button>
+          )}
+          {(user && (currentMember || trip.uid === user?.uid)) && (
+            <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
+              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
+              <span className="hidden sm:inline">여행 요약</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
           {user && <NotificationBell />}
           <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
             <div className="relative flex-shrink-0">
@@ -1145,7 +1263,7 @@ export default function SharePage() {
             <div className="flex flex-col min-w-0">
               <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[80px] leading-tight">{currentName}</span>
               <span className="text-[10px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
-                {isTreasurer ? '총무' : currentMember ? '멤버' : '비회원'}
+                {trip.uid === user?.uid ? '주선자' : isTreasurer ? '총무' : currentMember ? '멤버' : '비회원'}
               </span>
             </div>
           </div>
@@ -1237,16 +1355,43 @@ export default function SharePage() {
 
       {/* Day 탭 */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
-        <div className="px-4 flex items-center gap-1 overflow-x-auto">
-          {days.map((d, i) => (
-            <button key={d.dayId} onClick={() => setActiveDayIdx(i)}
-              className={`flex-shrink-0 px-3 py-3 text-xs font-semibold border-b-2 transition-colors ${
-                i === activeDayIdx ? 'border-blue-600 text-blue-600' : 'border-transparent text-gray-500'
-              }`}>
-              <span>{d.label}</span>
-              <span className="block text-[10px] font-normal mt-0.5 text-gray-400">{formatDate(d.date)}</span>
-            </button>
-          ))}
+        <div className="px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+          <div className="flex items-end" style={{ minWidth: days.length * 80 }}>
+            {days.map((d, i) => {
+              const isActive = i === activeDayIdx
+              const isToday  = d.date === new Date().toISOString().slice(0, 10)
+              return (
+                <div key={d.dayId} className="flex flex-col items-center flex-shrink-0 pt-2" style={{ minWidth: 76, marginRight: 4 }}>
+                  <button
+                    onClick={() => setActiveDayIdx(i)}
+                    className={`w-full pb-3 text-center border-b-2 transition-colors ${
+                      isActive ? 'border-blue-600' : 'border-transparent hover:border-gray-200'
+                    }`}
+                  >
+                    <span className={`flex items-center justify-center gap-1 text-xs font-bold leading-none ${
+                      isActive ? 'text-blue-600' : 'text-gray-400 hover:text-gray-700'
+                    }`}>
+                      {d.label}
+                      {isToday && <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />}
+                    </span>
+                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
+                      {formatDate(d.date)}
+                    </span>
+                    {(daySpentMap[d.dayId] ?? 0) > 0 && (
+                      <span className={`block text-[10px] font-bold mt-0.5 tabular-nums ${
+                        isActive ? 'text-blue-600' : 'text-gray-400'
+                      }`}>
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                          ? formatLocal(Math.round((daySpentMap[d.dayId] ?? 0) / rates[primaryCurrency]), primaryCurrency)
+                          : formatKRW(daySpentMap[d.dayId] ?? 0)
+                        }
+                      </span>
+                    )}
+                  </button>
+                </div>
+              )
+            })}
+          </div>
         </div>
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setMobileTab('schedule')}
@@ -1261,7 +1406,23 @@ export default function SharePage() {
         {/* 일정 */}
         <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[420px] flex-shrink-0 flex-col bg-[#F8FAFC] overflow-hidden lg:border-r border-gray-200`}>
           <div className="px-5 py-4 flex items-center justify-between flex-shrink-0">
-            <p className="text-sm font-bold text-gray-900">{activeDay?.label} · {activeDay ? formatDate(activeDay.date) : ''}</p>
+            <div>
+              <h2 className="text-sm font-bold text-gray-900">{activeDay?.label} · {activeDay ? formatDate(activeDay.date) : ''}</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {currentItems.length > 0 ? `${currentItems.length}개 일정` : '일정을 확인하세요'}
+                {daySpent > 0 && ` · ${primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                  ? formatLocal(Math.round(daySpent / rates[primaryCurrency]), primaryCurrency)
+                  : formatKRW(daySpent)}`}
+              </p>
+              {primaryCurrency !== 'KRW' && rates[primaryCurrency] > 0 && (
+                <div className="flex items-center gap-1.5 mt-1">
+                  <span className="text-[11px] font-medium text-gray-500">
+                    {CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}1 = ₩{rates[primaryCurrency].toLocaleString('ko-KR', { maximumFractionDigits: 2 })}
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-400">실시간</span>
+                </div>
+              )}
+            </div>
             {canEdit && (
               <button onClick={() => setShowAdd(true)}
                 className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
@@ -1311,24 +1472,67 @@ export default function SharePage() {
           <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#F8FAFC] to-transparent pointer-events-none z-10 lg:hidden" />
           </div>
 
-          {/* 푸터 */}
+          {/* 예산 푸터 */}
           <div className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
-            <div className="flex items-center justify-between mb-1">
-              <span className="flex items-center gap-1 text-xs text-gray-500"><Wallet className="w-3.5 h-3.5" />전체 지출</span>
-              <span className="text-xs font-bold text-gray-700">
-                {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                  ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
-                  : formatKRW(totalSpent)}
-              </span>
+            {/* 전체 지출 */}
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                <Wallet className="w-3.5 h-3.5" />
+                <span>{trip.budget > 0 ? '전체 예산' : '전체 지출'}</span>
+              </div>
+              <div className="text-right">
+                {primaryCurrency !== 'KRW' && rates[primaryCurrency] ? (
+                  <>
+                    <span className="text-xs font-bold text-gray-700">
+                      {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}
+                      {trip.budget > 0 && ` / ${formatLocal(Math.round(trip.budget / rates[primaryCurrency]), primaryCurrency)}`}
+                    </span>
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      ≈ {formatKRW(totalSpent)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
+                    </p>
+                  </>
+                ) : (
+                  <span className="text-xs font-bold text-gray-700">
+                    {formatKRW(totalSpent)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
+                  </span>
+                )}
+              </div>
             </div>
-            {(trip.people || 1) > 1 && perPersonSpent > 0 && (
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100 mt-2">
-                <span className="flex items-center gap-1 text-[11px] text-gray-400"><Users className="w-3 h-3" />1인 부담</span>
-                <span className="text-[11px] font-semibold text-blue-600">
-                  {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                    ? formatLocal(Math.round(perPersonSpent / rates[primaryCurrency]), primaryCurrency)
-                    : formatKRW(Math.round(perPersonSpent))}
-                </span>
+            {/* 예산 바 */}
+            {trip.budget > 0 && (
+              <>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all duration-500 ${budgetPct >= 90 ? 'bg-red-500' : budgetPct >= 70 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                    style={{ width: `${budgetPct}%` }} />
+                </div>
+                <p className="text-[11px] text-gray-400 mt-1 text-right">{budgetPct}% 사용</p>
+              </>
+            )}
+            {/* 1인 평균 + 명세 */}
+            {(trip.members ?? []).length > 1 && totalSpent > 0 && (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <div
+                  className="flex items-center justify-between cursor-pointer group"
+                  onClick={() => setShowSettlement(true)}
+                >
+                  <span className="flex items-center gap-1 text-[11px] text-gray-400">
+                    <Users className="w-3 h-3" />1인 평균
+                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-semibold text-blue-600">
+                      {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                        ? formatLocal(Math.round(avgPerPerson / rates[primaryCurrency]), primaryCurrency)
+                        : formatKRW(Math.round(avgPerPerson))
+                      }
+                    </span>
+                    <span className="flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-500 group-hover:bg-blue-100 transition-colors">
+                      명세 <ChevronRight className="w-2.5 h-2.5" />
+                    </span>
+                  </div>
+                </div>
+                {hasUnevenParticipants && (
+                  <p className="text-[10px] text-gray-400 mt-0.5">참여 인원이 다른 장소가 있어요</p>
+                )}
               </div>
             )}
           </div>
@@ -1434,6 +1638,148 @@ export default function SharePage() {
           tripUid={trip.uid}
           tripId={trip.id}
         />
+      )}
+
+      {/* 정산 명세 팝업 */}
+      {showSettlement && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200]"
+          onClick={() => setShowSettlement(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
+              </div>
+              <button onClick={() => setShowSettlement(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-6 py-4 flex flex-col gap-3">
+              {(trip.members ?? []).map((m, mi) => {
+                const amt = memberSpent[m.id] ?? 0
+                return (
+                  <div key={m.id} className={`flex items-center gap-3 ${m.left ? 'opacity-50' : ''}`}>
+                    <PersonAvatar
+                      name={m.name}
+                      size={32}
+                      colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1))}
+                      hexColor={m.hexColor}
+                      photoURL={m.photoURL}
+                    />
+                    <span className="text-sm flex-1 font-medium text-gray-800 flex items-center gap-1.5">
+                      {m.name}
+                      {m.left && (
+                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">탈퇴</span>
+                      )}
+                    </span>
+                    <div className="text-right">
+                      <span className="text-sm font-bold text-gray-900 block">
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                          ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
+                          : (formatKRW(Math.round(amt)) || '0원')
+                        }
+                      </span>
+                      {primaryCurrency !== 'KRW' && (
+                        <span className="text-[11px] text-gray-400">{formatKRW(Math.round(amt))}</span>
+                      )}
+                    </div>
+                  </div>
+                )
+              })}
+              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                <span className="text-[11px] text-gray-400 flex items-center gap-1">
+                  <Users className="w-3 h-3" />합계
+                </span>
+                <div className="text-right">
+                  <span className="text-xs font-bold text-gray-700 block">
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                      ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
+                      : formatKRW(totalSpent)
+                    }
+                  </span>
+                  {primaryCurrency !== 'KRW' && (
+                    <span className="text-[11px] text-gray-400">{formatKRW(totalSpent)}</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 체크리스트 드로어 */}
+      {showChecklist && (
+        <div className="fixed inset-0 z-40 flex justify-end">
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowChecklist(false)} />
+          <div className="relative z-50 w-80 bg-white h-full shadow-2xl flex flex-col">
+            <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="font-bold text-gray-900">여행 체크리스트</h3>
+              <button onClick={() => setShowChecklist(false)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-6 py-5 flex flex-col gap-1.5">
+              {checkItems.length === 0 && (
+                <p className="text-sm text-gray-400 text-center py-8">아직 항목이 없어요</p>
+              )}
+              {checkItems.map(c => (
+                <div key={c.id} className="flex items-center gap-2.5 group py-1.5">
+                  <button
+                    onClick={() => toggleCheck(c.id)}
+                    className={`flex-shrink-0 rounded border-2 transition-colors flex items-center justify-center ${c.done ? 'bg-blue-600 border-blue-600' : 'border-gray-300 hover:border-blue-400'}`}
+                    style={{ width: 18, height: 18 }}
+                  >
+                    {c.done && (
+                      <svg viewBox="0 0 12 12" width="10" height="10" fill="none">
+                        <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </button>
+                  {checkEditId === c.id ? (
+                    <input
+                      autoFocus
+                      value={checkEditVal}
+                      onChange={e => setCheckEditVal(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveCheckEdit(c.id); if (e.key === 'Escape') setCheckEditId(null) }}
+                      onBlur={() => saveCheckEdit(c.id)}
+                      className="flex-1 text-sm px-2 py-0.5 rounded border border-blue-400 outline-none bg-blue-50/50"
+                    />
+                  ) : (
+                    <span className={`flex-1 text-sm select-none ${c.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>{c.label}</span>
+                  )}
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => { setCheckEditId(c.id); setCheckEditVal(c.label) }}
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                      <Edit2 className="w-3 h-3" />
+                    </button>
+                    <button onClick={() => deleteCheckItem(c.id)}
+                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100">
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  placeholder="새 항목 추가…"
+                  value={checkInput}
+                  onChange={e => setCheckInput(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') addCheckItem() }}
+                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all"
+                />
+                <button onClick={addCheckItem}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )
