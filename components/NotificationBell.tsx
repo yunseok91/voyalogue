@@ -126,10 +126,10 @@ export function NotificationBell() {
                 const Icon    = isTrip ? MapPin : Megaphone
                 const iconCls = isTrip ? 'text-blue-500 bg-blue-50' : 'text-amber-500 bg-amber-50'
                 return (
-                  <button
+                  <div
                     key={msg.id}
                     onClick={() => handleClick(msg)}
-                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors ${!msg.read ? 'bg-blue-50/30' : ''}`}
+                    className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors cursor-pointer ${!msg.read ? 'bg-blue-50/30' : ''}`}
                   >
                     <div className="flex items-start gap-3">
                       <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 ${iconCls}`}>
@@ -154,7 +154,7 @@ export function NotificationBell() {
                         </button>
                       </div>
                     </div>
-                  </button>
+                  </div>
                 )
               })}
             </div>

@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench } from 'lucide-react'
-import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc } from 'firebase/firestore'
+import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -238,6 +238,7 @@ function TripsContent() {
   const [showExcel, setShowExcel] = useState(false)
   const [darkOverride, setDarkOverride] = useState<Record<string, boolean>>({})
   const [popupMsg, setPopupMsg] = useState<AdminMessage | null>(null)
+  const [seedLoading, setSeedLoading] = useState(false)
 
   useScrollLock(showExcel || !!popupMsg)
 
@@ -369,6 +370,18 @@ function TripsContent() {
   const handleFilter = (f: Filter) => { setFilter(f); setPage(1) }
   const handlePage   = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)))
 
+  const handleSeedSample = async () => {
+    if (!user || seedLoading) return
+    setSeedLoading(true)
+    try {
+      const { seedSampleTrip } = await import('@/lib/seedSampleTrip')
+      await seedSampleTrip(user.uid, user.displayName ?? '나')
+      await fetchTrips(user.uid)
+    } catch { /* silent */ } finally {
+      setSeedLoading(false)
+    }
+  }
+
   const handleLeaveInvited = async (e: React.MouseEvent, trip: InvitedTrip) => {
     e.preventDefault()
     e.stopPropagation()
@@ -392,6 +405,24 @@ function TripsContent() {
   const handleDelete = async (e: React.MouseEvent, tripId: string) => {
     e.preventDefault()
     if (!user || !confirm('이 여행을 삭제할까요?')) return
+
+    /* 삭제 전 멤버 목록 조회 → 멤버들에게 알림 (클릭 시 이동 없음) */
+    getDoc(doc(db, 'users', user.uid, 'trips', tripId)).then(snap => {
+      if (!snap.exists()) return
+      const data = snap.data() as { members?: Array<{ id: string; role: string }>; title?: string; city?: string }
+      const tripLabel = data.title || data.city || ''
+      const members = (data.members ?? []).filter(m => m.role !== 'owner' && m.id.length >= 15)
+      members.forEach(m => {
+        addDoc(collection(db, 'users', m.id, 'messages'), {
+          title: '여행이 삭제되었습니다',
+          body:  tripLabel,
+          type:  'trip',
+          tripPath: null,
+          read:  false,
+          createdAt: serverTimestamp(),
+        }).catch(() => {})
+      })
+    }).catch(() => {})
 
     /* UI 즉시 반영 (getDocs 재조회 없이 로컬 state 갱신) */
     setTrips(prev => prev.filter(t => t.id !== tripId))
@@ -538,9 +569,38 @@ function TripsContent() {
                 첫 여행 만들기
               </Link>
 
-              <p className="text-center text-xs text-gray-400 mt-4">
-                자동으로 생성된 도쿄 샘플 여행을 확인해보세요 👆
+              <div className="flex items-center gap-3 my-1">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">또는</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+
+              <button
+                onClick={handleSeedSample}
+                disabled={seedLoading}
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 text-gray-500 hover:text-blue-600 text-sm font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {seedLoading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"/>
+                    </svg>
+                    샘플 여행 생성 중…
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4"/>
+                    </svg>
+                    샘플 여행으로 둘러보기
+                  </>
+                )}
+              </button>
+              <p className="text-center text-[11px] text-gray-400">
+                도쿄 2박 3일 · 기능 체험용 샘플 데이터 · 언제든 삭제 가능
               </p>
+
             </div>
           </div>
         ) : sorted.length === 0 ? (

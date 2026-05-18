@@ -34,7 +34,7 @@ import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 
 /* ── 타입 ── */
@@ -1431,7 +1431,8 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
 /* ── 플래너 본체 ── */
 function PlannerContent({ tripId }: { tripId: string }) {
   const { user, avatarColor, avatarHexColor } = useAuthStore()
-  const uid = user!.uid
+  const uid    = user!.uid
+  const router = useRouter()
 
   /* 여행 메타 */
   const [meta,        setMeta]        = useState<TripMeta | null>(null)
@@ -1581,16 +1582,31 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── 여행 메타 1회 로드 ── */
   useEffect(() => {
-    getDoc(doc(db, 'users', uid, 'trips', tripId))
-      .then(snap => {
+    const load = async () => {
+      try {
+        const snap = await getDoc(doc(db, 'users', uid, 'trips', tripId))
         if (snap.exists()) {
           const data = snap.data() as TripMeta
           setMeta(data)
           setDayRates(data.dayRates ?? {})
+          return
         }
-      })
-      .catch(() => {})
-      .finally(() => setMetaLoading(false))
+        /* 이 유저의 trips에 없으면 초대된 여행인지 확인 */
+        const invSnap = await getDoc(doc(db, 'users', uid, 'invitedTrips', tripId))
+        if (invSnap.exists()) {
+          const { viewCode } = invSnap.data() as { viewCode: string }
+          router.replace(`/share/${viewCode}`)
+          return
+        }
+        /* 어디도 해당 없으면 목록으로 */
+        router.replace('/trips')
+      } catch {
+        router.replace('/trips')
+      } finally {
+        setMetaLoading(false)
+      }
+    }
+    load()
   }, [uid, tripId])
 
   /* ── shareIndex 지연 등록 (기존 여행 마이그레이션 포함) ── */
@@ -2054,9 +2070,21 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const removeMember = async (id: string) => {
     if (!meta) return
     if (!window.confirm('멤버를 삭제하시겠습니까?')) return
+    const removed = meta.members.find(m => m.id === id)
     const members = meta.members.filter(m => m.id !== id)
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
     setMeta({ ...meta, members })
+    /* 제외된 멤버에게 알림 (클릭 시 이동 없음) */
+    if (removed && removed.id.length >= 15) {
+      addDoc(collection(db, 'users', removed.id, 'messages'), {
+        title: '여행에서 제외되었습니다',
+        body:  meta.title || meta.city,
+        type:  'trip',
+        tripPath: null,
+        read:  false,
+        createdAt: serverTimestamp(),
+      }).catch(() => {})
+    }
   }
 
   const setTreasurer = async (id: string) => {
