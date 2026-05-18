@@ -2684,6 +2684,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </DndContext>
             )}
           </div>
+          {/* 모바일 스크롤 힌트 — 하단 페이드 */}
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#F8FAFC] to-transparent pointer-events-none z-10 lg:hidden" />
+          </div>
 
           {/* 예산 푸터 */}
           <div className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
@@ -2748,9 +2751,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 )}
               </div>
             )}
-          </div>
-          {/* 모바일 스크롤 힌트 — 하단 페이드 */}
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#F8FAFC] to-transparent pointer-events-none z-10 lg:hidden" />
           </div>
         </div>
 
