@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 import { InAppBrowserGate } from '@/components/InAppBrowserGate'
+import { ErrorReloadReset } from '@/components/ErrorReloadReset'
 
 export const metadata: Metadata = {
   title: {
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           strategy="lazyOnload"
         />
         */}
+        <ErrorReloadReset />
         <InAppBrowserGate>
           <AuthProvider>{children}</AuthProvider>
         </InAppBrowserGate>
