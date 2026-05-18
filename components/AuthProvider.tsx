@@ -55,15 +55,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch { /* 베타 설정 없으면 무시 */ }
       }
 
-      setUser(user)
+      /* Google 등 소셜 로그인 후 photoURL이 stale할 수 있어 강제 갱신 */
+      await user.reload().catch(() => {})
+      const freshUser = auth.currentUser ?? user
+
+      setUser(freshUser)
       if (snap?.exists()) setAdFree(snap.data().adFree === true)
 
       await setDoc(
         userRef,
         {
-          displayName: user.displayName ?? '',
-          email:       user.email ?? '',
-          photoURL:    user.photoURL ?? '',
+          displayName: freshUser.displayName ?? '',
+          email:       freshUser.email ?? '',
+          photoURL:    freshUser.photoURL ?? '',
           lastLoginAt: serverTimestamp(),
         },
         { merge: true }

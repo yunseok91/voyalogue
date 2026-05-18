@@ -776,26 +776,6 @@ export default function SharePage() {
       /* 총무 역할이면 편집 권한 부여 */
       const member = (trip.members ?? []).find(m => m.id === user.uid)
       if (member?.role === 'treasurer') setCanEdit(true)
-      /* 로그인 유저가 멤버 목록에 없으면 자동 추가 (인원 제한 내, 탈퇴 멤버 제외) */
-      const alreadyIn = (trip.members ?? []).some(m => m.id === user.uid)
-      const activeCount = (trip.members ?? []).filter(m => !m.left).length
-      if (!alreadyIn && activeCount < (trip.people || 1)) {
-        const newMember = {
-          id:       user.uid,
-          name:     user.displayName || '멤버',
-          photoURL: user.photoURL ?? undefined,
-          role:     'member' as const,
-        }
-        const updatedMembers = [...(trip.members ?? []), newMember]
-        updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
-          .then(() => {
-            setTrip(prev => prev ? { ...prev, members: updatedMembers } : prev)
-            setDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id), {
-              ownerUid: trip.uid, tripId: trip.id, viewCode: trip.viewCode,
-            }).catch(() => {})
-          })
-          .catch(() => {})
-      }
     } else {
       setGate('choosing')
     }
@@ -1003,7 +983,8 @@ export default function SharePage() {
   const handleJoinTrip = async () => {
     if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
     const members = trip.members ?? []
-    if (members.length >= (trip.people || 1)) {
+    const activeCount = members.filter(m => !m.left).length
+    if (activeCount >= (trip.people || 1)) {
       setJoinError('여행 인원이 가득 찼습니다. 방장에게 인원 증가를 요청하세요.')
       return
     }
