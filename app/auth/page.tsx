@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Globe, ArrowLeft } from 'lucide-react'
 import { motion } from 'motion/react'
-import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
@@ -22,6 +22,14 @@ function AuthPageInner() {
   const { user, loading: authLoading } = useAuthStore()
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState('')
+
+  /* 리디렉트 로그인 결과 처리 (Safari 등 팝업 차단 브라우저 대응) */
+  useEffect(() => {
+    getRedirectResult(auth)
+      .then(result => { if (result?.user) router.push(redirectTo) })
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   /* 이미 로그인된 경우 바로 리다이렉트 */
   useEffect(() => {
@@ -40,13 +48,21 @@ function AuthPageInner() {
         setLoading(false)
         return
       }
+      if (code === 'auth/popup-blocked') {
+        /* 팝업 차단 시 리디렉트 방식으로 재시도 (Safari iPhone 대응) */
+        try {
+          await signInWithRedirect(auth, googleProvider)
+        } catch {
+          setError('Google 로그인을 시작할 수 없습니다.')
+          setLoading(false)
+        }
+        return
+      }
       setError(
-        code === 'auth/popup-blocked'        ? '팝업이 차단되었습니다. 브라우저에서 팝업을 허용해주세요.' :
         code === 'auth/unauthorized-domain'  ? '현재 도메인이 Firebase에 허용되지 않았습니다.' :
         code === 'auth/operation-not-allowed' ? 'Google 로그인이 비활성화되어 있습니다.' :
         `Google 로그인 실패 (${code || 'unknown'})`
       )
-    } finally {
       setLoading(false)
     }
   }
