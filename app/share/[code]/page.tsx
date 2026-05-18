@@ -118,7 +118,7 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
         {[1,2,3,4,5].map(v => (
           <Star key={v}
             className={`w-3 h-3 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
-            onClick={e => { e.stopPropagation(); onChange?.(v) }}
+            onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
           />
         ))}
       </span>
