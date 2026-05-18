@@ -1001,11 +1001,20 @@ export default function SharePage() {
 
   const handleDelete = async (itemId: string) => {
     if (!activeDay || !trip) return
+    const itemName = (dayItems[activeDay.dayId] ?? []).find(i => i.id === itemId)?.name ?? ''
     setDayItems(prev => ({
       ...prev,
       [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== itemId),
     }))
     await deleteDoc(doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId))
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '총무'}이(가) 일정을 삭제했습니다`,
+      body:     `${trip.title || trip.city} · ${itemName}`,
+      tripPath: `/share/${code}`,
+    })
   }
 
   const handleEditSave = async (itemId: string, patch: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
@@ -1137,10 +1146,19 @@ export default function SharePage() {
   }
   const addCheckItem = async () => {
     if (!checkInput.trim() || !trip) return
-    const checklist = [...checkItems, { id: `${Date.now()}`, label: checkInput.trim(), done: false }]
+    const label = checkInput.trim()
+    const checklist = [...checkItems, { id: `${Date.now()}`, label, done: false }]
     setTrip(prev => prev ? { ...prev, checklist } : prev)
     setCheckInput('')
     await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '총무'}이(가) 체크리스트를 추가했습니다`,
+      body:     `${trip.title || trip.city} · ${label}`,
+      tripPath: `/share/${code}`,
+    })
   }
   const deleteCheckItem = async (id: string) => {
     if (!trip) return

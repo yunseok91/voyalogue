@@ -1825,14 +1825,24 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── 아이템 삭제 ── */
   const handleDelete = async (itemId: string) => {
-    if (!activeDay) return
+    if (!activeDay || !meta) return
+    const itemName = (dayItems[activeDay.dayId] ?? []).find(i => i.id === itemId)?.name ?? ''
     setDayItems(prev => ({ ...prev, [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== itemId) }))
     await deleteDoc(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId))
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 삭제했습니다`,
+      body:     `${meta.title || meta.city} · ${itemName}`,
+      tripPath: `/trips/${tripId}`,
+    })
   }
 
   /* ── 아이템 수정 (범용) ── */
   const handleUpdate = async (itemId: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
-    if (!activeDay) return
+    if (!activeDay || !meta) return
+    const itemName = updates.name ?? (dayItems[activeDay.dayId] ?? []).find(i => i.id === itemId)?.name ?? ''
     setDayItems(prev => ({
       ...prev,
       [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i => i.id === itemId ? { ...i, ...updates } : i),
@@ -1841,6 +1851,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId),
       updates
     )
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 수정했습니다`,
+      body:     `${meta.title || meta.city} · ${itemName}`,
+      tripPath: `/trips/${tripId}`,
+    })
   }
 
   /* ── 카테고리 빠른 변경 ── */
@@ -2197,10 +2215,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const addCheckItem = async () => {
     if (!checkInput.trim() || !meta) return
-    const checklist = [...checkItems, { id: `${Date.now()}`, label: checkInput.trim(), done: false }]
+    const label = checkInput.trim()
+    const checklist = [...checkItems, { id: `${Date.now()}`, label, done: false }]
     setMeta({ ...meta, checklist })
     setCheckInput('')
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '주선자'}이(가) 체크리스트를 추가했습니다`,
+      body:     `${meta.title || meta.city} · ${label}`,
+      tripPath: `/trips/${tripId}`,
+    })
   }
 
   const deleteCheckItem = async (id: string) => {

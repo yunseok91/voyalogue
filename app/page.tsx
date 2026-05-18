@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ArrowRight, Globe, Menu, X, Star } from 'lucide-react'
+import { useAuthStore } from '@/features/auth/store'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -23,14 +25,14 @@ const FEATURES = [
   {
     icon: '🗺',
     bg: 'bg-teal-50',
-    title: '실시간 동선 최적화',
-    desc: '지도 위에서 전체 동선을 한눈에 확인하세요. 불필요한 이동을 줄이고 가장 효율적인 경로를 AI가 안내합니다.',
+    title: '지도로 보는 전체 동선',
+    desc: '구글 지도 위에서 전체 동선을 한눈에 확인하세요. 일정을 추가할 때마다 지도에 핀이 자동으로 그려집니다.',
   },
   {
     icon: '👥',
     bg: 'bg-orange-50',
     title: '친구와 함께 계획하기',
-    desc: '일행을 초대해 실시간으로 일정을 공유하고 수정하세요. 투표 기능으로 의견을 모으고 역할을 분담할 수 있습니다.',
+    desc: '초대 링크로 일행을 불러 함께 일정을 보고 수정하세요. 총무 권한으로 역할을 나눠 더 효율적으로 준비할 수 있습니다.',
   },
 ]
 
@@ -48,7 +50,7 @@ const STEPS = [
   {
     n: '3',
     title: '공유 & 출발',
-    desc: '완성된 일정을 친구에게 공유하거나 PDF로 저장하세요. 이제 여행만 즐기면 됩니다.',
+    desc: '완성된 일정을 초대 링크로 친구에게 공유하세요. 이제 여행만 즐기면 됩니다.',
   },
 ]
 
@@ -68,7 +70,7 @@ const REVIEWS = [
   {
     name: '박민준',
     trip: '제주도 3일 여행',
-    text: '아침·점심·저녁 구분이 정말 유용해요. 제주도 여행 준비할 때 카카오맵이랑 연동도 잘 됐어요.',
+    text: '아침·점심·저녁 구분이 정말 유용해요. 지도에서 동선이 바로 보여서 겹치는 일정 없이 짤 수 있었어요.',
     stars: 5,
   },
   {
@@ -104,6 +106,12 @@ function Stars({ count }: { count: number }) {
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { user, loading } = useAuthStore()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (!loading && user) router.replace('/trips')
+  }, [user, loading, router])
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10)
@@ -247,7 +255,7 @@ export default function LandingPage() {
       {/* ── Trust strip ───────────────────────────────────────────────────── */}
       <section className="bg-[#F9FAFB] border-y border-gray-200 py-7">
         <p className="text-center text-[15px] font-semibold text-gray-400">
-          50,000+명의 여행자가 선택한 플래너
+          지금 베타 오픈 — 무료로 사용해보세요
         </p>
       </section>
 

@@ -462,10 +462,16 @@ function ProfileContent() {
 
         {/* ── 고객 지원 ── */}
         <Section title="고객 지원">
-          <LinkRow icon={<HelpCircle className="w-4 h-4" />} label="도움말 및 피드백" />
-          <LinkRow icon={<FileText className="w-4 h-4" />}   label="이용약관" />
-          <LinkRow icon={<Shield className="w-4 h-4" />}     label="개인정보처리방침" />
-          <LinkRow icon={<Globe className="w-4 h-4" />}      label="Voyalogue v1.0.0" />
+          <LinkRow icon={<HelpCircle className="w-4 h-4" />} label="도움말 및 피드백"    onClick={() => router.push('/contact')} />
+          <LinkRow icon={<FileText className="w-4 h-4" />}   label="이용약관"            onClick={() => router.push('/terms')} />
+          <LinkRow icon={<Shield className="w-4 h-4" />}     label="개인정보처리방침"    onClick={() => router.push('/privacy')} />
+          <div className="flex items-center justify-between py-1">
+            <span className="flex items-center gap-2.5 text-sm text-gray-400">
+              <Globe className="w-4 h-4" />
+              Voyalogue v1.0.0
+            </span>
+            <span className="text-xs text-gray-300">BETA</span>
+          </div>
         </Section>
 
         {/* ── 로그아웃 ── */}

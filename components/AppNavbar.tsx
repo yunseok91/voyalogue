@@ -58,13 +58,13 @@ export function AppNavbar({
     <>
       <nav className="nav-bar justify-between flex-shrink-0">
         {/* 로고 */}
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <Link href="/" className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity">
           <div className="w-5 h-5 rounded-full bg-blue-600" />
           <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
             Voyalogue
           </span>
           <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">BETA</span>
-        </div>
+        </Link>
 
         {/* 가운데 탭 */}
         <div className="hidden sm:flex items-center gap-6 text-sm">
