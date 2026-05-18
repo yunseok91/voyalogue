@@ -34,6 +34,7 @@ import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { useParams } from 'next/navigation'
+import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -406,79 +407,80 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
           </div>
         )}
 
-        {/* 메타 행: 시간대 점 + 별점 + ÷N + 금액 */}
-        <div className="flex items-center gap-2 flex-wrap mt-1">
-          {/* 시간대 도트 (그룹 헤더와 대응) */}
-          <span
-            className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
-            title={item.timeSlot}
-          />
+        {/* 메타 행 */}
+        <div className="flex flex-col gap-1 mt-1">
+          {/* 1행: 시간대 도트 + 별점 */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
+              title={item.timeSlot}
+            />
+            <StarRow
+              myRating={item.ratings?.[myUid] ?? 0}
+              ratings={item.ratings}
+              onChange={v => onRate(item.id, v)}
+            />
+          </div>
 
-          {/* 별점 — 내 별점 클릭 + 전체 평균 표시 */}
-          <StarRow
-            myRating={item.ratings?.[myUid] ?? 0}
-            ratings={item.ratings}
-            onChange={v => onRate(item.id, v)}
-          />
-
-          {/* ÷N 배지 — 클릭 시 1인 금액 인라인 표시 */}
-          {totalPeople > 1 && item.price > 0 && (
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
-              className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all ${
-                actualPart < totalPeople
-                  ? 'text-blue-600 bg-blue-50 hover:bg-blue-100'
-                  : 'text-gray-400 bg-gray-100 hover:bg-gray-200'
-              }`}
-            >
-              <Users className="w-2.5 h-2.5 flex-shrink-0" />
-              <span>÷{actualPart}</span>
-              {showPP && perPersonKRW > 0 && (
-                <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
+          {/* 2행: ÷N (좌) + 금액 (우) */}
+          {(item.price > 0 || (totalPeople > 1)) && (
+            <div className="flex items-center gap-2">
+              {totalPeople > 1 && item.price > 0 && (
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
+                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all whitespace-nowrap text-blue-600 bg-blue-50 hover:bg-blue-100"
+                >
+                  <Users className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span>÷{actualPart}</span>
+                  {showPP && perPersonKRW > 0 && (
+                    <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
+                  )}
+                </button>
               )}
-            </button>
+              {item.price > 0 && (
+                <span className="text-xs font-semibold text-emerald-600 ml-auto">
+                  {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
+                </span>
+              )}
+            </div>
           )}
 
-          {item.price > 0 && (
-            <span className="text-xs font-semibold text-emerald-600 ml-auto">
-              {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
-            </span>
-          )}
-
-          {/* 사진 아이콘 — 사진 있으면 보라색+개수(클릭 시 라이트박스) + 회색(업로드), 없으면 회색(업로드)만 */}
-          {item.receipts && item.receipts.length > 0 && (
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
-              className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
-            >
-              <Camera className="w-2.5 h-2.5" />
-              <span>{item.receipts.length}</span>
-            </button>
-          )}
-          {(!item.receipts || item.receipts.length < 3) && (
-            <>
+          {/* 3행: 사진 아이콘 */}
+          <div className="flex items-center gap-1.5">
+            {item.receipts && item.receipts.length > 0 && (
               <button
                 onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
-                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
-                title="사진 업로드"
+                onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
               >
                 <Camera className="w-2.5 h-2.5" />
+                <span>{item.receipts.length}</span>
               </button>
-              <input
-                ref={cameraRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={e => {
-                  if (e.target.files?.length) { onUploadReceipt?.(e.target.files); e.target.value = '' }
-                }}
-              />
-            </>
-          )}
+            )}
+            {(!item.receipts || item.receipts.length < 3) && (
+              <>
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
+                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
+                  title="사진 업로드"
+                >
+                  <Camera className="w-2.5 h-2.5" />
+                </button>
+                <input
+                  ref={cameraRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="hidden"
+                  onChange={e => {
+                    if (e.target.files?.length) { onUploadReceipt?.(e.target.files); e.target.value = '' }
+                  }}
+                />
+              </>
+            )}
+          </div>
         </div>
       </div>
 
@@ -2518,99 +2520,18 @@ function PlannerContent({ tripId }: { tripId: string }) {
           <div className="absolute inset-0 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
 
             {/* ── 고정 일정 (비행기 / 숙소) ── */}
-            {activeDay && (() => {
-              const activeDayIdx2 = days.findIndex(d => d.dayId === activeDay.dayId)
-              const dayFlights = (meta.flights ?? []).filter(f => f.dayId === activeDay.dayId)
-              const dayAccs: Array<{ acc: AccommodationItem; role: 'checkin' | 'stay' | 'checkout' }> = []
-              for (const acc of (meta.accommodations ?? [])) {
-                const inIdx  = days.findIndex(d => d.dayId === acc.checkInDayId)
-                const outIdx = days.findIndex(d => d.dayId === acc.checkOutDayId)
-                if (acc.checkInDayId === activeDay.dayId) {
-                  dayAccs.push({ acc, role: 'checkin' })
-                } else if (acc.checkOutDayId === activeDay.dayId) {
-                  dayAccs.push({ acc, role: 'checkout' })
-                } else if (activeDayIdx2 > inIdx && activeDayIdx2 < outIdx) {
-                  dayAccs.push({ acc, role: 'stay' })
-                }
-              }
-              if (dayFlights.length === 0 && dayAccs.length === 0) return null
-              return (
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">고정 일정</span>
-                  {dayFlights.map(f => (
-                    <div key={f.id} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-sky-200 rounded-xl overflow-hidden shadow-sm">
-                      {/* 왼쪽 컬러 스트라이프 */}
-                      <div className="w-10 h-full min-h-[52px] bg-sky-500 flex items-center justify-center flex-shrink-0">
-                        <Plane className="w-4.5 h-4.5 text-white" style={{ width: 18, height: 18 }} />
-                      </div>
-                      <div className="flex-1 min-w-0 py-2.5">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${f.type === 'inbound' ? 'bg-sky-100 text-sky-700' : 'bg-orange-100 text-orange-700'}`}>
-                            {f.type === 'inbound' ? '✈ 입국' : '✈ 출국'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-gray-900 leading-snug truncate">{f.name}</p>
-                        {(f.departTime || f.arriveTime) && (
-                          <p className="text-[10px] text-gray-400 mt-0.5">
-                            {f.departTime && `출발 ${f.departTime}`}
-                            {f.departTime && f.arriveTime && ' → '}
-                            {f.arriveTime && `도착 ${f.arriveTime}`}
-                          </p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1 flex-shrink-0">
-                        <button onClick={() => setEditingFlight(f)}
-                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-sky-50 text-gray-400 hover:text-sky-600 transition-colors">
-                          <Pencil className="w-3 h-3" />
-                        </button>
-                        <button onClick={() => handleDeleteFlight(f.id)}
-                          className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
-                          <X className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {dayAccs.map(({ acc, role }) => (
-                    <div key={`${acc.id}-${role}`} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm">
-                      {/* 왼쪽 컬러 스트라이프 */}
-                      <div className={`w-10 h-full min-h-[52px] flex items-center justify-center flex-shrink-0 ${role === 'stay' ? 'bg-amber-300' : 'bg-amber-500'}`}>
-                        <BedDouble className="text-white" style={{ width: 18, height: 18 }} />
-                      </div>
-                      <div className="flex-1 min-w-0 py-2.5">
-                        <div className="flex items-center gap-1.5 mb-0.5">
-                          <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
-                            role === 'checkin' ? 'bg-amber-100 text-amber-700'
-                            : role === 'checkout' ? 'bg-orange-100 text-orange-700'
-                            : 'bg-gray-100 text-gray-500'
-                          }`}>
-                            {role === 'checkin' ? '🏨 체크인' : role === 'checkout' ? '🚪 체크아웃' : '🛏 숙박중'}
-                          </span>
-                        </div>
-                        <p className="text-xs font-bold text-gray-900 leading-snug truncate">{acc.name}</p>
-                        {role === 'checkin' && acc.checkInTime && (
-                          <p className="text-[10px] text-gray-400 mt-0.5">체크인 {acc.checkInTime}</p>
-                        )}
-                        {role === 'checkout' && acc.checkOutTime && (
-                          <p className="text-[10px] text-gray-400 mt-0.5">체크아웃 {acc.checkOutTime}</p>
-                        )}
-                      </div>
-                      {role !== 'stay' && (
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <button onClick={() => setEditingAcc(acc)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors">
-                            <Pencil className="w-3 h-3" />
-                          </button>
-                          <button onClick={() => handleDeleteAccommodation(acc.id)}
-                            className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
+            {activeDay && (
+              <FixedScheduleSection
+                flights={meta.flights ?? []}
+                accommodations={meta.accommodations ?? []}
+                activeDay={activeDay}
+                days={days}
+                onEditFlight={setEditingFlight}
+                onDeleteFlight={handleDeleteFlight}
+                onEditAcc={setEditingAcc}
+                onDeleteAcc={handleDeleteAccommodation}
+              />
+            )}
 
             {currentItems.length === 0 ? (
               <div onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}

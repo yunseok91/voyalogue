@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2 } from 'lucide-react'
 import {
   collection, getDoc, getDocs,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -18,6 +18,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
+import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -126,8 +127,9 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, myUid, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
-  item: PlanItem; canEdit: boolean; myUid?: string
+function ItemCard({ item, canEdit, myUid, totalPeople, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
+  item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number
+  rates?: Record<string, number>
   onEdit?: (item: PlanItem) => void
   onDelete?: (id: string) => void
   onRate?: (id: string, v: number) => void
@@ -135,82 +137,145 @@ function ItemCard({ item, canEdit, myUid, onEdit, onDelete, onRate, mapIndex, on
   onFocusMap?: (id: string) => void
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
+  const [showPP,  setShowPP]  = useState(false)
+  const [menu,    setMenu]    = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showPP) return
+    const t = setTimeout(() => setShowPP(false), 2500)
+    return () => clearTimeout(t)
+  }, [showPP])
+
+  useEffect(() => {
+    if (!menu) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menu])
+
+  const perPersonKRW = item.price > 0 && item.participants > 0 && rates
+    ? Math.round(toKRW(item.price, item.currency, rates) / item.participants)
+    : 0
 
   return (
     <div
-      className="flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
+      className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
       onClick={() => { if (item.lat && item.lng && onFocusMap) onFocusMap(item.id) }}
     >
       <div className="flex-1 min-w-0">
+        {/* 이름 + 맵 인덱스 배지 + 카테고리 */}
         <div className="flex items-start gap-2 mb-1">
           {mapIndex !== undefined && item.lat && item.lng && (
             <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5 ${SLOT_DOT[item.timeSlot]}`}>
               {mapIndex}
             </span>
           )}
-          <span className="text-sm font-semibold text-gray-900 flex-1 min-w-0 break-words">{item.name}</span>
+          <span className="text-sm font-semibold text-gray-900 leading-snug flex-1 min-w-0 break-words">{item.name}</span>
           <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{item.cat}</span>
         </div>
+
+        {/* 메모 */}
         {item.comment && (
-          <div className="flex mb-1 mt-0.5">
+          <div className="flex mb-1.5 mt-1">
             <div className="w-0.5 rounded-full bg-amber-300 flex-shrink-0 mr-2" />
             <p className="text-xs text-amber-800 leading-snug italic">{item.comment}</p>
           </div>
         )}
-        <div className="flex items-center gap-2 flex-wrap mt-1">
-          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-            { 아침: 'border-amber-200 text-amber-700 bg-amber-50', 점심: 'border-green-200 text-green-700 bg-green-50',
-              저녁: 'border-violet-200 text-violet-700 bg-violet-50', 미정: 'border-gray-200 text-gray-500 bg-gray-50' }[item.timeSlot]
-          }`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${SLOT_DOT[item.timeSlot]}`} />
-            {item.timeSlot}
-          </span>
-          <StarRow
-            myRating={myUid ? (item.ratings?.[myUid] ?? 0) : 0}
-            ratings={item.ratings}
-            onChange={canEdit && onRate ? v => onRate(item.id, v) : undefined}
-          />
-          {item.participants > 0 && (
-            <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
-              <Users className="w-3 h-3" />{item.participants}명
-            </span>
-          )}
+
+        {/* 메타 행 */}
+        <div className="flex flex-col gap-1 mt-1">
+          {/* 1행: 시간대 도트 + 별점 */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
+              title={item.timeSlot}
+            />
+            <StarRow
+              myRating={myUid ? (item.ratings?.[myUid] ?? 0) : 0}
+              ratings={item.ratings}
+              onChange={onRate ? v => onRate(item.id, v) : undefined}
+            />
+          </div>
+
+          {/* 2행: ÷N (좌) + 금액 (우) */}
           {item.price > 0 && (
-            <span className="text-xs font-semibold text-emerald-600 ml-auto">
-              {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
-            </span>
+            <div className="flex items-center gap-2">
+              {item.participants > 0 && (
+                <button
+                  onMouseDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
+                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap transition-all text-blue-600 bg-blue-50 hover:bg-blue-100"
+                >
+                  <Users className="w-2.5 h-2.5 flex-shrink-0" />
+                  <span>÷{item.participants}</span>
+                  {showPP && perPersonKRW > 0 && (
+                    <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
+                  )}
+                </button>
+              )}
+              <span className="text-xs font-semibold text-emerald-600 ml-auto">
+                {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
+              </span>
+            </div>
           )}
-          {item.receipts && item.receipts.length > 0 ? (
-            <button
-              onClick={() => setLightboxIdx(0)}
-              className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors flex-shrink-0"
-            >
-              <Camera className="w-2.5 h-2.5" />
-              <span>{item.receipts.length}</span>
-            </button>
-          ) : canEdit && onEdit ? (
-            <button
-              onClick={() => onEdit(item)}
-              className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-gray-400 bg-gray-50 hover:text-violet-600 hover:bg-violet-50 transition-colors flex-shrink-0"
-            >
-              <Camera className="w-2.5 h-2.5" />
-            </button>
-          ) : null}
+
+          {/* 3행: 사진 아이콘 */}
+          <div className="flex items-center gap-1.5">
+            {item.receipts && item.receipts.length > 0 && (
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setLightboxIdx(0) }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors flex-shrink-0"
+              >
+                <Camera className="w-2.5 h-2.5" />
+                <span>{item.receipts.length}</span>
+              </button>
+            )}
+            {canEdit && (!item.receipts || item.receipts.length < 3) && onEdit && (
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onEdit(item) }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600 transition-colors flex-shrink-0"
+                title="사진 업로드"
+              >
+                <Camera className="w-2.5 h-2.5" />
+              </button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 더보기 메뉴 (편집 권한 있을 때만) */}
       {canEdit && (
-        <div className="flex flex-col gap-1 flex-shrink-0">
-          {onEdit && (
-            <button onClick={() => onEdit(item)}
-              className="w-6 h-6 flex items-center justify-center rounded-md text-gray-300 hover:text-blue-500 hover:bg-blue-50 transition-colors">
-              <Pencil className="w-3 h-3" />
-            </button>
-          )}
-          {onDelete && (
-            <button onClick={() => onDelete(item.id)}
-              className="w-6 h-6 flex items-center justify-center rounded-md text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors">
-              <X className="w-3.5 h-3.5" />
-            </button>
+        <div className="relative flex-shrink-0" ref={menuRef}>
+          <button
+            onClick={e => { e.stopPropagation(); setMenu(v => !v) }}
+            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-300 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
+          >
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+          {menu && (
+            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28">
+              {onEdit && (
+                <button
+                  className="w-full px-3 py-2 flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  onClick={e => { e.stopPropagation(); onEdit(item); setMenu(false) }}
+                >
+                  <Edit2 className="w-3.5 h-3.5" /> 수정
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  className="w-full px-3 py-2 flex items-center gap-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
+                  onClick={e => { e.stopPropagation(); onDelete(item.id); setMenu(false) }}
+                >
+                  <Trash2 className="w-3.5 h-3.5" /> 삭제
+                </button>
+              )}
+            </div>
           )}
         </div>
       )}
@@ -1207,61 +1272,14 @@ export default function SharePage() {
           <div className="relative flex-1 overflow-hidden">
           <div className="absolute inset-0 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
             {/* ── 고정 일정 (비행기 / 숙소) ── */}
-            {activeDay && (() => {
-              const activeDayIdx2 = days.findIndex(d => d.dayId === activeDay.dayId)
-              const dayFlights = (trip.flights ?? []).filter(f => f.dayId === activeDay.dayId)
-              const dayAccs: Array<{ acc: AccommodationItem; role: 'checkin' | 'stay' | 'checkout' }> = []
-              for (const acc of (trip.accommodations ?? [])) {
-                const inIdx  = days.findIndex(d => d.dayId === acc.checkInDayId)
-                const outIdx = days.findIndex(d => d.dayId === acc.checkOutDayId)
-                if (acc.checkInDayId === activeDay.dayId)        dayAccs.push({ acc, role: 'checkin' })
-                else if (acc.checkOutDayId === activeDay.dayId)  dayAccs.push({ acc, role: 'checkout' })
-                else if (activeDayIdx2 > inIdx && activeDayIdx2 < outIdx) dayAccs.push({ acc, role: 'stay' })
-              }
-              if (dayFlights.length === 0 && dayAccs.length === 0) return null
-              return (
-                <div className="flex flex-col gap-2">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">고정 일정</span>
-                  {dayFlights.map(f => (
-                    <div key={f.id} className="flex items-center gap-2.5 px-3 py-2.5 bg-sky-50 border border-sky-200 rounded-xl">
-                      <div className="w-7 h-7 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
-                        <Plane className="w-3.5 h-3.5 text-sky-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-sky-800 leading-none">
-                          {f.type === 'inbound' ? '입국' : '출국'} · {f.name}
-                        </p>
-                        {(f.departTime || f.arriveTime) && (
-                          <p className="text-[10px] text-sky-600 mt-0.5">
-                            {f.departTime && `출발 ${f.departTime}`}
-                            {f.departTime && f.arriveTime && ' → '}
-                            {f.arriveTime && `도착 ${f.arriveTime}`}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                  {dayAccs.map(({ acc, role }) => (
-                    <div key={`${acc.id}-${role}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
-                      <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
-                        <BedDouble className="w-3.5 h-3.5 text-amber-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-amber-800 leading-none">
-                          {role === 'checkin' ? '체크인' : role === 'checkout' ? '체크아웃' : '숙박중'} · {acc.name}
-                        </p>
-                        {role === 'checkin' && acc.checkInTime && (
-                          <p className="text-[10px] text-amber-600 mt-0.5">체크인 {acc.checkInTime}</p>
-                        )}
-                        {role === 'checkout' && acc.checkOutTime && (
-                          <p className="text-[10px] text-amber-600 mt-0.5">체크아웃 {acc.checkOutTime}</p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
+            {activeDay && (
+              <FixedScheduleSection
+                flights={trip.flights ?? []}
+                accommodations={trip.accommodations ?? []}
+                activeDay={activeDay}
+                days={days}
+              />
+            )}
 
             {currentItems.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
@@ -1281,7 +1299,7 @@ export default function SharePage() {
                     </div>
                     <div className="flex flex-col gap-2">
                       {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={trip?.people || 1} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                       ))}
                     </div>
                   </div>
