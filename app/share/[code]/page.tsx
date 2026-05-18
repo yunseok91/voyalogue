@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil, UserPlus } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut } from 'lucide-react'
 import {
   collection, getDoc, getDocs, orderBy,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
@@ -24,7 +24,7 @@ type TimeSlot = '아침' | '점심' | '저녁' | '미정'
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
 type MemberRole = 'owner' | 'treasurer' | 'member'
 
-type Member = { id: string; name: string; photoURL?: string; role: MemberRole; colorIndex?: number }
+type Member = { id: string; name: string; photoURL?: string; role: MemberRole; colorIndex?: number; left?: boolean }
 
 type FlightItem = {
   id:          string
@@ -774,9 +774,10 @@ export default function SharePage() {
       /* 총무 역할이면 편집 권한 부여 */
       const member = (trip.members ?? []).find(m => m.id === user.uid)
       if (member?.role === 'treasurer') setCanEdit(true)
-      /* 로그인 유저가 멤버 목록에 없으면 자동 추가 (인원 제한 내) */
+      /* 로그인 유저가 멤버 목록에 없으면 자동 추가 (인원 제한 내, 탈퇴 멤버 제외) */
       const alreadyIn = (trip.members ?? []).some(m => m.id === user.uid)
-      if (!alreadyIn && (trip.members ?? []).length < (trip.people || 1)) {
+      const activeCount = (trip.members ?? []).filter(m => !m.left).length
+      if (!alreadyIn && activeCount < (trip.people || 1)) {
         const newMember = {
           id:       user.uid,
           name:     user.displayName || '멤버',
@@ -908,6 +909,17 @@ export default function SharePage() {
     )
   }
 
+  const handleLeaveTrip = async () => {
+    if (!user || !trip) return
+    if (!window.confirm('이 여행에서 탈퇴하시겠습니까?')) return
+    const updatedMembers = (trip.members ?? []).map(m =>
+      m.id === user.uid ? { ...m, left: true } : m
+    )
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
+    await deleteDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id)).catch(() => {})
+    router.replace('/')
+  }
+
   /* ── 로딩 ── */
   if (!trip && !notFound) {
     return (
@@ -1006,12 +1018,24 @@ export default function SharePage() {
       setJoining(false)
     }
   }
+  /* 탈퇴한 멤버 화면 */
+  if (currentMember?.left === true) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]">
+        <LogOut className="w-8 h-8 text-gray-300" />
+        <p className="text-sm font-semibold text-gray-500">탈퇴한 여행입니다.</p>
+        <p className="text-xs text-gray-400">초대 링크를 통해 다시 참여할 수 있어요.</p>
+        <Link href="/" className="text-sm text-blue-600 hover:underline">홈으로</Link>
+      </div>
+    )
+  }
+
   const currentName     = user ? (user.displayName || user.email?.split('@')[0] || '나') : (guestName || '나')
   const currentPhotoURL = user?.photoURL ?? undefined
   const isTreasurer     = currentMember?.role === 'treasurer'
 
-  /* Firebase Auth 최신 정보 반영 멤버 목록 */
-  const resolvedMembers = (trip.members ?? []).map(m => ({
+  /* Firebase Auth 최신 정보 반영 멤버 목록 (탈퇴 멤버 제외) */
+  const resolvedMembers = (trip.members ?? []).filter(m => !m.left).map(m => ({
     ...m,
     photoURL: m.id === user?.uid ? (user?.photoURL ?? m.photoURL) : m.photoURL,
     name:     m.id === user?.uid ? (user?.displayName ?? m.name)  : m.name,
@@ -1059,6 +1083,16 @@ export default function SharePage() {
               </span>
             </div>
           </div>
+          {/* 여행 탈퇴 버튼 — 초대된 멤버(오너 제외)에게만 표시 */}
+          {user && currentMember && !currentMember.left && trip.uid !== user.uid && (
+            <button
+              onClick={handleLeaveTrip}
+              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+              title="여행 탈퇴"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </nav>
 

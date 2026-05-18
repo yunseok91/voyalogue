@@ -23,7 +23,7 @@ type TripSnap = {
   startDate:  string
   endDate:    string
   people:     number
-  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string }>
+  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string; left?: boolean }>
 }
 
 export default function InvitePage() {
@@ -93,11 +93,27 @@ export default function InvitePage() {
       }
 
       /* 이미 연동된 경우 (일반 멤버) */
-      if (members.some(m => m.id === user.uid)) {
-        setDoc(doc(db, 'users', user.uid, 'invitedTrips', invite.tripId), {
-          ownerUid: invite.ownerUid, tripId: invite.tripId, viewCode: invite.viewCode,
-        }).catch(() => {})
-        router.replace(`/share/${invite.viewCode}`)
+      const existingMember = members.find(m => m.id === user.uid)
+      if (existingMember) {
+        if (existingMember.left) {
+          /* 탈퇴 멤버 복원 */
+          const updatedMembers = members.map(m =>
+            m.id === user.uid ? { ...m, left: false } : m
+          )
+          await updateDoc(doc(db, 'users', invite.ownerUid, 'trips', invite.tripId), {
+            members: updatedMembers,
+          })
+          await setDoc(doc(db, 'users', user.uid, 'invitedTrips', invite.tripId), {
+            ownerUid: invite.ownerUid, tripId: invite.tripId, viewCode: invite.viewCode,
+          })
+          setClaimed(true)
+          setTimeout(() => router.replace(`/share/${invite.viewCode}`), 1200)
+        } else {
+          setDoc(doc(db, 'users', user.uid, 'invitedTrips', invite.tripId), {
+            ownerUid: invite.ownerUid, tripId: invite.tripId, viewCode: invite.viewCode,
+          }).catch(() => {})
+          router.replace(`/share/${invite.viewCode}`)
+        }
         return
       }
 
@@ -113,7 +129,7 @@ export default function InvitePage() {
         )
       } else {
         /* 빈 슬롯 — 인원 여유가 있으면 신규 추가 (탈퇴 멤버 제외 카운트) */
-        const activeCount = members.length
+        const activeCount = members.filter(m => !m.left).length
         if (activeCount >= (trip.people || 1)) {
           setError('이미 인원이 가득 찼어요. 방장에게 문의해주세요.')
           setClaiming(false)
