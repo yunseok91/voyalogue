@@ -63,7 +63,7 @@ const EXISTING_TRIPS = [
 function calcNights(start: string, end: string) {
   if (!start || !end) return null
   const s = new Date(start), e = new Date(end)
-  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e <= s) return null
+  if (isNaN(s.getTime()) || isNaN(e.getTime()) || e < s) return null
   const nights = Math.round((e.getTime() - s.getTime()) / 86400000)
   return { nights, days: nights + 1 }
 }
@@ -203,8 +203,8 @@ function NewTripContent() {
   const previewSub     = query
     ? (startDate && endDate ? `${startDate} – ${endDate.slice(5)}` : '날짜 미정')
     : '나라 · 날짜 미정'
-  const previewNight   = nightInfo ? `${nightInfo.nights}박 ${nightInfo.days}일` : '0박 0일'
-  const canSubmit      = query.trim() && startDate && endDate && nightInfo
+  const previewNight   = nightInfo ? (nightInfo.nights === 0 ? '당일치기' : `${nightInfo.nights}박 ${nightInfo.days}일`) : '0박 0일'
+  const canSubmit      = query.trim() && startDate && endDate && nightInfo !== null
 
   /* ── 도시 검색: 한국 도시 즉시 + Google Places 디바운스 ── */
   const handleQueryChange = useCallback((val: string) => {
@@ -226,9 +226,12 @@ function NewTripContent() {
       const ctrl = new AbortController()
       abortRef.current = ctrl
       try {
-        const overseas = await fetchCitiesGoogle(val, countries, ctrl.signal)
+        const krResults  = searchKrCities(val)
+        const krNames    = new Set(krResults.map(c => c.city))
+        const overseas   = await fetchCitiesGoogle(val, countries, ctrl.signal)
         if (!ctrl.signal.aborted) {
-          setCitySug([...searchKrCities(val), ...overseas.filter(o => o.countryCode !== 'kr')])
+          const filtered = overseas.filter(o => o.countryCode !== 'kr' && !krNames.has(o.city))
+          setCitySug([...krResults, ...filtered])
           setCityLoading(false)
         }
       } catch {
@@ -489,12 +492,14 @@ function NewTripContent() {
                 <span className="text-gray-400 text-lg flex-shrink-0">–</span>
                 <div className="relative flex-1">
                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-[18px] h-[18px] text-gray-400 pointer-events-none" />
-                  <input type="date" value={endDate} min={startDate} onChange={e => setEnd(e.target.value)}
+                  <input type="date" value={endDate} min={startDate || undefined} onChange={e => setEnd(e.target.value)}
                     className="w-full pl-11 pr-4 py-3.5 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
                 </div>
               </div>
               {nightInfo && (
-                <p className="text-xs text-blue-600 font-semibold pl-1">{nightInfo.nights}박 {nightInfo.days}일 일정</p>
+                <p className="text-xs text-blue-600 font-semibold pl-1">
+                  {nightInfo.nights === 0 ? '당일치기 일정' : `${nightInfo.nights}박 ${nightInfo.days}일 일정`}
+                </p>
               )}
             </div>
 

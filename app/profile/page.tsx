@@ -81,6 +81,8 @@ function ProfileContent() {
   const displayName  = user?.displayName || user?.email?.split('@')[0] || 'Y'
   const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com'
 
+  const selectedRingColor = avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base ?? CLAY[0].base)
+
   /* ── 아바타 색상 ── */
   const [colorSaving, setColorSaving] = useState(false)
   const hexInputRef = useRef<HTMLInputElement>(null)
@@ -245,6 +247,7 @@ function ProfileContent() {
                 size={80}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
+                ringColor={currentPhoto ? selectedRingColor : undefined}
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -296,7 +299,7 @@ function ProfileContent() {
 
           {/* 아이콘 색상 선택 */}
           <div className="flex items-center gap-3 mb-5">
-            <span className="text-xs font-medium text-gray-400 flex-shrink-0">아이콘 색상</span>
+            <span className="text-xs font-medium text-gray-400 flex-shrink-0">{currentPhoto ? '테두리 색상' : '아이콘 색상'}</span>
             <div className="flex items-center gap-2">
               {CLAY.map((c, i) => (
                 <button

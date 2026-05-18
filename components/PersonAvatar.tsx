@@ -29,9 +29,10 @@ interface Props {
   colorIndex?: number
   hexColor?:   string
   stacked?:    boolean
+  ringColor?:  string
 }
 
-export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked }: Props) {
+export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
   const [imgFailed, setImgFailed] = useState(false)
 
   const clay    = colorIndex !== undefined ? CLAY[colorIndex % CLAY.length] : getColor(name)
@@ -39,15 +40,17 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
   const sh      = hexColor ? '#64748B' : clay.sh
   const isWhite = colorIndex === 0 && !hexColor
 
-  const ring = ''
-
   let shadow: string
   if (photoURL && !imgFailed) {
-    shadow = `${ring}0 2px 6px rgba(0,0,0,0.12)`
+    shadow = `0 2px 6px rgba(0,0,0,0.12)`
   } else if (isWhite) {
-    shadow = `${ring}0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
+    shadow = `0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
   } else {
-    shadow = `${ring}0 2px 5px ${sh}55`
+    shadow = `0 2px 5px ${sh}55`
+  }
+
+  if (ringColor) {
+    shadow = `0 0 0 2.5px white, 0 0 0 5px ${ringColor}, ${shadow}`
   }
 
   const showPhoto = photoURL && !imgFailed
