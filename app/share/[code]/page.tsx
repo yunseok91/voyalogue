@@ -3,15 +3,15 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut } from 'lucide-react'
 import {
-  collection, getDoc, getDocs, orderBy,
-  doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
+  collection, getDoc, getDocs,
+  doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { gradientStyle, gradientTextColor } from '@/lib/tripGradient'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
-import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
+import { detectCurrencies, CURRENCY_SYMBOLS } from '@/lib/currencyMap'
 import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate'
 import { TripMap, type MapItem } from '@/components/TripMap'
 import { useAuthStore } from '@/features/auth/store'
@@ -686,7 +686,7 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
             <div className="flex gap-2">
               <button type="button" onClick={onClose}
                 className="flex-1 py-3 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">취소</button>
-              <button type="submit" disabled={!ok}
+              <button type="submit" disabled={!ok || uploading}
                 className="flex-1 py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">저장</button>
             </div>
           </div>
@@ -788,7 +788,12 @@ export default function SharePage() {
         }
         const updatedMembers = [...(trip.members ?? []), newMember]
         updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
-          .then(() => setTrip(prev => prev ? { ...prev, members: updatedMembers } : prev))
+          .then(() => {
+            setTrip(prev => prev ? { ...prev, members: updatedMembers } : prev)
+            setDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id), {
+              ownerUid: trip.uid, tripId: trip.id, viewCode: trip.viewCode,
+            }).catch(() => {})
+          })
           .catch(() => {})
       }
     } else {
@@ -886,6 +891,10 @@ export default function SharePage() {
 
   const handleDelete = async (itemId: string) => {
     if (!activeDay || !trip) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== itemId),
+    }))
     await deleteDoc(doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId))
   }
 
@@ -1278,7 +1287,7 @@ export default function SharePage() {
                     </div>
                     <div className="flex flex-col gap-2">
                       {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} onEdit={setEditingItem} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                       ))}
                     </div>
                   </div>

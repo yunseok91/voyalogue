@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench } from 'lucide-react'
-import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, where, getDoc } from 'firebase/firestore'
+import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -310,12 +310,15 @@ function TripsContent() {
     [trips]
   )
 
-  const counts = useMemo(() => ({
-    all:      tripsWithStatus.length + invitedTrips.length,
-    ongoing:  tripsWithStatus.filter(t => t.status === 'ongoing').length,
-    upcoming: tripsWithStatus.filter(t => t.status === 'upcoming').length,
-    done:     tripsWithStatus.filter(t => t.status === 'done').length,
-  }), [tripsWithStatus, invitedTrips])
+  const counts = useMemo(() => {
+    const invitedWithStatus = invitedTrips.map(t => ({ ...t, status: getStatus(t) }))
+    return {
+      all:      tripsWithStatus.length + invitedTrips.length,
+      ongoing:  tripsWithStatus.filter(t => t.status === 'ongoing').length  + invitedWithStatus.filter(t => t.status === 'ongoing').length,
+      upcoming: tripsWithStatus.filter(t => t.status === 'upcoming').length + invitedWithStatus.filter(t => t.status === 'upcoming').length,
+      done:     tripsWithStatus.filter(t => t.status === 'done').length     + invitedWithStatus.filter(t => t.status === 'done').length,
+    }
+  }, [tripsWithStatus, invitedTrips])
 
   const sorted = useMemo(() => {
     let filtered = filter === 'all'
@@ -364,6 +367,26 @@ function TripsContent() {
 
   const handleFilter = (f: Filter) => { setFilter(f); setPage(1) }
   const handlePage   = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)))
+
+  const handleLeaveInvited = async (e: React.MouseEvent, trip: InvitedTrip) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user || !confirm('이 여행에서 탈퇴하시겠습니까?')) return
+
+    setInvitedTrips(prev => prev.filter(t => t.id !== trip.id))
+
+    try {
+      const tripSnap = await getDoc(doc(db, 'users', trip.ownerUid, 'trips', trip.id))
+      if (tripSnap.exists()) {
+        const members = (tripSnap.data().members ?? []) as Array<{ id: string } & Record<string, unknown>>
+        const updatedMembers = members.map(m =>
+          m.id === user.uid ? { ...m, left: true } : m
+        )
+        await updateDoc(doc(db, 'users', trip.ownerUid, 'trips', trip.id), { members: updatedMembers })
+      }
+      await deleteDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id))
+    } catch { /* silent */ }
+  }
 
   const handleDelete = async (e: React.MouseEvent, tripId: string) => {
     e.preventDefault()
@@ -655,6 +678,12 @@ function TripsContent() {
                               <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20'}`}>
                                 초대됨
                               </span>
+                              <button
+                                onClick={e => handleLeaveInvited(e, trip)}
+                                className={`opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'}`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
                             </div>
                           </div>
                           <div>
