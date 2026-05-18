@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen } from 'lucide-react'
+import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen, Flag } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -16,9 +16,11 @@ type ActiveTab = 'trips' | 'collection' | 'profile'
 export function AppNavbar({
   active,
   onExcel,
+  onReport,
 }: {
-  active:   ActiveTab
-  onExcel?: () => void
+  active:    ActiveTab
+  onExcel?:  () => void
+  onReport?: () => void
 }) {
   const { user, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor } = useAuthStore()
   const router = useRouter()
@@ -93,6 +95,16 @@ export function AppNavbar({
           )}
 
           <NotificationBell />
+
+          {onReport && (
+            <button
+              onClick={onReport}
+              title="문의 / 버그 신고"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
+          )}
 
           <Link
             href="/trips/new"

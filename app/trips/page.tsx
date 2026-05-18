@@ -3,13 +3,15 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2 } from 'lucide-react'
 import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ExcelModal } from '@/components/organisms/ExcelModal'
+import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
+import { ReportModal } from '@/components/ReportModal'
 import { AppNavbar } from '@/components/AppNavbar'
 // import { AdUnit } from '@/components/AdUnit'
 // import { AdFreeButton } from '@/components/AdFreeButton'
@@ -32,6 +34,9 @@ type Trip = {
   gradient:  string
   textDark?: boolean
   isSample?: boolean
+  people?:   number
+  currency?: string
+  budget?:   number
 }
 
 type InvitedTripRef = {
@@ -242,8 +247,10 @@ function TripsContent() {
   const [darkOverride, setDarkOverride] = useState<Record<string, boolean>>({})
   const [popupMsg, setPopupMsg] = useState<AdminMessage | null>(null)
   const [seedLoading, setSeedLoading] = useState(false)
+  const [editTarget,  setEditTarget]  = useState<Trip | null>(null)
+  const [showReport,  setShowReport]  = useState(false)
 
-  useScrollLock(showExcel || !!popupMsg)
+  useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport)
 
   /* Firestore 1회 읽기 (onSnapshot 대신 getDocs — 비용 절감) */
   const fetchTrips = async (uid: string) => {
@@ -473,6 +480,12 @@ function TripsContent() {
     } catch { /* Storage 경로 없으면 무시 */ }
   }
 
+  const openCardEdit = (e: React.MouseEvent, trip: Trip) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setEditTarget(trip)
+  }
+
   const FILTERS: { key: Filter; label: string }[] = [
     { key: 'all',      label: '전체' },
     { key: 'ongoing',  label: '여행중' },
@@ -485,7 +498,7 @@ function TripsContent() {
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
 
-      <AppNavbar active="trips" onExcel={() => setShowExcel(true)} />
+      <AppNavbar active="trips" onExcel={() => setShowExcel(true)} onReport={() => setShowReport(true)} />
 
       <AnnouncementModal />
 
@@ -537,15 +550,18 @@ function TripsContent() {
               </button>
             ))}
           </div>
-          <select
-            value={roleFilter}
-            onChange={e => handleRoleFilter(e.target.value as RoleFilter)}
-            className="flex-shrink-0 px-3 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600 bg-white cursor-pointer hover:border-blue-400 transition-colors focus:outline-none"
-          >
-            <option value="all">전체 역할</option>
-            <option value="owner">방장</option>
-            <option value="member">멤버</option>
-          </select>
+          <div className="relative flex-shrink-0">
+            <select
+              value={roleFilter}
+              onChange={e => handleRoleFilter(e.target.value as RoleFilter)}
+              className="appearance-none pl-3 pr-8 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600 bg-white cursor-pointer hover:border-blue-400 transition-colors focus:outline-none"
+            >
+              <option value="all">전체 역할</option>
+              <option value="owner">방장</option>
+              <option value="member">게스트</option>
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          </div>
         </div>
 
         {/* 로딩 스켈레톤 */}
@@ -678,7 +694,7 @@ function TripsContent() {
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
                         style={{ background: gradientStyle(trip.gradient) }}>
                         <div className="flex items-start justify-between">
-                          <MapPin className={`w-6 h-6 sm:w-7 sm:h-7 ${clrIcon}`} />
+                          <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${clrIcon}`} />
                           <div className="flex items-center gap-1.5">
                             {trip.isSample && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
@@ -732,9 +748,16 @@ function TripsContent() {
                           <p className={`text-xs mt-1 font-medium ${clrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
-                      <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-700">{trip.nights}박 {trip.days}일</span>
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
+                      <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2">
+                        <span className="text-sm font-semibold text-gray-700 flex-1">{trip.nights}박 {trip.days}일</span>
+                        <button
+                          onClick={e => openCardEdit(e, trip)}
+                          title="여행 수정"
+                          className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
+                        >
+                          <Edit2 className="w-3.5 h-3.5" />
+                        </button>
+                        <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
                       </div>
                     </div>
                   </Link>
@@ -816,7 +839,7 @@ function TripsContent() {
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
                         style={{ background: gradientStyle(trip.gradient) }}>
                         <div className="flex items-start justify-between">
-                          <MapPin className={`w-6 h-6 sm:w-7 sm:h-7 ${clrIcon}`} />
+                          <User className={`w-5 h-5 sm:w-6 sm:h-6 ${clrIcon}`} />
                           <div className="flex items-center gap-1.5">
                             {isOngoing && (
                               <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
@@ -863,6 +886,49 @@ function TripsContent() {
           trips={tripsWithStatus}
           uid={user.uid}
         />
+      )}
+
+      {/* 여행 카드 수정 모달 */}
+      {editTarget && user && (
+        <TripEditModal
+          city={editTarget.city}
+          title={editTarget.title}
+          startDate={editTarget.startDate}
+          endDate={editTarget.endDate}
+          people={editTarget.people}
+          currency={editTarget.currency}
+          budgetKRW={editTarget.budget}
+          onClose={() => setEditTarget(null)}
+          onSave={async (data: TripEditFormData) => {
+            await updateDoc(doc(db, 'users', user.uid, 'trips', editTarget.id), {
+              title:     data.title || null,
+              startDate: data.startDate,
+              endDate:   data.endDate,
+              nights:    data.nights,
+              days:      data.days,
+              people:    data.people,
+              currency:  data.currency || null,
+              budget:    data.budgetKRW,
+            })
+            setTrips(prev => prev.map(t => t.id === editTarget.id
+              ? { ...t,
+                  title:     data.title || undefined,
+                  startDate: data.startDate,
+                  endDate:   data.endDate,
+                  nights:    data.nights,
+                  days:      data.days,
+                  people:    data.people,
+                  currency:  data.currency,
+                  budget:    data.budgetKRW,
+                }
+              : t
+            ))
+          }}
+        />
+      )}
+
+      {showReport && user && (
+        <ReportModal user={user} onClose={() => setShowReport(false)} />
       )}
 
       {/* 운영자 메시지 팝업 */}

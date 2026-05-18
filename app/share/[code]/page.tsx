@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Flag } from 'lucide-react'
 import {
   collection, getDoc, getDocs,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -20,6 +20,7 @@ import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { AdUnit } from '@/components/AdUnit'
+import { ReportModal } from '@/components/ReportModal'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -779,8 +780,9 @@ export default function SharePage() {
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
   const [showSettlement, setShowSettlement] = useState(false)
+  const [showReport,     setShowReport]     = useState(false)
 
-  useScrollLock(showAdd || !!editingItem || showSettlement)
+  useScrollLock(showAdd || !!editingItem || showSettlement || showReport)
 
   /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
@@ -1269,6 +1271,13 @@ export default function SharePage() {
               </Link>
             )}
             {user && <NotificationBell />}
+            <button
+              onClick={() => setShowReport(true)}
+              title="문의 / 버그 신고"
+              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
+            >
+              <Flag className="w-4 h-4" />
+            </button>
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
               <div className="relative flex-shrink-0">
                 <PersonAvatar
@@ -1327,6 +1336,13 @@ export default function SharePage() {
         <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-t border-gray-100">
           <div className="flex-1" />
           {user && <NotificationBell />}
+          <button
+            onClick={() => setShowReport(true)}
+            title="문의 / 버그 신고"
+            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
+          >
+            <Flag className="w-4 h-4" />
+          </button>
           {canEdit && (
             <button onClick={() => setShowChecklist(v => !v)}
               className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors min-h-[36px]">
@@ -1857,6 +1873,10 @@ export default function SharePage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showReport && user && (
+        <ReportModal user={user} onClose={() => setShowReport(false)} />
       )}
     </div>
   )

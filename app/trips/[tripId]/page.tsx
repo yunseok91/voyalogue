@@ -36,6 +36,7 @@ import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { useParams, useRouter } from 'next/navigation'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
+import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -1451,8 +1452,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [mapMounted,    setMapMounted]    = useState(false)  // lazy mount — 처음 지도 탭 열릴 때 true
   const [isDesktop,     setIsDesktop]     = useState(false)  // window >= 1024, reactive to resize
   const [showEdit,      setShowEdit]      = useState(false)
-  const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1, currency: 'KRW', budget: 0 })
-  const [editSaving,    setEditSaving]    = useState(false)
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
@@ -2209,58 +2208,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }, [editingAcc?.id])
 
   /* ── 여행 정보 편집 ── */
-  const openEdit = () => {
-    if (!meta) return
-    const rate = rates[primaryCurrency] || 1
-    const budgetInLocal = meta.budget > 0 ? Math.round(meta.budget / rate) : 0
-    setEditForm({ title: meta.title ?? '', startDate: meta.startDate, endDate: meta.endDate, people: meta.people || 1, currency: primaryCurrency, budget: budgetInLocal })
-    setShowEdit(true)
-  }
-
-  const handleEditSave = async () => {
-    if (!editForm.startDate || !editForm.endDate) return
-    const start  = new Date(editForm.startDate)
-    const end    = new Date(editForm.endDate)
-    const nights = Math.round((end.getTime() - start.getTime()) / 86400000)
-    if (nights < 0) return
-    const daysCount = nights + 1
-
-    const rate = rates[editForm.currency] || 1
-    const budgetKRW = Math.max(0, Math.round((editForm.budget || 0) * rate))
-
-    setEditSaving(true)
-    const batch = writeBatch(db)
-    batch.update(doc(db, 'users', uid, 'trips', tripId), {
-      title: editForm.title.trim() || null,
-      startDate: editForm.startDate,
-      endDate: editForm.endDate,
-      nights, days: daysCount,
-      people: Math.max(1, editForm.people),
-      currency: editForm.currency || null,
-      budget: budgetKRW,
-    })
-    for (let i = 0; i < daysCount; i++) {
-      const d = new Date(start)
-      d.setDate(d.getDate() + i)
-      batch.set(
-        doc(db, 'users', uid, 'trips', tripId, 'days', `d${i + 1}`),
-        { label: `Day ${i + 1}`, date: d.toISOString().slice(0, 10) },
-        { merge: true }
-      )
-    }
-    await batch.commit()
-    setMeta(prev => prev ? {
-      ...prev,
-      title: editForm.title.trim() || undefined,
-      startDate: editForm.startDate,
-      endDate: editForm.endDate,
-      nights, days: daysCount,
-      people: Math.max(1, editForm.people),
-      budget: budgetKRW,
-    } : prev)
-    setEditSaving(false)
-    setShowEdit(false)
-  }
+  const openEdit = () => setShowEdit(true)
 
   /* ── 체크리스트 ── */
   const checkItems = meta?.checklist ?? []
@@ -3251,102 +3199,51 @@ function PlannerContent({ tripId }: { tripId: string }) {
       )}
 
       {/* ── 여행 정보 편집 모달 ── */}
-      {showEdit && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]"
-          onClick={() => setShowEdit(false)}>
-          <div className="bg-white rounded-2xl p-6 w-[360px] mx-4 shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900 mb-5">여행 정보 편집</h3>
-            <div className="flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <div className="flex items-center justify-between">
-                  <label className="text-xs font-semibold text-gray-500">여행 제목 <span className="font-normal text-gray-400">(선택)</span></label>
-                  <span className={`text-[11px] font-medium tabular-nums ${(editForm.title?.length ?? 0) >= 18 ? 'text-orange-500' : 'text-gray-300'}`}>
-                    {editForm.title?.length ?? 0}/20
-                  </span>
-                </div>
-                <input type="text" value={editForm.title}
-                  onChange={e => setEditForm(f => ({ ...f, title: e.target.value.slice(0, 20) }))}
-                  maxLength={20}
-                  placeholder={meta?.city ?? ''}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500">시작일</label>
-                <input type="date" value={editForm.startDate}
-                  onChange={e => setEditForm(f => ({ ...f, startDate: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500">종료일</label>
-                <input type="date" value={editForm.endDate}
-                  onChange={e => setEditForm(f => ({ ...f, endDate: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500">현지 통화</label>
-                <select
-                  value={editForm.currency}
-                  onChange={e => setEditForm(f => ({ ...f, currency: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all bg-white"
-                >
-                  {Object.entries(CURRENCY_NAMES).map(([code, name]) => (
-                    <option key={code} value={code}>
-                      {CURRENCY_SYMBOLS[code]} {code} — {name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500">인원수</label>
-                <div className="flex items-center gap-3">
-                  <button type="button"
-                    onClick={() => setEditForm(f => ({ ...f, people: Math.max(1, f.people - 1) }))}
-                    className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors text-lg font-light disabled:opacity-30"
-                    disabled={editForm.people <= 1}>
-                    −
-                  </button>
-                  <span className="flex-1 text-center text-sm font-bold text-gray-900">{editForm.people}명</span>
-                  <button type="button"
-                    onClick={() => setEditForm(f => ({ ...f, people: Math.min(20, f.people + 1) }))}
-                    className="w-9 h-9 rounded-xl border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-gray-300 transition-colors text-lg font-light disabled:opacity-30"
-                    disabled={editForm.people >= 20}>
-                    +
-                  </button>
-                </div>
-              </div>
-              {editForm.startDate && editForm.endDate && (
-                <p className="text-xs text-gray-400 text-center">
-                  {Math.max(0, Math.round((new Date(editForm.endDate).getTime() - new Date(editForm.startDate).getTime()) / 86400000))}박{' '}
-                  {Math.max(1, Math.round((new Date(editForm.endDate).getTime() - new Date(editForm.startDate).getTime()) / 86400000) + 1)}일
-                </p>
-              )}
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-semibold text-gray-500">
-                  예산 <span className="font-normal text-gray-400">({CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}, 선택)</span>
-                </label>
-                <input
-                  type="number"
-                  value={editForm.budget || ''}
-                  onChange={e => setEditForm(f => ({ ...f, budget: parseInt(e.target.value) || 0 }))}
-                  placeholder="전체 여행 예산 입력"
-                  min={0}
-                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 mt-6">
-              <button onClick={() => setShowEdit(false)}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors">
-                취소
-              </button>
-              <button onClick={handleEditSave}
-                disabled={editSaving || !editForm.startDate || !editForm.endDate}
-                className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center">
-                {editSaving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '저장'}
-              </button>
-            </div>
-          </div>
-        </div>
+      {showEdit && meta && (
+        <TripEditModal
+          city={meta.city}
+          title={meta.title}
+          startDate={meta.startDate}
+          endDate={meta.endDate}
+          people={meta.people}
+          currency={primaryCurrency}
+          budgetKRW={meta.budget}
+          onClose={() => setShowEdit(false)}
+          onSave={async (data: TripEditFormData) => {
+            const start = new Date(data.startDate)
+            const batch = writeBatch(db)
+            batch.update(doc(db, 'users', uid, 'trips', tripId), {
+              title:     data.title || null,
+              startDate: data.startDate,
+              endDate:   data.endDate,
+              nights:    data.nights,
+              days:      data.days,
+              people:    data.people,
+              currency:  data.currency || null,
+              budget:    data.budgetKRW,
+            })
+            for (let i = 0; i < data.days; i++) {
+              const d = new Date(start)
+              d.setDate(d.getDate() + i)
+              batch.set(
+                doc(db, 'users', uid, 'trips', tripId, 'days', `d${i + 1}`),
+                { label: `Day ${i + 1}`, date: d.toISOString().slice(0, 10) },
+                { merge: true }
+              )
+            }
+            await batch.commit()
+            setMeta(prev => prev ? {
+              ...prev,
+              title:     data.title || undefined,
+              startDate: data.startDate,
+              endDate:   data.endDate,
+              nights:    data.nights,
+              days:      data.days,
+              people:    data.people,
+              budget:    data.budgetKRW,
+            } : prev)
+          }}
+        />
       )}
 
       {/* ── 정산 명세 팝업 ── */}
