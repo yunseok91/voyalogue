@@ -2994,7 +2994,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      {m.role !== 'owner' && !m.left && (
+                      {m.role !== 'owner' && (
                         <>
                           <button
                             onClick={() => copyMemberInvite(m.id)}
@@ -3009,10 +3009,12 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               {copiedMember === m.id ? '복사됨' : '초대링크'}
                             </span>
                           </button>
-                          <button onClick={() => removeMember(m.id)}
-                            className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
-                            <X className="w-3.5 h-3.5" />
-                          </button>
+                          {!m.left && (
+                            <button onClick={() => removeMember(m.id)}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                         </>
                       )}
                     </div>
