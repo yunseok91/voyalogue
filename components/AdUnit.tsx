@@ -31,9 +31,10 @@ export function AdUnit({
     } catch { /* ignore */ }
   }, [adFree, client])
 
-  // 광고 제거 결제한 유저 or 아직 애드센스 미설정
+  // 광고 제거 결제한 유저 or 아직 애드센스 미설정 or 플레이스홀더 슬롯
   if (adFree) return null
   if (!client || client === 'ca-pub-XXXXXXXXXXXXXXXX') return null
+  if (!slot || slot.toUpperCase().includes('REPLACE_WITH') || slot === 'XXXXXXXXXX') return null
 
   return (
     <div className={`overflow-hidden ${className}`}>

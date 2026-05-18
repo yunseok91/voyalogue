@@ -11,7 +11,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ExcelModal } from '@/components/organisms/ExcelModal'
 import { AppNavbar } from '@/components/AppNavbar'
-import { AdUnit } from '@/components/AdUnit'
+// import { AdUnit } from '@/components/AdUnit'
 // import { AdFreeButton } from '@/components/AdFreeButton'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { useScrollLock } from '@/hooks/useScrollLock'
@@ -618,8 +618,6 @@ function TripsContent() {
           </>
         )}
 
-        {/* 광고 배너 */}
-        <AdUnit slot="REPLACE_WITH_AD_SLOT_ID" className="my-6 rounded-xl overflow-hidden" />
 
         {/* 초대받은 여행 */}
         {!dbLoading && invitedTrips.length > 0 && (
