@@ -23,7 +23,7 @@ type TripSnap = {
   startDate:  string
   endDate:    string
   people:     number
-  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string; left?: boolean }>
+  members:    Array<{ id: string; name: string; role: string; photoURL?: string; inviteCode?: string }>
 }
 
 export default function InvitePage() {
@@ -113,7 +113,7 @@ export default function InvitePage() {
         )
       } else {
         /* 빈 슬롯 — 인원 여유가 있으면 신규 추가 (탈퇴 멤버 제외 카운트) */
-        const activeCount = members.filter(m => !m.left).length
+        const activeCount = members.length
         if (activeCount >= (trip.people || 1)) {
           setError('이미 인원이 가득 찼어요. 방장에게 문의해주세요.')
           setClaiming(false)
