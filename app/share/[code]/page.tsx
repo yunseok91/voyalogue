@@ -19,6 +19,7 @@ import { notifyTripMembers } from '@/lib/tripNotification'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
+import { AdUnit } from '@/components/AdUnit'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -1369,6 +1370,11 @@ export default function SharePage() {
             ))}
           </div>
         </div>
+      </div>
+
+      {/* 광고 — 헤더 카드 하단 / Day 탭 상단 */}
+      <div className="px-4 sm:px-6 py-2 bg-white">
+        <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
       </div>
 
       {/* Day 탭 */}
