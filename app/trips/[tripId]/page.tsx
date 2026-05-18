@@ -1830,6 +1830,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       title:    `${user?.displayName ?? '주선자'}이(가) 일정을 추가했습니다`,
       body:     `${meta.title || meta.city} · ${partial.name}`,
       tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
     })
   }
 
@@ -1846,6 +1847,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       title:    `${user?.displayName ?? '주선자'}이(가) 일정을 삭제했습니다`,
       body:     `${meta.title || meta.city} · ${itemName}`,
       tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
     })
   }
 
@@ -1868,6 +1870,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       title:    `${user?.displayName ?? '주선자'}이(가) 일정을 수정했습니다`,
       body:     `${meta.title || meta.city} · ${itemName}`,
       tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
     })
   }
 
@@ -2237,6 +2240,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       title:    `${user?.displayName ?? '주선자'}이(가) 체크리스트를 추가했습니다`,
       body:     `${meta.title || meta.city} · ${label}`,
       tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
     })
   }
 

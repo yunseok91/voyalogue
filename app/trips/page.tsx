@@ -30,6 +30,7 @@ type Trip = {
   days:      number
   gradient:  string
   textDark?: boolean
+  isSample?: boolean
 }
 
 type InvitedTripRef = {
@@ -493,6 +494,55 @@ function TripsContent() {
               </div>
             ))}
           </div>
+        ) : sorted.length === 0 && counts.all === 0 ? (
+          /* ── 첫 방문 온보딩 가이드 ── */
+          <div className="flex flex-col items-center py-16 px-4">
+            <div className="w-full max-w-md">
+              <div className="text-center mb-8">
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
+                  <MapPin className="w-8 h-8 text-blue-500" />
+                </div>
+                <h2 className="text-xl font-extrabold text-gray-900 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  첫 여행을 계획해보세요
+                </h2>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Voyalogue로 여행 일정, 예산, 체크리스트를<br />한 곳에서 관리하세요.
+                </p>
+              </div>
+
+              {/* 사용 방법 단계 */}
+              <div className="space-y-3 mb-8">
+                {[
+                  { step: '01', title: '여행 만들기',    desc: '목적지와 날짜를 입력해 여행을 생성하세요.',      color: 'bg-blue-500' },
+                  { step: '02', title: '일정 추가',       desc: '날짜별로 식사·장소·교통 일정을 기록하세요.',    color: 'bg-violet-500' },
+                  { step: '03', title: '멤버 초대',       desc: '링크를 공유해 친구·가족과 함께 계획하세요.',    color: 'bg-emerald-500' },
+                  { step: '04', title: '여행 후 별점',    desc: '방문한 장소에 별점을 남겨 추억을 기록하세요.', color: 'bg-amber-500' },
+                ].map(({ step, title, desc, color }) => (
+                  <div key={step} className="flex items-start gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <span className={`flex-shrink-0 w-7 h-7 rounded-full ${color} text-white text-[11px] font-extrabold flex items-center justify-center`}>
+                      {step}
+                    </span>
+                    <div>
+                      <p className="text-sm font-bold text-gray-900 leading-none mb-1">{title}</p>
+                      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <Link
+                href="/trips/new"
+                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow-sm"
+              >
+                <MapPin className="w-4 h-4" />
+                첫 여행 만들기
+              </Link>
+
+              <p className="text-center text-xs text-gray-400 mt-4">
+                자동으로 생성된 도쿄 샘플 여행을 확인해보세요 👆
+              </p>
+            </div>
+          </div>
         ) : sorted.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 gap-3 text-gray-400">
             <MapPin className="w-10 h-10 text-gray-200" />
@@ -529,6 +579,11 @@ function TripsContent() {
                         <div className="flex items-start justify-between">
                           <MapPin className={`w-6 h-6 sm:w-7 sm:h-7 ${clrIcon}`} />
                           <div className="flex items-center gap-1.5">
+                            {trip.isSample && (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
+                                샘플
+                              </span>
+                            )}
                             {isOngoing && (
                               <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중

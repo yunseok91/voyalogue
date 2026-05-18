@@ -72,6 +72,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
         { merge: true }
       ).catch(() => {})
+
+      /* 신규 유저: 샘플 여행 생성 (비동기 — 실패해도 로그인 차단 없음) */
+      if (isNewUser) {
+        import('@/lib/seedSampleTrip')
+          .then(({ seedSampleTrip }) =>
+            seedSampleTrip(freshUser.uid, freshUser.displayName ?? '나')
+          )
+          .catch(() => {})
+      }
     })
     return unsub
   }, [setUser])
