@@ -25,15 +25,17 @@ export function AppNavbar({
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Y'
   const [dropdownOpen, setDropdownOpen]           = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (!user || avatarColor !== null) return
+    if (!user) return
     getDoc(doc(db, 'users', user.uid)).then(snap => {
       if (snap.exists()) {
         const data = snap.data()
         if (typeof data.avatarColor === 'number') setAvatarColor(data.avatarColor)
         if (typeof data.avatarHexColor === 'string') setAvatarHexColor(data.avatarHexColor)
+        if (typeof data.photoURL === 'string' && data.photoURL) setFirestorePhotoURL(data.photoURL)
       }
     })
   }, [user?.uid])
@@ -108,7 +110,7 @@ export function AppNavbar({
             >
               <PersonAvatar
                 name={displayName}
-                photoURL={user?.photoURL ?? undefined}
+                photoURL={user?.photoURL ?? firestorePhotoURL ?? undefined}
                 size={36}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
@@ -126,27 +128,30 @@ export function AppNavbar({
                   <Link
                     href="/trips"
                     onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${active === 'trips' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
-                    <Plane className="w-4 h-4 text-gray-400" />
+                    <Plane className={`w-4 h-4 ${active === 'trips' ? 'text-blue-500' : 'text-gray-400'}`} />
                     내 여행
+                    {active === 'trips' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                   </Link>
                   <Link
                     href="/collection"
                     onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${active === 'collection' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                   >
-                    <BookOpen className="w-4 h-4 text-gray-400" />
+                    <BookOpen className={`w-4 h-4 ${active === 'collection' ? 'text-blue-500' : 'text-gray-400'}`} />
                     컬렉션
+                    {active === 'collection' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                   </Link>
                 </div>
                 <Link
                   href="/profile"
                   onClick={() => setDropdownOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                  className={`flex items-center gap-2.5 px-4 py-2.5 text-sm transition-colors ${active === 'profile' ? 'bg-blue-50 text-blue-600 font-semibold' : 'text-gray-700 hover:bg-gray-50'}`}
                 >
-                  <User className="w-4 h-4 text-gray-400" />
+                  <User className={`w-4 h-4 ${active === 'profile' ? 'text-blue-500' : 'text-gray-400'}`} />
                   마이페이지
+                  {active === 'profile' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                 </Link>
                 <button
                   onClick={() => { setDropdownOpen(false); setShowLogoutConfirm(true) }}

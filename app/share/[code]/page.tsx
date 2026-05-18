@@ -1100,8 +1100,8 @@ export default function SharePage() {
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 {trip.title || trip.city}
               </p>
-              <p className={`text-xs mt-0.5 ${tw ? 'text-white/70' : 'text-gray-600'}`}>
-                {trip.startDate.replace(/-/g,'.')} – {trip.endDate.slice(5).replace('-','.')} · 멤버 {memberCount}명
+              <p className={`text-xs mt-0.5 font-medium ${tw ? 'text-white/70' : 'text-gray-600'}`} style={{ fontFamily: 'Inter, sans-serif' }}>
+                {trip.startDate.replace(/-/g,'.')} ~ {trip.endDate.replace(/-/g,'.')} · 멤버 {memberCount}명
               </p>
             </div>
           </div>
@@ -1237,64 +1237,115 @@ export default function SharePage() {
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* Navbar */}
-      <nav className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-3 flex-shrink-0 z-20">
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Link href="/trips" className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors text-gray-500 hover:text-gray-900" title="내 여행으로">
-            <ChevronLeft className="w-5 h-5" />
+      <nav className="bg-white border-b border-gray-200 flex-shrink-0 z-20">
+        {/* 줄 1 — 뒤로 + 여행 정보 + 유저칩 */}
+        <div className="h-12 sm:h-14 flex items-center px-4 sm:px-6 gap-2 sm:gap-3">
+          <Link href="/trips" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0 min-w-[28px] min-h-[36px] justify-center">
+            <ChevronLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">내 여행</span>
           </Link>
-          <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(trip.gradient) }} />
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {trip.title || trip.city}
-            </span>
-            {trip.title && <span className="text-[11px] text-gray-400 leading-tight truncate">{trip.city}</span>}
+          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(trip.gradient) }} />
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {trip.title || trip.city}
+              </span>
+              {trip.title && <span className="text-[11px] text-gray-400 leading-tight truncate">{trip.city}</span>}
+            </div>
           </div>
-        </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {canEdit && (
-            <button onClick={() => setShowChecklist(v => !v)}
-              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
-              <CheckSquare className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">체크리스트</span>
-            </button>
-          )}
-          {(user && (currentMember || trip.uid === user?.uid)) && (
-            <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
-              className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
-              <span className="hidden sm:inline">여행 요약</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-          {user && <NotificationBell />}
-          <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
+          {/* 데스크톱 전용 액션 */}
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+            {canEdit && (
+              <button onClick={() => setShowChecklist(v => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+                <CheckSquare className="w-3.5 h-3.5" />체크리스트
+              </button>
+            )}
+            {(user && (currentMember || trip.uid === user?.uid)) && (
+              <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
+                className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
+                여행 요약<ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            )}
+            {user && <NotificationBell />}
+            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
+              <div className="relative flex-shrink-0">
+                <PersonAvatar
+                  name={currentName}
+                  photoURL={currentPhotoURL}
+                  size={30}
+                  colorIndex={currentMember?.colorIndex}
+                />
+                {isTreasurer && (
+                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
+                    <Wallet className="w-2.5 h-2.5 text-white" />
+                  </span>
+                )}
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[80px] leading-tight">{currentName}</span>
+                <span className="text-[10px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
+                  {trip.uid === user?.uid ? '방장' : isTreasurer ? '총무' : currentMember ? '게스트' : '비회원'}
+                </span>
+              </div>
+            </div>
+            {user && currentMember && !currentMember.left && trip.uid !== user.uid && (
+              <button
+                onClick={handleLeaveTrip}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+                title="여행 탈퇴"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+          {/* 모바일 유저칩 (1줄) */}
+          <div className="sm:hidden flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-0.5 pr-2 py-0.5 flex-shrink-0">
             <div className="relative flex-shrink-0">
               <PersonAvatar
                 name={currentName}
                 photoURL={currentPhotoURL}
-                size={30}
+                size={26}
                 colorIndex={currentMember?.colorIndex}
               />
               {isTreasurer && (
-                <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-                  <Wallet className="w-2.5 h-2.5 text-white" />
+                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center">
+                  <Wallet className="w-2 h-2 text-white" />
                 </span>
               )}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[80px] leading-tight">{currentName}</span>
-              <span className="text-[10px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
-                {trip.uid === user?.uid ? '주선자' : isTreasurer ? '총무' : currentMember ? '멤버' : '비회원'}
+              <span className="text-[11px] font-semibold text-gray-800 truncate max-w-[60px] leading-tight">{currentName}</span>
+              <span className="text-[9px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
+                {trip.uid === user?.uid ? '방장' : isTreasurer ? '총무' : currentMember ? '게스트' : '비회원'}
               </span>
             </div>
           </div>
-          {/* 여행 탈퇴 버튼 — 초대된 멤버(오너 제외)에게만 표시 */}
+        </div>
+        {/* 줄 2 — 모바일 전용 액션 */}
+        <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-t border-gray-100">
+          <div className="flex-1" />
+          {user && <NotificationBell />}
+          {canEdit && (
+            <button onClick={() => setShowChecklist(v => !v)}
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors min-h-[36px]">
+              <CheckSquare className="w-3.5 h-3.5" /><span>체크</span>
+            </button>
+          )}
+          {(user && (currentMember || trip.uid === user?.uid)) && (
+            <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors min-h-[36px]">
+              요약<ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          )}
           {user && currentMember && !currentMember.left && trip.uid !== user.uid && (
             <button
               onClick={handleLeaveTrip}
-              className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
+              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-red-200 text-red-400 hover:bg-red-50 transition-colors min-h-[36px]"
               title="여행 탈퇴"
             >
-              <LogOut className="w-4 h-4" />
+              <LogOut className="w-3.5 h-3.5" /><span>탈퇴</span>
             </button>
           )}
         </div>
@@ -1335,8 +1386,8 @@ export default function SharePage() {
               <p className={`font-bold text-lg leading-tight ${tw ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 {trip.title || trip.city}
               </p>
-              <p className={`text-xs mt-0.5 ${tw ? 'text-white/70' : 'text-gray-600'}`}>
-                {trip.startDate.replace(/-/g,'.')} – {trip.endDate.slice(5).replace('-','.')} · {trip.nights}박 {trip.days}일
+              <p className={`text-xs mt-0.5 font-medium ${tw ? 'text-white/70' : 'text-gray-600'}`} style={{ fontFamily: 'Inter, sans-serif' }}>
+                {trip.startDate.replace(/-/g,'.')} ~ {trip.endDate.replace(/-/g,'.')} · {trip.nights}박 {trip.days}일
               </p>
             </div>
           </div>
@@ -1583,12 +1634,13 @@ export default function SharePage() {
           )}
           {/* 지도 */}
           <div className="flex-1 relative overflow-hidden">
-            {/* 더블클릭 힌트 — canEdit 전용 */}
+            {/* 더블클릭 힌트 말풍선 — canEdit 전용 */}
             {canEdit && !pendingPlace && (
-              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                <span className="text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-gray-100">
-                  더블클릭으로 위치 직접 추가
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center">
+                <span className="text-[11px] text-gray-600 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm font-medium whitespace-nowrap">
+                  지도를 더블클릭하면 장소를 추가할 수 있어요
                 </span>
+                <span className="w-0 h-0 mt-[-1px]" style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #e5e7eb' }} />
               </div>
             )}
             <TripMap

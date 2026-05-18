@@ -126,6 +126,7 @@ function NewTripContent() {
   const [startDate, setStart]         = useState('')
   const [endDate, setEnd]             = useState('')
   const [people, setPeople]           = useState(2)
+  const [budget, setBudget]           = useState(0)
   const [themeIdx, setTheme]          = useState(0)
   const [customColor, setCustom]      = useState('#6366F1')
   const [useCustom, setUseCustom]     = useState(false)
@@ -292,7 +293,7 @@ function NewTripContent() {
         days,
         gradient,
         people,
-        budget:    0,
+        budget:    Math.max(0, budget || 0),
         title:     tripTitle.trim() || '',
         viewCode,
         editCode,
@@ -516,6 +517,22 @@ function NewTripContent() {
                   className="w-12 h-12 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
                   <Plus className="w-4 h-4" />
                 </button>
+              </div>
+            </div>
+
+            {/* ── 여행 예산 ── */}
+            <div className="flex flex-col gap-2">
+              <label className="text-[13px] font-semibold text-gray-700">여행 예산 <span className="text-gray-400 font-normal">(₩ 원화 기준, 선택)</span></label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  value={budget || ''}
+                  onChange={e => setBudget(Math.max(0, parseInt(e.target.value) || 0))}
+                  placeholder="0"
+                  className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+                <span className="text-sm font-medium text-gray-500 flex-shrink-0">원</span>
               </div>
             </div>
 

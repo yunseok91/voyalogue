@@ -489,7 +489,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
       <div className="relative flex-shrink-0" ref={menuRef}>
         <button
           onClick={e => { e.stopPropagation(); setMenu(v => !v); setShowCatPick(false) }}
-          className="w-7 h-7 flex items-center justify-center rounded-md text-gray-300 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
+          className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all sm:opacity-0 sm:group-hover:opacity-100"
         >
           <MoreHorizontal className="w-4 h-4" />
         </button>
@@ -1451,7 +1451,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [mapMounted,    setMapMounted]    = useState(false)  // lazy mount — 처음 지도 탭 열릴 때 true
   const [isDesktop,     setIsDesktop]     = useState(false)  // window >= 1024, reactive to resize
   const [showEdit,      setShowEdit]      = useState(false)
-  const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1, currency: 'KRW' })
+  const [editForm,      setEditForm]      = useState({ title: '', startDate: '', endDate: '', people: 1, currency: 'KRW', budget: 0 })
   const [editSaving,    setEditSaving]    = useState(false)
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
@@ -1814,7 +1814,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }, [rates, dayRates, activeDay, primaryCurrency])
 
   const daySpent = currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, effectiveRates), 0)
-  const budgetPct = meta ? Math.min(100, Math.round((totalSpent / (meta.budget || 1)) * 100)) : 0
+  const rawBudgetPct = meta ? Math.round((totalSpent / (meta.budget || 1)) * 100) : 0
+  const budgetPct    = Math.min(100, rawBudgetPct)
+  const overageKRW   = meta && rawBudgetPct > 100 ? totalSpent - meta.budget : 0
 
   /* ── 아이템 추가 ── */
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
@@ -1843,7 +1845,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       ownerUid: uid,
       members:  meta.members ?? [],
       actorUid: user?.uid ?? null,
-      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 추가했습니다`,
+      title:    `${user?.displayName ?? '방장'}이(가) 일정을 추가했습니다`,
       body:     `${meta.title || meta.city} · ${partial.name}`,
       tripPath: `/trips/${tripId}`,
       viewCode: meta.viewCode,
@@ -1860,7 +1862,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       ownerUid: uid,
       members:  meta.members ?? [],
       actorUid: user?.uid ?? null,
-      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 삭제했습니다`,
+      title:    `${user?.displayName ?? '방장'}이(가) 일정을 삭제했습니다`,
       body:     `${meta.title || meta.city} · ${itemName}`,
       tripPath: `/trips/${tripId}`,
       viewCode: meta.viewCode,
@@ -1883,7 +1885,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       ownerUid: uid,
       members:  meta.members ?? [],
       actorUid: user?.uid ?? null,
-      title:    `${user?.displayName ?? '주선자'}이(가) 일정을 수정했습니다`,
+      title:    `${user?.displayName ?? '방장'}이(가) 일정을 수정했습니다`,
       body:     `${meta.title || meta.city} · ${itemName}`,
       tripPath: `/trips/${tripId}`,
       viewCode: meta.viewCode,
@@ -2090,21 +2092,22 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const setTreasurer = async (id: string) => {
     if (!meta) return
     const isAlready = meta.members.find(m => m.id === id)?.role === 'treasurer'
-    const newEditCode = isAlready ? meta.editCode : generateCode()
     const members = meta.members.map(m => ({
       ...m,
       role: m.role === 'owner' ? 'owner' as const
-          : m.id === id && !isAlready ? 'treasurer' as const
-          : 'member' as const,
+          : m.id === id ? (isAlready ? 'member' as const : 'treasurer' as const)
+          : m.role as MemberRole,
     }))
+    const needNewCode = !isAlready && !meta.editCode
+    const newEditCode = needNewCode ? generateCode() : meta.editCode
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), {
       members,
-      ...(isAlready ? {} : { editCode: newEditCode }),
+      ...(needNewCode ? { editCode: newEditCode } : {}),
     })
-    if (!isAlready) {
+    if (needNewCode && newEditCode) {
       await setDoc(doc(db, 'shareIndex', newEditCode), { uid, tripId, canEdit: true })
     }
-    setMeta({ ...meta, members, ...(!isAlready ? { editCode: newEditCode } : {}) })
+    setMeta({ ...meta, members, ...(needNewCode ? { editCode: newEditCode } : {}) })
   }
 
   const setMemberColor = async (memberId: string, colorIndex: number) => {
@@ -2208,7 +2211,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* ── 여행 정보 편집 ── */
   const openEdit = () => {
     if (!meta) return
-    setEditForm({ title: meta.title ?? '', startDate: meta.startDate, endDate: meta.endDate, people: meta.people || 1, currency: primaryCurrency })
+    const rate = rates[primaryCurrency] || 1
+    const budgetInLocal = meta.budget > 0 ? Math.round(meta.budget / rate) : 0
+    setEditForm({ title: meta.title ?? '', startDate: meta.startDate, endDate: meta.endDate, people: meta.people || 1, currency: primaryCurrency, budget: budgetInLocal })
     setShowEdit(true)
   }
 
@@ -2220,6 +2225,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (nights < 0) return
     const daysCount = nights + 1
 
+    const rate = rates[editForm.currency] || 1
+    const budgetKRW = Math.max(0, Math.round((editForm.budget || 0) * rate))
+
     setEditSaving(true)
     const batch = writeBatch(db)
     batch.update(doc(db, 'users', uid, 'trips', tripId), {
@@ -2229,6 +2237,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       nights, days: daysCount,
       people: Math.max(1, editForm.people),
       currency: editForm.currency || null,
+      budget: budgetKRW,
     })
     for (let i = 0; i < daysCount; i++) {
       const d = new Date(start)
@@ -2240,6 +2249,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
       )
     }
     await batch.commit()
+    setMeta(prev => prev ? {
+      ...prev,
+      title: editForm.title.trim() || undefined,
+      startDate: editForm.startDate,
+      endDate: editForm.endDate,
+      nights, days: daysCount,
+      people: Math.max(1, editForm.people),
+      budget: budgetKRW,
+    } : prev)
     setEditSaving(false)
     setShowEdit(false)
   }
@@ -2265,7 +2283,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       ownerUid: uid,
       members:  meta.members ?? [],
       actorUid: user?.uid ?? null,
-      title:    `${user?.displayName ?? '주선자'}이(가) 체크리스트를 추가했습니다`,
+      title:    `${user?.displayName ?? '방장'}이(가) 체크리스트를 추가했습니다`,
       body:     `${meta.title || meta.city} · ${label}`,
       tripPath: `/trips/${tripId}`,
       viewCode: meta.viewCode,
@@ -2374,82 +2392,105 @@ function PlannerContent({ tripId }: { tripId: string }) {
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── Navbar ── */}
-      <nav className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-3 flex-shrink-0 z-20">
-        <Link href="/trips" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0">
-          <ChevronLeft className="w-4 h-4" />
-          <span className="hidden sm:inline">내 여행</span>
-        </Link>
-        <div className="h-4 w-px bg-gray-200" />
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(meta.gradient) }} />
-          <div className="flex flex-col min-w-0">
-            <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              {meta.title || meta.city}
+      <nav className="bg-white border-b border-gray-200 flex-shrink-0 z-20">
+        {/* 모바일: 2줄 / 데스크톱: 1줄 */}
+        {/* 줄 1 — 뒤로 + 여행 정보 */}
+        <div className="h-12 sm:h-14 flex items-center px-4 sm:px-6 gap-2 sm:gap-3">
+          <Link href="/trips" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0 min-w-[28px] min-h-[36px] justify-center">
+            <ChevronLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">내 여행</span>
+          </Link>
+          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(meta.gradient) }} />
+            <div className="flex flex-col min-w-0">
+              <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                {meta.title || meta.city}
+              </span>
+              {meta.title && (
+                <span className="text-[11px] text-gray-400 leading-tight truncate">{meta.city}</span>
+              )}
+            </div>
+            <span className="text-xs text-gray-400 flex-shrink-0 hidden md:block">
+              {meta.startDate.slice(5).replace('-', '/')} – {meta.endDate.slice(5).replace('-', '/')} · {meta.nights}박
             </span>
-            {meta.title && (
-              <span className="text-[11px] text-gray-400 leading-tight truncate">{meta.city}</span>
-            )}
+            <button
+              onClick={openEdit}
+              title="여행 정보 편집"
+              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
+            >
+              <Edit2 className="w-4 h-4" />
+            </button>
           </div>
-          <span className="text-xs text-gray-400 flex-shrink-0 hidden md:block">
-            {meta.startDate.slice(5).replace('-', '/')} – {meta.endDate.slice(5).replace('-', '/')} · {meta.nights}박
-          </span>
-          <button
-            onClick={openEdit}
-            title="여행 정보 편집"
-            className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-          </button>
+          {/* 데스크톱 전용 액션 버튼 */}
+          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+            <button onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
+              className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors" title="멤버 관리">
+              <div className="flex -space-x-2.5">
+                {(meta.members ?? []).slice(0, 4).map((m, i) => (
+                  <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
+                    <PersonAvatar
+                      name={m.name}
+                      photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
+                      size={28} stacked
+                      colorIndex={m.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))}
+                      hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
+                    />
+                    {m.role === 'owner' && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center"><Crown className="w-2 h-2 text-white" /></span>}
+                    {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-2 h-2 text-white" /></span>}
+                  </div>
+                ))}
+                {(meta.members ?? []).length > 4 && (
+                  <div className="w-7 h-7 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[10px] font-bold text-gray-500">+{(meta.members ?? []).length - 4}</div>
+                )}
+              </div>
+              <span className="text-xs font-semibold text-gray-600">멤버 편집</span>
+              <Users className="w-3.5 h-3.5 text-gray-400" />
+            </button>
+            <NotificationBell />
+            <button onClick={() => setChecklist(v => !v)}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
+              <CheckSquare className="w-3.5 h-3.5" />체크리스트
+            </button>
+            <Link href={`/trips/${tripId}/summary`}
+              className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
+              여행 요약<ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-          {/* 멤버 아바타 */}
+        {/* 줄 2 — 모바일 전용 액션 */}
+        <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-t border-gray-100">
           <button onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
-            className="flex items-center hover:opacity-80 transition-opacity"
-            title="멤버 관리">
-            <div className="flex -space-x-2.5">
-              {(meta.members ?? []).slice(0, 4).map((m, i) => (
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors" title="멤버 관리">
+            <div className="flex -space-x-2">
+              {(meta.members ?? []).slice(0, 3).map((m, i) => (
                 <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
                   <PersonAvatar
                     name={m.name}
                     photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
-                    size={28}
-                    stacked
-                    colorIndex={
-                      m.role === 'owner'
-                        ? (avatarHexColor ? undefined : (avatarColor ?? 0))
-                        : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))
-                    }
+                    size={26} stacked
+                    colorIndex={m.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))}
                     hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
                   />
-                  {m.role === 'owner' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center">
-                      <Crown className="w-2 h-2 text-white" />
-                    </span>
-                  )}
-                  {m.role === 'treasurer' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center">
-                      <Wallet className="w-2 h-2 text-white" />
-                    </span>
-                  )}
+                  {m.role === 'owner' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center"><Crown className="w-1.5 h-1.5 text-white" /></span>}
                 </div>
               ))}
-              {(meta.members ?? []).length > 4 && (
-                <div className="w-7 h-7 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[10px] font-bold text-gray-500">
-                  +{(meta.members ?? []).length - 4}
-                </div>
+              {(meta.members ?? []).length > 3 && (
+                <div className="w-6 h-6 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{(meta.members ?? []).length - 3}</div>
               )}
             </div>
+            <span className="text-xs font-semibold text-gray-600">멤버 편집</span>
+            <Users className="w-3.5 h-3.5 text-gray-400" />
           </button>
+          <div className="flex-1" />
           <NotificationBell />
           <button onClick={() => setChecklist(v => !v)}
-            className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
-            <CheckSquare className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">체크리스트</span>
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors min-h-[36px]">
+            <CheckSquare className="w-3.5 h-3.5" /><span>체크</span>
           </button>
           <Link href={`/trips/${tripId}/summary`}
-            className="flex items-center gap-1 sm:gap-1.5 text-xs font-semibold px-2.5 sm:px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
-            <span className="hidden sm:inline">여행 요약</span>
-            <ChevronRight className="w-3.5 h-3.5" />
+            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors min-h-[36px]">
+            요약<ChevronRight className="w-3.5 h-3.5" />
           </Link>
         </div>
       </nav>
@@ -2684,14 +2725,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
           <div className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
             {/* 전체 지출 */}
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className={`flex items-center gap-1.5 text-xs ${overageKRW > 0 ? 'text-red-500' : 'text-gray-500'}`}>
                 <Wallet className="w-3.5 h-3.5" />
                 <span>{meta.budget > 0 ? '전체 예산' : '전체 지출'}</span>
               </div>
               <div className="text-right">
                 {primaryCurrency !== 'KRW' && rates[primaryCurrency] ? (
                   <>
-                    <span className="text-xs font-bold text-gray-700">
+                    <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
                       {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}
                       {meta.budget > 0 && ` / ${formatLocal(Math.round(meta.budget / rates[primaryCurrency]), primaryCurrency)}`}
                     </span>
@@ -2700,7 +2741,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     </p>
                   </>
                 ) : (
-                  <span className="text-xs font-bold text-gray-700">
+                  <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
                     {formatKRW(totalSpent)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
                   </span>
                 )}
@@ -2710,10 +2751,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {meta.budget > 0 && (
               <>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-500 ${budgetPct >= 90 ? 'bg-red-500' : budgetPct >= 70 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                  <div className={`h-full rounded-full transition-all duration-500 ${rawBudgetPct >= 100 ? 'bg-red-500' : rawBudgetPct >= 90 ? 'bg-red-400' : rawBudgetPct >= 70 ? 'bg-amber-500' : 'bg-blue-500'}`}
                     style={{ width: `${budgetPct}%` }} />
                 </div>
-                <p className="text-[11px] text-gray-400 mt-1 text-right">{budgetPct}% 사용</p>
+                <div className="flex items-center justify-between mt-1.5">
+                  <span className={`text-[11px] font-semibold ${
+                    rawBudgetPct >= 100 ? 'text-red-500' : rawBudgetPct >= 90 ? 'text-red-400' : rawBudgetPct >= 70 ? 'text-amber-500' : rawBudgetPct >= 40 ? 'text-blue-500' : 'text-emerald-500'
+                  }`}>
+                    {rawBudgetPct >= 100
+                      ? `예산 초과 +${primaryCurrency !== 'KRW' && rates[primaryCurrency] ? formatLocal(Math.round(overageKRW / rates[primaryCurrency]), primaryCurrency) : formatKRW(overageKRW)}`
+                      : rawBudgetPct >= 90 ? '예산이 거의 다 됐어요'
+                      : rawBudgetPct >= 70 ? '슬슬 지출을 줄여볼까요'
+                      : rawBudgetPct >= 40 ? '예산 내에서 잘 쓰고 있어요'
+                      : '아직 여유가 충분해요'}
+                  </span>
+                  <span className="text-[11px] text-gray-400">{rawBudgetPct}% 사용</span>
+                </div>
+                {overageKRW > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                  <p className="text-[10px] text-red-400 text-right mt-0.5">
+                    ≈ +{formatKRW(overageKRW)} 초과
+                  </p>
+                )}
               </>
             )}
             {/* 1인 평균 + 정산 명세 */}
@@ -2782,12 +2840,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </span>
               )}
             </div>
-            {/* 더블클릭 힌트 */}
+            {/* 더블클릭 힌트 말풍선 */}
             {!pendingPlace && (
-              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
-                <span className="text-[10px] text-gray-400 bg-white/80 backdrop-blur-sm px-2.5 py-1 rounded-full border border-gray-100">
-                  더블클릭으로 위치 직접 추가
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center">
+                <span className="text-[11px] text-gray-600 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm font-medium whitespace-nowrap">
+                  지도를 더블클릭하면 장소를 추가할 수 있어요
                 </span>
+                <span className="w-0 h-0 mt-[-1px]" style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #e5e7eb' }} />
               </div>
             )}
             {mapMounted && (
@@ -2906,6 +2965,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                 const effectiveHex = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
                 const initialHex = m.hexColor ?? (effectiveColorIdx !== undefined ? CLAY[effectiveColorIdx].base : '#4A90E8')
+                const ringC = effectiveHex ?? (effectiveColorIdx !== undefined ? CLAY[effectiveColorIdx % CLAY.length].base : undefined)
                 return (
                   <div key={m.id} className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl hover:bg-gray-50/80 group transition-colors ${m.left ? 'opacity-50' : ''}`}>
                     {/* 아바타 */}
@@ -2925,6 +2985,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               size={42}
                               colorIndex={effectiveColorIdx}
                               hexColor={effectiveHex}
+                              ringColor={ringC}
                               className="hover:opacity-75 transition-opacity"
                             />
                           </label>
@@ -2980,7 +3041,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
                             :                          'bg-gray-100 text-gray-500'
                           }`}>
-                            {m.role === 'owner' ? '주선자' : m.role === 'treasurer' ? '총무' : '멤버'}
+                            {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '게스트'}
                           </span>
                         )}
                       </div>
@@ -3150,7 +3211,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   ) : (
                     <span className={`flex-1 text-sm select-none ${c.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>{c.label}</span>
                   )}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => { setCheckEditId(c.id); setCheckEditVal(c.label) }}
                       className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600"
@@ -3259,6 +3320,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   {Math.max(1, Math.round((new Date(editForm.endDate).getTime() - new Date(editForm.startDate).getTime()) / 86400000) + 1)}일
                 </p>
               )}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-semibold text-gray-500">
+                  예산 <span className="font-normal text-gray-400">({CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}, 선택)</span>
+                </label>
+                <input
+                  type="number"
+                  value={editForm.budget || ''}
+                  onChange={e => setEditForm(f => ({ ...f, budget: parseInt(e.target.value) || 0 }))}
+                  placeholder="전체 여행 예산 입력"
+                  min={0}
+                  className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                />
+              </div>
             </div>
             <div className="flex gap-2 mt-6">
               <button onClick={() => setShowEdit(false)}

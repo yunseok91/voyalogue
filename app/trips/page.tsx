@@ -17,8 +17,9 @@ import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { useScrollLock } from '@/hooks/useScrollLock'
 
 /* ── 타입 ── */
-type TripStatus = 'ongoing' | 'upcoming' | 'done'
-type Filter     = 'all' | 'ongoing' | 'upcoming' | 'done'
+type TripStatus  = 'ongoing' | 'upcoming' | 'done'
+type Filter      = 'all' | 'ongoing' | 'upcoming' | 'done'
+type RoleFilter  = 'all' | 'owner' | 'member'
 
 type Trip = {
   id:        string
@@ -43,6 +44,7 @@ type InvitedTrip = Trip & {
   isInvited: true
   viewCode:  string
   ownerUid:  string
+  myRole:    'member' | 'treasurer'
 }
 
 type AnnouncementType = 'notice' | 'event' | 'maintenance'
@@ -86,7 +88,7 @@ function getDday(startDate: string) {
 }
 
 function formatRange(start: string, end: string) {
-  return `${start.replace(/-/g, '.')} – ${end.slice(5).replace(/-/g, '.')}`
+  return `${start.replace(/-/g, '.')} ~ ${end.replace(/-/g, '.')}`
 }
 
 function pageNums(current: number, total: number): (number | '…')[] {
@@ -233,8 +235,9 @@ function TripsContent() {
   const [trips,         setTrips]         = useState<Trip[]>([])
   const [invitedTrips,  setInvitedTrips]  = useState<InvitedTrip[]>([])
   const [dbLoading,     setDbLoading]     = useState(true)
-  const [filter, setFilter] = useState<Filter>('all')
-  const [page,   setPage]   = useState(1)
+  const [filter,     setFilter]     = useState<Filter>('all')
+  const [roleFilter, setRoleFilter] = useState<RoleFilter>('all')
+  const [page,       setPage]       = useState(1)
   const [showExcel, setShowExcel] = useState(false)
   const [darkOverride, setDarkOverride] = useState<Record<string, boolean>>({})
   const [popupMsg, setPopupMsg] = useState<AdminMessage | null>(null)
@@ -262,7 +265,11 @@ function TripsContent() {
           try {
             const tripSnap = await getDoc(doc(db, 'users', ref.ownerUid, 'trips', ref.tripId))
             if (!tripSnap.exists()) return null
-            return { id: ref.tripId, ...tripSnap.data(), isInvited: true as const, viewCode: ref.viewCode, ownerUid: ref.ownerUid } as InvitedTrip
+            const data = tripSnap.data()
+            const members = (data.members ?? []) as Array<{ id: string; role: string }>
+            const myMember = members.find(m => m.id === uid)
+            const myRole: 'member' | 'treasurer' = myMember?.role === 'treasurer' ? 'treasurer' : 'member'
+            return { id: ref.tripId, ...data, isInvited: true as const, viewCode: ref.viewCode, ownerUid: ref.ownerUid, myRole } as InvitedTrip
           } catch { return null }
         })
       )
@@ -314,13 +321,16 @@ function TripsContent() {
 
   const counts = useMemo(() => {
     const invitedWithStatus = invitedTrips.map(t => ({ ...t, status: getStatus(t) }))
+    const ownPool     = roleFilter !== 'member' ? tripsWithStatus       : []
+    const invPool     = roleFilter !== 'owner'  ? invitedWithStatus     : []
+    const combined    = [...ownPool, ...invPool]
     return {
-      all:      tripsWithStatus.length + invitedTrips.length,
-      ongoing:  tripsWithStatus.filter(t => t.status === 'ongoing').length  + invitedWithStatus.filter(t => t.status === 'ongoing').length,
-      upcoming: tripsWithStatus.filter(t => t.status === 'upcoming').length + invitedWithStatus.filter(t => t.status === 'upcoming').length,
-      done:     tripsWithStatus.filter(t => t.status === 'done').length     + invitedWithStatus.filter(t => t.status === 'done').length,
+      all:      combined.length,
+      ongoing:  combined.filter(t => t.status === 'ongoing').length,
+      upcoming: combined.filter(t => t.status === 'upcoming').length,
+      done:     combined.filter(t => t.status === 'done').length,
     }
-  }, [tripsWithStatus, invitedTrips])
+  }, [tripsWithStatus, invitedTrips, roleFilter])
 
   const sorted = useMemo(() => {
     let filtered = filter === 'all'
@@ -337,6 +347,18 @@ function TripsContent() {
       return a.status === 'done' ? tb - ta : ta - tb
     })
   }, [tripsWithStatus, filter, countryFilter])
+
+  const sortedInvited = useMemo(() => {
+    const withStatus = invitedTrips.map(t => ({ ...t, status: getStatus(t) }))
+    const filtered = filter === 'all' ? withStatus : withStatus.filter(t => t.status === filter)
+    return filtered.sort((a, b) => {
+      const od = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
+      if (od !== 0) return od
+      return a.status === 'done'
+        ? new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
+        : new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+    })
+  }, [invitedTrips, filter])
 
   const totalPages   = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const currentTrips = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -367,8 +389,9 @@ function TripsContent() {
     } catch { /* silent */ }
   }
 
-  const handleFilter = (f: Filter) => { setFilter(f); setPage(1) }
-  const handlePage   = (p: number) => setPage(Math.max(1, Math.min(p, totalPages)))
+  const handleFilter     = (f: Filter)     => { setFilter(f); setPage(1) }
+  const handleRoleFilter = (r: RoleFilter) => { setRoleFilter(r); setPage(1) }
+  const handlePage       = (p: number)     => setPage(Math.max(1, Math.min(p, totalPages)))
 
   const handleSeedSample = async () => {
     if (!user || seedLoading) return
@@ -457,6 +480,8 @@ function TripsContent() {
     { key: 'done',     label: '완료' },
   ]
 
+  const totalTrips = tripsWithStatus.length + invitedTrips.length
+
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
 
@@ -488,28 +513,39 @@ function TripsContent() {
           </div>
           {dbLoading
             ? <p className="text-sm text-gray-400">불러오는 중…</p>
-            : <p className="text-sm text-gray-500">총 {counts.all}개의 여행 · {totalNights}박 계획 중</p>
+            : <p className="text-sm text-gray-500">총 {totalTrips}개의 여행 · {totalNights}박 계획 중</p>
           }
         </div>
 
-        {/* 필터 탭 */}
-        <div className="flex items-center gap-2 mb-5 sm:mb-6 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
-          {FILTERS.map(({ key, label }) => (
-            <button key={key} onClick={() => handleFilter(key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
-                filter === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
-              }`}
-            >
-              {label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
-                filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {counts[key]}
-              </span>
-            </button>
-          ))}
+        {/* 필터 탭 + 역할 셀렉트 — 한 행 */}
+        <div className="flex items-center gap-3 mb-4 sm:mb-5">
+          <div className="flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide min-w-0">
+            {FILTERS.map(({ key, label }) => (
+              <button key={key} onClick={() => handleFilter(key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+                  filter === key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                }`}
+              >
+                {label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
+                  filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {counts[key]}
+                </span>
+              </button>
+            ))}
+          </div>
+          <select
+            value={roleFilter}
+            onChange={e => handleRoleFilter(e.target.value as RoleFilter)}
+            className="flex-shrink-0 px-3 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600 bg-white cursor-pointer hover:border-blue-400 transition-colors focus:outline-none"
+          >
+            <option value="all">전체 역할</option>
+            <option value="owner">방장</option>
+            <option value="member">멤버</option>
+          </select>
         </div>
 
         {/* 로딩 스켈레톤 */}
@@ -525,7 +561,7 @@ function TripsContent() {
               </div>
             ))}
           </div>
-        ) : sorted.length === 0 && counts.all === 0 ? (
+        ) : totalTrips === 0 ? (
           /* ── 첫 방문 온보딩 가이드 ── */
           <div className="flex flex-col items-center py-16 px-4">
             <div className="w-full max-w-md">
@@ -603,12 +639,17 @@ function TripsContent() {
 
             </div>
           </div>
-        ) : sorted.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 gap-3 text-gray-400">
+        ) : sorted.length === 0 && (roleFilter === 'owner' || (roleFilter === 'all' && sortedInvited.length === 0)) ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400">
             <MapPin className="w-10 h-10 text-gray-200" />
             <p className="text-sm font-medium">해당하는 여행이 없어요.</p>
           </div>
-        ) : (
+        ) : roleFilter === 'member' && sortedInvited.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-16 gap-3 text-gray-400">
+            <MapPin className="w-10 h-10 text-gray-200" />
+            <p className="text-sm font-medium">해당하는 초대된 여행이 없어요.</p>
+          </div>
+        ) : roleFilter !== 'member' && sorted.length > 0 ? (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 mb-8">
               {currentTrips.map(trip => {
@@ -675,7 +716,7 @@ function TripsContent() {
                             </label>
                             <button
                               onClick={e => handleDelete(e, trip.id)}
-                              className={`opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${clrBtn}`}
+                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${clrBtn}`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -731,11 +772,11 @@ function TripsContent() {
               </p>
             )}
           </>
-        )}
+        ) : null}
 
 
         {/* 초대받은 여행 */}
-        {!dbLoading && invitedTrips.length > 0 && (
+        {!dbLoading && roleFilter !== 'owner' && sortedInvited.length > 0 && (
           <div className="mt-12">
             <div className="flex items-center gap-3 mb-5 sm:mb-6">
               <div className="h-px flex-1 bg-gray-200" />
@@ -746,77 +787,71 @@ function TripsContent() {
                 <h2 className="text-lg font-extrabold text-gray-700 whitespace-nowrap" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                   초대받은 여행
                 </h2>
-                <span className="text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">{invitedTrips.length}</span>
+                <span className="text-xs font-semibold bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">{sortedInvited.length}</span>
               </div>
               <div className="h-px flex-1 bg-gray-200" />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
-              {invitedTrips
-                .map(trip => ({ ...trip, status: getStatus(trip) }))
-                .sort((a, b) => {
-                  const od = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
-                  if (od !== 0) return od
-                  return a.status === 'done'
-                    ? new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
-                    : new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
-                })
-                .map(trip => {
-                  const isOngoing  = trip.status === 'ongoing'
-                  const isUpcoming = trip.status === 'upcoming'
-                  const badge = isOngoing  ? { label: '여행중', cls: 'bg-green-500 text-white' }
-                              : isUpcoming ? { label: `D-${getDday(trip.startDate)}`, cls: 'bg-blue-50 text-blue-600' }
-                              :              { label: '완료', cls: 'bg-gray-100 text-gray-500' }
-                  const isDark = trip.textDark ?? false
-                  const clrTitle = isDark ? 'text-gray-900' : 'text-white'
-                  const clrSub   = isDark ? 'text-gray-600' : 'text-white/85'
-                  const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
-                  const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
+              {sortedInvited.map(trip => {
+                const isOngoing  = trip.status === 'ongoing'
+                const isUpcoming = trip.status === 'upcoming'
+                const badge = isOngoing  ? { label: '여행중', cls: 'bg-green-500 text-white' }
+                            : isUpcoming ? { label: `D-${getDday(trip.startDate)}`, cls: 'bg-blue-50 text-blue-600' }
+                            :              { label: '완료', cls: 'bg-gray-100 text-gray-500' }
+                const isDark = trip.textDark ?? false
+                const clrTitle = isDark ? 'text-gray-900' : 'text-white'
+                const clrSub   = isDark ? 'text-gray-600' : 'text-white/85'
+                const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
+                const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
+                const roleBadge = trip.myRole === 'treasurer'
+                  ? { label: '총무', cls: isDark ? 'text-amber-700 bg-amber-100/80' : 'text-amber-200 bg-amber-500/30' }
+                  : { label: '게스트', cls: isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20' }
 
-                  return (
-                    <Link key={trip.id} href={`/share/${trip.viewCode}`} className="group relative">
-                      <div className={`bg-white rounded-2xl border overflow-hidden transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${
-                        isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-indigo-100 ring-1 ring-indigo-50'
-                      }`}>
-                        <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                          style={{ background: gradientStyle(trip.gradient) }}>
-                          <div className="flex items-start justify-between">
-                            <MapPin className={`w-6 h-6 sm:w-7 sm:h-7 ${clrIcon}`} />
-                            <div className="flex items-center gap-1.5">
-                              {isOngoing && (
-                                <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
-                                </span>
-                              )}
-                              <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20'}`}>
-                                초대됨
+                return (
+                  <Link key={trip.id} href={`/share/${trip.viewCode}`} className="group relative">
+                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${
+                      isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-indigo-100 ring-1 ring-indigo-50'
+                    }`}>
+                      <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
+                        style={{ background: gradientStyle(trip.gradient) }}>
+                        <div className="flex items-start justify-between">
+                          <MapPin className={`w-6 h-6 sm:w-7 sm:h-7 ${clrIcon}`} />
+                          <div className="flex items-center gap-1.5">
+                            {isOngoing && (
+                              <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
                               </span>
-                              <button
-                                onClick={e => handleLeaveInvited(e, trip)}
-                                className={`opacity-0 group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'}`}
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
-                          <div>
-                            <p className={`font-bold text-base leading-snug ${clrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                              {trip.title || trip.city}
-                            </p>
-                            {trip.title && (
-                              <p className={`text-xs font-medium mt-0.5 ${clrSub}`}>{trip.city}</p>
                             )}
-                            <p className={`text-xs mt-1 font-medium ${clrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
+                            <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${roleBadge.cls}`}>
+                              {roleBadge.label}
+                            </span>
+                            <button
+                              onClick={e => handleLeaveInvited(e, trip)}
+                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
                         </div>
-                        <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
-                          <span className="text-sm font-semibold text-gray-700">{trip.nights}박 {trip.days}일</span>
-                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
+                        <div>
+                          <p className={`font-bold text-base leading-snug ${clrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                            {trip.title || trip.city}
+                          </p>
+                          {trip.title && (
+                            <p className={`text-xs font-medium mt-0.5 ${clrSub}`}>{trip.city}</p>
+                          )}
+                          <p className={`text-xs mt-1 font-medium ${clrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
-                    </Link>
-                  )
-                })}
+                      <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
+                        <span className="text-sm font-semibold text-gray-700">{trip.nights}박 {trip.days}일</span>
+                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
+                      </div>
+                    </div>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         )}

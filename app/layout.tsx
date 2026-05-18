@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     default: 'Voyalogue — 스마트 여행 플래너',
     template: '%s | Voyalogue',
   },
-  description: '드래그 앤 드롭 일정 관리, 구글 지도 연동, 실시간 환율, 멤버 공유까지. Voyalogue로 완벽한 여행 계획을 세우세요.',
+  description: '친구와 함께하는 여행 플래너. 여행 일정, 지도, 예산을 한 곳에서 관리하세요.',
   keywords: ['여행 플래너', '여행 일정', '여행 계획', '해외여행', '국내여행', '일정 관리', '여행 앱'],
   authors: [{ name: 'Voyalogue' }],
   creator: 'Voyalogue',
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     locale: 'ko_KR',
     siteName: 'Voyalogue',
     title: 'Voyalogue — 스마트 여행 플래너',
-    description: '드래그 앤 드롭 일정 관리, 구글 지도 연동, 실시간 환율, 멤버 공유까지. Voyalogue로 완벽한 여행 계획을 세우세요.',
+    description: '친구와 함께하는 여행 플래너. 여행 일정, 지도, 예산을 한 곳에서 관리하세요.',
   },
   robots: {
     index: true,

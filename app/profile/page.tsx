@@ -139,6 +139,7 @@ function ProfileContent() {
       await uploadBytes(sRef, file)
       const url = await getDownloadURL(sRef)
       await updateProfile(user, { photoURL: url })
+      await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true })
       setLocalPhoto(url)
       if (auth.currentUser) setUser(auth.currentUser)
     } catch { setPhotoError('사진 업로드에 실패했습니다.') }
@@ -148,15 +149,18 @@ function ProfileContent() {
     ? new Date(user.metadata.creationTime).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
 
-  /* ── 여행 통계 ── */
+  /* ── 여행 통계 (본인 + 초대받은 여행 합산) ── */
   const [stats, setStats]     = useState<Stats | null>(null)
   useEffect(() => {
     if (!user) return
-    getDocs(collection(db, 'users', user.uid, 'trips')).then(snap => {
-      const trips = snap.docs.map(d => d.data())
-      const nights = trips.reduce((s, t) => s + (t.nights ?? 0), 0)
-      const cities = new Set(trips.map(t => (t.city as string).split(',')[0].trim())).size
-      setStats({ total: trips.length, nights, cities })
+    Promise.all([
+      getDocs(collection(db, 'users', user.uid, 'trips')),
+      getDocs(collection(db, 'users', user.uid, 'invitedTrips')),
+    ]).then(([ownSnap, invSnap]) => {
+      const own = ownSnap.docs.map(d => d.data())
+      const nights = own.reduce((s, t) => s + (t.nights ?? 0), 0)
+      const cities = new Set(own.map(t => (t.city as string).split(',')[0].trim())).size
+      setStats({ total: own.length + invSnap.size, nights, cities })
     })
   }, [user])
 
@@ -298,33 +302,33 @@ function ProfileContent() {
           )}
 
           {/* 아이콘 색상 선택 */}
-          <div className="flex items-center gap-3 mb-5">
-            <span className="text-xs font-medium text-gray-400 flex-shrink-0">{currentPhoto ? '테두리 색상' : '아이콘 색상'}</span>
-            <div className="flex items-center gap-2">
-              {CLAY.map((c, i) => (
+          <div className="mb-5">
+            <span className="text-xs font-medium text-gray-400 block mb-2">{currentPhoto ? '테두리 색상' : '아이콘 색상'}</span>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              {[1, 2, 3, 4, 5].map(i => (
                 <button
                   key={i}
                   onClick={() => handleColorChange(i)}
-                  style={{ background: c.base }}
-                  className={`w-5 h-5 rounded-full transition-all duration-150 ${
-                    i === 0 ? 'border border-gray-200' : ''
-                  } ${
+                  style={{ background: CLAY[i].base }}
+                  className={`w-7 h-7 rounded-full transition-all duration-150 flex-shrink-0 ${
                     !avatarHexColor && (avatarColor ?? 0) === i
-                      ? 'ring-2 ring-offset-2 ring-gray-400 scale-110'
+                      ? 'ring-2 ring-offset-2 ring-gray-500 scale-110'
                       : 'hover:scale-110 opacity-60 hover:opacity-100'
                   }`}
                 />
               ))}
-              {/* 구분선 */}
-              <div className="w-px h-4 bg-gray-200 mx-0.5" />
-              {/* 커스텀 컬러 피커 버튼 */}
+              <div className="w-px h-5 bg-gray-200" />
+              {/* 커스텀 컬러 피커 */}
               <button
                 onClick={() => hexInputRef.current?.click()}
                 title="커스텀 색상 선택"
-                style={{ background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)' }}
-                className={`w-5 h-5 rounded-full transition-all duration-150 ${
+                style={avatarHexColor
+                  ? { background: avatarHexColor }
+                  : { background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)' }
+                }
+                className={`w-7 h-7 rounded-full transition-all duration-150 flex-shrink-0 ${
                   avatarHexColor
-                    ? 'ring-2 ring-offset-2 ring-gray-400 scale-110'
+                    ? 'ring-2 ring-offset-2 ring-gray-500 scale-110'
                     : 'hover:scale-110 opacity-70 hover:opacity-100'
                 }`}
               />
@@ -335,8 +339,8 @@ function ProfileContent() {
                 value={avatarHexColor ?? '#4A90E8'}
                 onChange={e => handleHexColorChange(e.target.value)}
               />
+              {colorSaving && <span className="text-xs text-gray-400 ml-1">저장 중…</span>}
             </div>
-            {colorSaving && <span className="text-xs text-gray-400">저장 중…</span>}
           </div>
 
           {/* 여행 통계 */}

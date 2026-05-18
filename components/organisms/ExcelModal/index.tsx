@@ -234,13 +234,18 @@ export function ExcelModal({
   const statusLabel = (s: string) => STATUS_LABEL[s] ?? s
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full max-w-[540px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+      <div className="relative z-10 w-full sm:max-w-[540px] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92svh] sm:max-h-[90vh]">
+
+        {/* 모바일 드래그 핸들 */}
+        <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
 
         {/* ── 헤더 ── */}
-        <div className="px-6 pt-6 pb-0 flex-shrink-0">
+        <div className="px-6 pt-3 sm:pt-6 pb-0 flex-shrink-0">
           <div className="flex items-center justify-between mb-5">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-2xl bg-emerald-50 flex items-center justify-center">
@@ -523,7 +528,7 @@ export function ExcelModal({
 
         {/* ── 푸터 ── */}
         {!(tab === 'import' && (importState.phase === 'done' || importState.phase === 'saving' || importState.phase === 'loading')) && (
-          <div className="px-6 pb-6 pt-2 flex-shrink-0 border-t border-gray-100">
+          <div className="px-6 pb-6 sm:pb-6 pt-2 flex-shrink-0 border-t border-gray-100" style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}>
             {tab === 'export' ? (
               <button
                 onClick={handleExport}
