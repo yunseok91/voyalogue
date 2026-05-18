@@ -76,7 +76,23 @@ export default function InvitePage() {
     try {
       const members = trip.members ?? []
 
-      /* 이미 연동된 경우 */
+      /* 주선자가 자신의 여행 초대링크에 접속한 경우 */
+      if (user.uid === invite.ownerUid) {
+        /* 주선자 슬롯이 랜덤 ID(기존 여행)이면 실제 UID로 교체 */
+        const ownerSlotIdx = members.findIndex(m => m.role === 'owner' && m.id !== user.uid)
+        if (ownerSlotIdx >= 0) {
+          const updatedMembers = members.map((m, i) =>
+            i === ownerSlotIdx
+              ? { ...m, id: user.uid, name: user.displayName || m.name, photoURL: user.photoURL ?? m.photoURL }
+              : m
+          )
+          await updateDoc(doc(db, 'users', invite.ownerUid, 'trips', invite.tripId), { members: updatedMembers })
+        }
+        router.replace(`/trips/${invite.tripId}`)
+        return
+      }
+
+      /* 이미 연동된 경우 (일반 멤버) */
       if (members.some(m => m.id === user.uid)) {
         setDoc(doc(db, 'users', user.uid, 'invitedTrips', invite.tripId), {
           ownerUid: invite.ownerUid, tripId: invite.tripId, viewCode: invite.viewCode,

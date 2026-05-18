@@ -293,7 +293,7 @@ function NewTripContent() {
         title:     tripTitle.trim() || '',
         viewCode,
         editCode,
-        members:   [{ id: generateCode(6), name: user.displayName ?? '나', role: 'owner', ...(user.photoURL ? { photoURL: user.photoURL } : {}) }],
+        members:   [{ id: user.uid, name: user.displayName ?? '나', role: 'owner', ...(user.photoURL ? { photoURL: user.photoURL } : {}) }],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       })
