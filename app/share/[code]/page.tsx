@@ -66,6 +66,7 @@ type TripMeta = {
   flights?:        FlightItem[]
   accommodations?: AccommodationItem[]
   checklist?:      CheckItem[]
+  textDark?:       boolean
 }
 
 type PlanItem = {
@@ -1089,7 +1090,7 @@ export default function SharePage() {
   /* ── 접속 게이트 ── */
   if (gate === 'waiting' || gate === 'choosing') {
     const memberCount = (trip.members ?? []).length
-    const tw = gradientTextColor(trip.gradient) === 'white'
+    const tw = trip.textDark !== undefined ? !trip.textDark : gradientTextColor(trip.gradient) === 'white'
     return (
       <div className="h-screen flex items-center justify-center bg-[#F8FAFC] px-4">
         <div className="bg-white rounded-2xl shadow-xl w-full max-w-[360px] overflow-hidden">
