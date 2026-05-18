@@ -65,7 +65,7 @@ const CAT_COLORS: Record<string, string> = {
   장소: 'bg-blue-100 text-blue-700',
   쇼핑: 'bg-pink-100 text-pink-700',
   식사: 'bg-orange-100 text-orange-700',
-  교통: 'bg-gray-100 text-gray-500',
+  교통: 'bg-teal-100 text-teal-700',
   기타: 'bg-gray-100 text-gray-500',
 }
 

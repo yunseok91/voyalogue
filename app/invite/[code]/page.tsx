@@ -121,6 +121,16 @@ export default function InvitePage() {
       const preIdx = members.findIndex(m => m.id === invite.memberId)
 
       if (preIdx >= 0) {
+        /*
+         * invite.memberId가 Firebase UID 길이(≥20)이고 현재 유저가 아니면
+         * 이 슬롯은 다른 실제 유저가 이미 소유한 것 → 탈취 차단
+         */
+        const isRealUid = invite.memberId.length >= 20
+        if (isRealUid && invite.memberId !== user.uid) {
+          setError('이 초대 링크는 다른 분에게 발급된 것이에요. 방장에게 새 링크를 요청해주세요.')
+          setClaiming(false)
+          return
+        }
         /* 미리 생성된 슬롯에 연동 */
         updatedMembers = members.map((m, i) =>
           i === preIdx

@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { useRouter } from 'next/navigation'
-import { Bell, MapPin, Megaphone } from 'lucide-react'
-import { collection, onSnapshot, updateDoc, doc, query, orderBy } from 'firebase/firestore'
+import { useRouter, usePathname } from 'next/navigation'
+import { Bell, MapPin, Megaphone, X, Trash2 } from 'lucide-react'
+import { collection, onSnapshot, updateDoc, deleteDoc, doc, query, orderBy, writeBatch } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -19,8 +19,9 @@ type NotifMessage = {
 }
 
 export function NotificationBell() {
-  const { user }  = useAuthStore()
-  const router    = useRouter()
+  const { user }   = useAuthStore()
+  const router     = useRouter()
+  const pathname   = usePathname()
   const [open, setOpen]         = useState(false)
   const [messages, setMessages] = useState<NotifMessage[]>([])
   const ref = useRef<HTMLDivElement>(null)
@@ -52,7 +53,24 @@ export function NotificationBell() {
       updateDoc(doc(db, 'users', user.uid, 'messages', msg.id), { read: true }).catch(() => {})
     }
     setOpen(false)
-    if (msg.tripPath) router.push(msg.tripPath)
+    if (msg.tripPath) {
+      /* 이미 해당 페이지에 있으면 재이동 없이 닫기만 */
+      if (pathname === msg.tripPath) return
+      router.push(msg.tripPath)
+    }
+  }
+
+  const handleDelete = (e: React.MouseEvent, msgId: string) => {
+    e.stopPropagation()
+    if (!user) return
+    deleteDoc(doc(db, 'users', user.uid, 'messages', msgId)).catch(() => {})
+  }
+
+  const handleDeleteAll = async () => {
+    if (!user || messages.length === 0) return
+    const batch = writeBatch(db)
+    messages.forEach(m => batch.delete(doc(db, 'users', user.uid, 'messages', m.id)))
+    await batch.commit().catch(() => {})
   }
 
   const formatDate = (ts: Timestamp) => {
@@ -79,11 +97,24 @@ export function NotificationBell() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl border border-gray-200 shadow-lg z-50 overflow-hidden">
+        <div className="
+          fixed sm:absolute
+          inset-x-3 sm:inset-x-auto
+          top-[60px] sm:top-full sm:right-0
+          sm:mt-2 sm:w-80
+          bg-white rounded-2xl border border-gray-200 shadow-lg z-50 overflow-hidden
+        ">
           <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-            <p className="text-sm font-bold text-gray-900">알림</p>
-            {unread > 0 && (
-              <span className="text-[11px] text-blue-600 font-semibold">{unread}개 미읽음</span>
+            <p className="text-sm font-bold text-gray-900">알림
+              {unread > 0 && <span className="ml-1.5 text-[11px] text-blue-600 font-semibold">{unread}개 미읽음</span>}
+            </p>
+            {messages.length > 0 && (
+              <button
+                onClick={handleDeleteAll}
+                className="text-[11px] text-gray-400 hover:text-red-500 transition-colors flex items-center gap-0.5"
+              >
+                <Trash2 className="w-3 h-3" /> 전체 삭제
+              </button>
             )}
           </div>
           {messages.length === 0 ? (
@@ -113,7 +144,15 @@ export function NotificationBell() {
                         </div>
                         <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5 leading-snug">{msg.body}</p>
                       </div>
-                      {!msg.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0 mt-1.5" />}
+                      <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
+                        {!msg.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                        <button
+                          onClick={e => handleDelete(e, msg.id)}
+                          className="w-5 h-5 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
                   </button>
                 )

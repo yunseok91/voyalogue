@@ -80,7 +80,7 @@ const TIME_SLOTS: TimeSlot[] = ['아침', '점심', '저녁', '미정']
 const CATEGORIES: Category[] = ['식사', '장소', '쇼핑', '교통', '기타']
 const CAT_COLORS: Record<Category, string> = {
   식사: 'bg-orange-100 text-orange-700', 장소: 'bg-blue-100 text-blue-700',
-  쇼핑: 'bg-pink-100 text-pink-700',     교통: 'bg-gray-100 text-gray-600',
+  쇼핑: 'bg-pink-100 text-pink-700',     교통: 'bg-teal-100 text-teal-700',
   기타: 'bg-gray-100 text-gray-600',
 }
 
@@ -170,6 +170,11 @@ function ItemCard({ item, canEdit, myUid, onEdit, onDelete, onRate, mapIndex, on
             ratings={item.ratings}
             onChange={canEdit && onRate ? v => onRate(item.id, v) : undefined}
           />
+          {item.participants > 0 && (
+            <span className="text-[11px] text-gray-400 flex items-center gap-0.5">
+              <Users className="w-3 h-3" />{item.participants}명
+            </span>
+          )}
           {item.price > 0 && (
             <span className="text-xs font-semibold text-emerald-600 ml-auto">
               {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
@@ -500,8 +505,6 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
   const [price,           setPrice]          = useState(item.price > 0 ? String(item.price) : '')
   const [currency,        setCurrency]       = useState(item.currency || defaultCurrency)
   const [comment,         setComment]        = useState(item.comment || '')
-  const [rating,          setRating]         = useState(item.rating || 0)
-  const [hoverRating,     setHoverRating]    = useState(0)
   const [participantIds,  setParticipantIds] = useState<string[]>(
     item.participantIds ?? members.map(m => m.id)
   )
@@ -552,7 +555,7 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
     const receipts = [...existingReceipts, ...newURLs]
     onSave(item.id, {
       name: name.trim(), timeSlot, cat,
-      price: Number(price) || 0, currency, comment, rating,
+      price: Number(price) || 0, currency, comment,
       participants: participantIds.length || members.length,
       participantIds,
       receipts,
@@ -629,18 +632,6 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
               </select>
               <input type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-600 mb-1.5">별점</label>
-            <div className="flex gap-0.5">
-              {[1,2,3,4,5].map(v => (
-                <button key={v} type="button"
-                  onMouseEnter={() => setHoverRating(v)} onMouseLeave={() => setHoverRating(0)}
-                  onClick={() => setRating(prev => prev === v ? 0 : v)}>
-                  <Star className={`w-6 h-6 transition-colors ${v <= (hoverRating || rating) ? 'fill-amber-400 text-amber-400' : 'text-gray-200'}`} />
-                </button>
-              ))}
             </div>
           </div>
           <div>
@@ -880,10 +871,27 @@ export default function SharePage() {
 
   const handleEditSave = async (itemId: string, patch: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
     if (!activeDay || !trip) return
+    /* 로컬 상태 즉시 반영 */
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id !== itemId ? i : { ...i, ...patch }
+      ),
+    }))
     await updateDoc(
       doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId),
       patch
     )
+    /* 다른 멤버에게 알림 */
+    const itemName = patch.name ?? (dayItems[activeDay.dayId] ?? []).find(i => i.id === itemId)?.name ?? ''
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '멤버'}이(가) 일정을 수정했습니다`,
+      body:     `${trip.title || trip.city} · ${itemName}`,
+      tripPath: `/share/${code}`,
+    })
   }
 
   const handleRate = async (itemId: string, stars: number) => {
@@ -982,7 +990,11 @@ export default function SharePage() {
   /* ── 대표 초대링크 참여 ── */
   const handleJoinTrip = async () => {
     if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
+    /* 방장은 참여 불가 (이미 소유자) */
+    if (trip.uid === user.uid) return
     const members = trip.members ?? []
+    /* 이미 활성 멤버인 경우 중복 방지 */
+    if (members.some(m => m.id === user.uid && !m.left)) return
     const activeCount = members.filter(m => !m.left).length
     if (activeCount >= (trip.people || 1)) {
       setJoinError('여행 인원이 가득 찼습니다. 방장에게 인원 증가를 요청하세요.')
@@ -1085,8 +1097,8 @@ export default function SharePage() {
         </div>
       </nav>
 
-      {/* ── 참여 배너 (로그인 유저이지만 멤버가 아닌 경우) ── */}
-      {user && !currentMember && !guestName && (
+      {/* ── 참여 배너 (로그인 유저이지만 멤버가 아닌 경우, 방장 제외) ── */}
+      {user && !currentMember && !guestName && trip.uid !== user.uid && (
         <div className="flex-shrink-0 px-4 pt-3">
           <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
@@ -1159,7 +1171,7 @@ export default function SharePage() {
       </div>
 
       {/* Day 탭 */}
-      <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3">
+      <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
         <div className="px-4 flex items-center gap-1 overflow-x-auto">
           {days.map((d, i) => (
             <button key={d.dayId} onClick={() => setActiveDayIdx(i)}
@@ -1192,7 +1204,8 @@ export default function SharePage() {
               </button>
             )}
           </div>
-          <div className="flex-1 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+          <div className="relative flex-1 overflow-hidden">
+          <div className="absolute inset-0 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
             {/* ── 고정 일정 (비행기 / 숙소) ── */}
             {activeDay && (() => {
               const activeDayIdx2 = days.findIndex(d => d.dayId === activeDay.dayId)
@@ -1229,19 +1242,19 @@ export default function SharePage() {
                     </div>
                   ))}
                   {dayAccs.map(({ acc, role }) => (
-                    <div key={`${acc.id}-${role}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-violet-50 border border-violet-200 rounded-xl">
-                      <div className="w-7 h-7 rounded-lg bg-violet-100 flex items-center justify-center flex-shrink-0">
-                        <BedDouble className="w-3.5 h-3.5 text-violet-600" />
+                    <div key={`${acc.id}-${role}`} className="flex items-center gap-2.5 px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-xl">
+                      <div className="w-7 h-7 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                        <BedDouble className="w-3.5 h-3.5 text-amber-600" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-violet-800 leading-none">
+                        <p className="text-xs font-bold text-amber-800 leading-none">
                           {role === 'checkin' ? '체크인' : role === 'checkout' ? '체크아웃' : '숙박중'} · {acc.name}
                         </p>
                         {role === 'checkin' && acc.checkInTime && (
-                          <p className="text-[10px] text-violet-600 mt-0.5">체크인 {acc.checkInTime}</p>
+                          <p className="text-[10px] text-amber-600 mt-0.5">체크인 {acc.checkInTime}</p>
                         )}
                         {role === 'checkout' && acc.checkOutTime && (
-                          <p className="text-[10px] text-violet-600 mt-0.5">체크아웃 {acc.checkOutTime}</p>
+                          <p className="text-[10px] text-amber-600 mt-0.5">체크아웃 {acc.checkOutTime}</p>
                         )}
                       </div>
                     </div>
@@ -1275,6 +1288,9 @@ export default function SharePage() {
                 )
               })
             )}
+          </div>
+          {/* 모바일 스크롤 힌트 — 하단 페이드 */}
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-[#F8FAFC] to-transparent pointer-events-none z-10 lg:hidden" />
           </div>
 
           {/* 푸터 */}
