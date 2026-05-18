@@ -9,10 +9,11 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    /* 배포 후 구버전 JS 청크 로딩으로 인한 오류 → 한 번만 자동 새로고침 */
-    const already = sessionStorage.getItem('_err_reload')
-    if (!already) {
-      sessionStorage.setItem('_err_reload', '1')
+    /* 배포 후 구버전 JS 청크 로딩으로 인한 오류 → 10초 안에 재시도한 경우 무한 루프 방지 */
+    const last = sessionStorage.getItem('_err_reload')
+    const now = Date.now()
+    if (!last || now - Number(last) > 10000) {
+      sessionStorage.setItem('_err_reload', String(now))
       window.location.reload()
     }
   }, [])

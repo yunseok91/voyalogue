@@ -711,6 +711,8 @@ export default function SharePage() {
   const [editingItem,  setEditingItem] = useState<PlanItem | null>(null)
   const [mobileTab,    setMobileTab]   = useState<'schedule' | 'map'>('schedule')
   const [rates,        setRates]       = useState<Record<string, number>>({ KRW: 1 })
+  const [joining,      setJoining]     = useState(false)
+  const [joinError,    setJoinError]   = useState('')
 
   useScrollLock(showAdd || !!editingItem)
 
@@ -989,9 +991,6 @@ export default function SharePage() {
   const currentMember   = user ? (trip.members ?? []).find(m => m.id === user.uid) ?? null : null
 
   /* ── 대표 초대링크 참여 ── */
-  const [joining, setJoining] = useState(false)
-  const [joinError, setJoinError] = useState('')
-
   const handleJoinTrip = async () => {
     if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
     const members = trip.members ?? []
