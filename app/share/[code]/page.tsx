@@ -788,8 +788,8 @@ export default function SharePage() {
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
   const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
 
-  const handleMapDblClick = useCallback((lat: number, lng: number) => {
-    setPendingPlace({ name: '', lat, lng })
+  const handleMapDblClick = useCallback((lat: number, lng: number, name?: string) => {
+    setPendingPlace({ name: name ?? '', lat, lng })
   }, [])
 
   const initMapSearchAc = useCallback((el: HTMLInputElement | null) => {
@@ -983,14 +983,19 @@ export default function SharePage() {
 
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
     if (!activeDay || !trip) return
+    const tempId = `temp_${Date.now()}`
+    const newOrder = currentItems.length
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), { id: tempId, ...partial, order: newOrder }],
+    }))
     await setDoc(doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId),
       { label: activeDay.label, date: activeDay.date }, { merge: true })
-    const newOrder = currentItems.length
     const docRef = await addDoc(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items'),
       { ...partial, order: newOrder, createdAt: serverTimestamp() })
     setDayItems(prev => ({
       ...prev,
-      [activeDay.dayId]: [...(prev[activeDay.dayId] ?? []), { id: docRef.id, ...partial, order: newOrder }],
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i => i.id === tempId ? { ...i, id: docRef.id } : i),
     }))
     /* 멤버들에게 알림 */
     notifyTripMembers({

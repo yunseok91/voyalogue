@@ -689,12 +689,17 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   /* 숙소 Places Autocomplete */
   useEffect(() => {
     if (mode !== 'accommodation') return
+    /* 더블클릭으로 열렸으면 해당 좌표를 숙소 좌표로 자동 적용 */
+    if (defaultPlace && accLat === null) {
+      setAccLat(defaultPlace.lat)
+      setAccLng(defaultPlace.lng)
+      if (defaultPlace.name) setAccName(defaultPlace.name)
+    }
     let ac: google.maps.places.Autocomplete | null = null
     import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
       if (!accInputRef.current) return
       ac = new google.maps.places.Autocomplete(accInputRef.current, {
         fields: ['name', 'geometry'],
-        types: ['lodging'],
       })
       ac.addListener('place_changed', () => {
         const p = ac!.getPlace()
@@ -706,6 +711,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
       })
     }).catch(() => {})
     return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode])
 
   /* 비행기 미니맵 */
@@ -795,9 +801,13 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         participantIds,
         ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
       })
-      setName(''); setPrice(''); setComment(''); setLat(null); setLng(null)
       setReceiptFiles([]); setReceiptPreviews([]); setUploading(false)
-      showSuccess('일정이 등록되었습니다')
+      if (defaultPlace) {
+        onClose()
+      } else {
+        setName(''); setPrice(''); setComment(''); setLat(null); setLng(null)
+        showSuccess('일정이 등록되었습니다')
+      }
     } finally {
       setSubmitting(false)
     }
@@ -1488,8 +1498,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const mapSearchRef    = useRef<HTMLInputElement>(null)
   const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
 
-  const handleMapDblClick = useCallback((lat: number, lng: number) => {
-    setPendingPlace({ name: '', lat, lng })
+  const handleMapDblClick = useCallback((lat: number, lng: number, name?: string) => {
+    setPendingPlace({ name: name ?? '', lat, lng })
   }, [])
 
   /* 좌우 패널 리사이즈 */

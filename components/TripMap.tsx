@@ -42,7 +42,7 @@ interface Props {
   focusTrigger?: number
   members?:      AvatarMember[]
   previewPlace?: { name: string; lat: number; lng: number }
-  onDblClick?:   (lat: number, lng: number) => void
+  onDblClick?:   (lat: number, lng: number, name?: string) => void
 }
 
 type MarkerEntry = {
@@ -102,9 +102,27 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
       mapRef.current = map
       syncMarkersRef.current()   // 마커 즉시 렌더 (items effect 실행 전 map이 준비될 수 있음)
 
-      map.addListener('click', () => {
-        openIwRef.current?.close()
-        openIwRef.current = null
+      map.addListener('click', (event: google.maps.MapMouseEvent) => {
+        const e = event as google.maps.MapMouseEvent & { placeId?: string; stop?: () => void }
+        if (e.placeId && onDblClickRef.current) {
+          /* POI 탭 — 기본 정보창 막고 장소명+좌표 추출 */
+          e.stop?.()
+          new google.maps.places.PlacesService(map).getDetails(
+            { placeId: e.placeId, fields: ['name', 'geometry'] },
+            (place, status) => {
+              if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+                onDblClickRef.current?.(
+                  place.geometry.location.lat(),
+                  place.geometry.location.lng(),
+                  place.name ?? '',
+                )
+              }
+            },
+          )
+        } else {
+          openIwRef.current?.close()
+          openIwRef.current = null
+        }
       })
 
       map.addListener('dblclick', (event: google.maps.MapMouseEvent) => {
