@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useEffect, useRef, useCallback, use } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, MapPin, Plus, Minus, X, Clock,
@@ -33,6 +33,7 @@ import { generateCode } from '@/lib/inviteCode'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { useScrollLock } from '@/hooks/useScrollLock'
+import { useParams } from 'next/navigation'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -3518,7 +3519,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   )
 }
 
-export default function PlannerPage({ params }: { params: Promise<{ tripId: string }> }) {
-  const { tripId } = use(params)
+export default function PlannerPage() {
+  const { tripId } = useParams<{ tripId: string }>()
   return <AuthGuard><PlannerContent tripId={tripId} /></AuthGuard>
 }

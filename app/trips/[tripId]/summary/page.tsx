@@ -1,12 +1,13 @@
 'use client'
 
-import React, { useState, use, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2 } from 'lucide-react'
 import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
+import { useParams } from 'next/navigation'
 
 /* ── 타입 ── */
 type TripMeta = {
@@ -356,7 +357,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
   )
 }
 
-export default function TripSummaryPage({ params }: { params: Promise<{ tripId: string }> }) {
-  const { tripId } = use(params)
+export default function TripSummaryPage() {
+  const { tripId } = useParams<{ tripId: string }>()
   return <AuthGuard><SummaryContent tripId={tripId} /></AuthGuard>
 }

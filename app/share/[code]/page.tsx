@@ -1,8 +1,8 @@
 'use client'
 
-import { useState, useEffect, useMemo, use, useRef, useCallback } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useParams } from 'next/navigation'
 import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, Minus, X, Camera, Plane, BedDouble, Pencil, UserPlus } from 'lucide-react'
 import {
   collection, getDoc, getDocs, orderBy,
@@ -697,8 +697,8 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
 }
 
 /* ── 메인 ── */
-export default function SharePage({ params }: { params: Promise<{ code: string }> }) {
-  const { code } = use(params)
+export default function SharePage() {
+  const { code } = useParams<{ code: string }>()
   const router = useRouter()
   const { user, loading: authLoading } = useAuthStore()
 
