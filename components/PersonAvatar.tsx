@@ -32,19 +32,27 @@ interface Props {
   ringColor?:  string
 }
 
-function proxied(url?: string): string | undefined {
-  if (!url) return undefined
-  if (url.includes('googleusercontent.com') || url.includes('graph.facebook.com')) {
-    return `/api/avatar?url=${encodeURIComponent(url)}`
-  }
-  return url
+function proxyUrl(url: string): string {
+  return `/api/avatar?url=${encodeURIComponent(url)}`
+}
+
+function isProxiable(url?: string): boolean {
+  return !!(url && (url.includes('googleusercontent.com') || url.includes('graph.facebook.com')))
 }
 
 export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
-  const [imgFailed, setImgFailed] = useState(false)
-  const src = proxied(photoURL)
+  const [triedProxy, setTriedProxy] = useState(false)
+  const [imgFailed,  setImgFailed]  = useState(false)
+
+  // 직접 URL 먼저 시도, 실패하면 프록시로 재시도
+  const src = !photoURL
+    ? undefined
+    : (!triedProxy || !isProxiable(photoURL))
+      ? photoURL
+      : proxyUrl(photoURL)
 
   useEffect(() => {
+    setTriedProxy(false)
     setImgFailed(false)
   }, [photoURL])
 
@@ -54,7 +62,7 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
   const isWhite = colorIndex === 0 && !hexColor
 
   let shadow: string
-  if (photoURL && !imgFailed) {
+  if (src && !imgFailed) {
     shadow = `0 2px 6px rgba(0,0,0,0.12)`
   } else if (isWhite) {
     shadow = `0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
@@ -78,7 +86,15 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
           <img
             src={src}
             alt={name}
-            onError={() => setImgFailed(true)}
+            referrerPolicy="no-referrer"
+            onError={() => {
+              if (!triedProxy && isProxiable(photoURL)) {
+                // 직접 URL 실패 → 프록시로 재시도 (iOS PWA CORS 대응)
+                setTriedProxy(true)
+              } else {
+                setImgFailed(true)
+              }
+            }}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (

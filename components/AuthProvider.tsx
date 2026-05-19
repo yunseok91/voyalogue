@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { onAuthStateChanged, signOut, updateProfile } from 'firebase/auth'
 import { doc, setDoc, getDoc, serverTimestamp, runTransaction, increment } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -59,22 +59,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await user.reload().catch(() => {})
       const freshUser = auth.currentUser ?? user
 
-      /* user.photoURL이 null인 경우 providerData(Google 등)에서 fallback */
-      const photoURL =
+      /* user.photoURL이 null이면 providerData → Firestore 순으로 fallback 탐색 */
+      const resolvedPhoto =
         freshUser.photoURL ||
         freshUser.providerData.find(p => p.photoURL)?.photoURL ||
         (snap?.exists() ? (snap.data().photoURL as string | undefined) : undefined) ||
         ''
 
-      setUser(freshUser)
+      /* Firebase Auth User 객체 자체에 photoURL을 반영 (profile/trips 페이지 등 직접 참조하는 곳 대응) */
+      if (!freshUser.photoURL && resolvedPhoto) {
+        await updateProfile(freshUser, { photoURL: resolvedPhoto }).catch(() => {})
+      }
+
+      /* updateProfile 후 최신 User 객체를 다시 참조 */
+      const finalUser = auth.currentUser ?? freshUser
+
+      setUser(finalUser)
       if (snap?.exists()) setAdFree(snap.data().adFree === true)
 
       await setDoc(
         userRef,
         {
-          displayName: freshUser.displayName ?? '',
-          email:       freshUser.email ?? '',
-          photoURL,
+          displayName: finalUser.displayName ?? '',
+          email:       finalUser.email ?? '',
+          photoURL:    resolvedPhoto,
           lastLoginAt: serverTimestamp(),
         },
         { merge: true }
