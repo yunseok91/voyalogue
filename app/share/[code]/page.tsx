@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Flag } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset } from 'lucide-react'
 import {
   collection, getDoc, getDocs,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -1290,9 +1290,9 @@ export default function SharePage() {
             <button
               onClick={() => setShowReport(true)}
               title="문의 / 버그 신고"
-              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500 transition-colors flex-shrink-0"
             >
-              <Flag className="w-4 h-4" />
+              <Headset className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
               <div className="relative flex-shrink-0">
@@ -1357,7 +1357,7 @@ export default function SharePage() {
             title="문의 / 버그 신고"
             className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
           >
-            <Flag className="w-4 h-4" />
+            <Headset className="w-4 h-4" />
           </button>
           {canEdit && (
             <button onClick={() => setShowChecklist(v => !v)}

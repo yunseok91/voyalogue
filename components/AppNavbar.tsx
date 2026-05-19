@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen, Flag, Download } from 'lucide-react'
+import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen, Headset, Download } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -101,9 +101,9 @@ export function AppNavbar({
             <button
               onClick={onReport}
               title="문의 / 버그 신고"
-              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="hidden sm:flex w-9 h-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 transition-colors"
             >
-              <Flag className="w-4 h-4" />
+              <Headset className="w-4 h-4" />
             </button>
           )}
 
@@ -172,7 +172,7 @@ export function AppNavbar({
                       onClick={() => { setDropdownOpen(false); onReport() }}
                       className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
                     >
-                      <Flag className="w-4 h-4 text-gray-400" />
+                      <Headset className="w-4 h-4 text-blue-400" />
                       문의 / 버그 신고
                     </button>
                   )}
