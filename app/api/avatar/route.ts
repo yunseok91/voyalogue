@@ -17,7 +17,13 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const res = await fetch(url, { headers: { Referer: '' } })
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; Voyalogue/1.0)',
+        'Accept': 'image/*,*/*',
+        'Referer': 'https://accounts.google.com',
+      },
+    })
     const buf = await res.arrayBuffer()
     return new NextResponse(buf, {
       headers: {

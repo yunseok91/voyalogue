@@ -142,9 +142,19 @@ function ProfileContent() {
       await updateProfile(user, { photoURL: url })
       await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true })
       setLocalPhoto(url)
+      await user.reload().catch(() => {})
       if (auth.currentUser) setUser(auth.currentUser)
-    } catch { setPhotoError('사진 업로드에 실패했습니다.') }
-    finally   { setPhotoLoading(false) }
+    } catch (err: unknown) {
+      const code = (err as { code?: string }).code ?? ''
+      const msg  = (err as { message?: string }).message ?? ''
+      console.error('[PhotoUpload]', code, msg)
+      if (code === 'storage/unauthorized') {
+        setPhotoError('업로드 권한이 없습니다. 다시 로그인해주세요.')
+      } else {
+        setPhotoError(`사진 업로드에 실패했습니다. (${code || msg || '알 수 없는 오류'})`)
+      }
+    }
+    finally { setPhotoLoading(false) }
   }
   const joinDate     = user?.metadata?.creationTime
     ? new Date(user.metadata.creationTime).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -259,12 +269,12 @@ function ProfileContent() {
               <button
                 onClick={() => fileInputRef.current?.click()}
                 disabled={photoLoading}
-                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/0 hover:bg-black/35 transition-colors"
+                className="absolute inset-0 rounded-full flex items-center justify-center bg-black/0 hover:bg-black/40 active:bg-black/40 transition-colors"
                 title="프로필 사진 변경"
               >
                 {photoLoading
-                  ? <Loader2 className="w-5 h-5 text-white animate-spin opacity-0 group-hover/av:opacity-100" />
-                  : <Camera className="w-5 h-5 text-white opacity-0 group-hover/av:opacity-100 transition-opacity" />
+                  ? <Loader2 className="w-5 h-5 text-white animate-spin sm:opacity-0 sm:group-hover/av:opacity-100" />
+                  : <Camera className="w-5 h-5 text-white sm:opacity-0 sm:group-hover/av:opacity-100 transition-opacity drop-shadow-md" />
                 }
               </button>
               <input

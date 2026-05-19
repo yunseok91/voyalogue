@@ -32,27 +32,10 @@ interface Props {
   ringColor?:  string
 }
 
-function proxyUrl(url: string): string {
-  return `/api/avatar?url=${encodeURIComponent(url)}`
-}
-
-function isProxiable(url?: string): boolean {
-  return !!(url && (url.includes('googleusercontent.com') || url.includes('graph.facebook.com')))
-}
-
 export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
-  const [triedProxy, setTriedProxy] = useState(false)
-  const [imgFailed,  setImgFailed]  = useState(false)
-
-  // 직접 URL 먼저 시도, 실패하면 프록시로 재시도
-  const src = !photoURL
-    ? undefined
-    : (!triedProxy || !isProxiable(photoURL))
-      ? photoURL
-      : proxyUrl(photoURL)
+  const [imgFailed, setImgFailed] = useState(false)
 
   useEffect(() => {
-    setTriedProxy(false)
     setImgFailed(false)
   }, [photoURL])
 
@@ -62,7 +45,7 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
   const isWhite = colorIndex === 0 && !hexColor
 
   let shadow: string
-  if (src && !imgFailed) {
+  if (photoURL && !imgFailed) {
     shadow = `0 2px 6px rgba(0,0,0,0.12)`
   } else if (isWhite) {
     shadow = `0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
@@ -74,7 +57,7 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
     shadow = `0 0 0 2.5px white, 0 0 0 5px ${ringColor}, ${shadow}`
   }
 
-  const showPhoto = src && !imgFailed
+  const showPhoto = !!photoURL && !imgFailed
 
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
@@ -84,27 +67,18 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
       >
         {showPhoto ? (
           <img
-            src={src}
+            src={photoURL!}
             alt={name}
             referrerPolicy="no-referrer"
-            onError={() => {
-              if (!triedProxy && isProxiable(photoURL)) {
-                // 직접 URL 실패 → 프록시로 재시도 (iOS PWA CORS 대응)
-                setTriedProxy(true)
-              } else {
-                setImgFailed(true)
-              }
-            }}
+            onError={() => setImgFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />
         ) : (
           <svg viewBox="0 0 44 44" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
-            {/* Body */}
             <path
               d="M 7 44 Q 7 30 14.5 27 Q 18 25.5 22 25.5 Q 26 25.5 29.5 27 Q 37 30 37 44 Z"
               fill={base}
             />
-            {/* Head */}
             <circle cx="22" cy="14" r="11" fill={base} />
           </svg>
         )}
