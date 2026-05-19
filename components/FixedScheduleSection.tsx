@@ -9,15 +9,21 @@ export type FlightItem = {
   dayId:      string
   departTime: string
   arriveTime: string
+  price?:            number
+  currency?:         string
+  includeInSettlement?:  boolean
 }
 
 export type AccommodationItem = {
-  id:            string
-  name:          string
-  checkInDayId:  string
-  checkInTime:   string
-  checkOutDayId: string
-  checkOutTime:  string
+  id:               string
+  name:             string
+  checkInDayId:     string
+  checkInTime:      string
+  checkOutDayId:    string
+  checkOutTime:     string
+  price?:           number
+  currency?:        string
+  includeInSettlement?: boolean
 }
 
 type DayEntry = { dayId: string }
@@ -77,6 +83,12 @@ export function FixedScheduleSection({
                 {f.arriveTime && `도착 ${f.arriveTime}`}
               </p>
             )}
+            {!!f.price && (
+              <p className={`text-[10px] font-semibold mt-0.5 ${f.includeInSettlement ? 'text-sky-600' : 'text-gray-400'}`}>
+                {f.currency ?? ''} {f.price.toLocaleString()}
+                {!f.includeInSettlement && <span className="ml-1 text-[9px]">(정산 미포함)</span>}
+              </p>
+            )}
           </div>
           {(onEditFlight || onDeleteFlight) && (
             <div className="flex items-center gap-1 flex-shrink-0">
@@ -120,6 +132,12 @@ export function FixedScheduleSection({
             )}
             {role === 'checkout' && acc.checkOutTime && (
               <p className="text-[10px] text-gray-400 mt-0.5">체크아웃 {acc.checkOutTime}</p>
+            )}
+            {role === 'checkin' && !!acc.price && (
+              <p className={`text-[10px] font-semibold mt-0.5 ${acc.includeInSettlement ? 'text-amber-600' : 'text-gray-400'}`}>
+                {acc.currency ?? ''} {acc.price.toLocaleString()}
+                {!acc.includeInSettlement && <span className="ml-1 text-[9px]">(정산 미포함)</span>}
+              </p>
             )}
           </div>
           {role !== 'stay' && (onEditAcc || onDeleteAcc) && (

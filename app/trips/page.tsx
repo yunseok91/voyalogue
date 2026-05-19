@@ -530,26 +530,25 @@ function TripsContent() {
           }
         </div>
 
-        {/* 필터 탭 + 역할 셀렉트 — 한 행 */}
-        <div className="flex items-center gap-3 mb-4 sm:mb-5">
-          <div className="flex items-center gap-2 flex-1 overflow-x-auto scrollbar-hide min-w-0">
-            {FILTERS.map(({ key, label }) => (
-              <button key={key} onClick={() => handleFilter(key)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
-                  filter === key
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
-                }`}
-              >
-                {label}
-                <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
-                  filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-                }`}>
-                  {counts[key]}
-                </span>
-              </button>
-            ))}
-          </div>
+        {/* 필터 탭 + 역할 셀렉트 — 스와이프 스크롤 */}
+        <div className="flex items-center gap-2 mb-4 sm:mb-5 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 lg:-mx-16 px-4 sm:px-6 lg:px-16 pb-0.5">
+          {FILTERS.map(({ key, label }) => (
+            <button key={key} onClick={() => handleFilter(key)}
+              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+                filter === key
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+              }`}
+            >
+              {label}
+              <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
+                filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {counts[key]}
+              </span>
+            </button>
+          ))}
+          <div className="w-px h-5 bg-gray-200 flex-shrink-0 mx-1" />
           <div className="relative flex-shrink-0">
             <select
               value={roleFilter}

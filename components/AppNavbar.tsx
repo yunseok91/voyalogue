@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
-import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen, Flag } from 'lucide-react'
+import { Plus, FileSpreadsheet, User, LogOut, Plane, BookOpen, Flag, Download } from 'lucide-react'
 import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
@@ -84,13 +84,14 @@ export function AppNavbar({
 
         {/* 오른쪽 액션 */}
         <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          {/* 엑셀 · 신고 — 데스크톱만 노출, 모바일은 드롭다운으로 */}
           {onExcel && (
             <button
               onClick={onExcel}
-              className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 border border-gray-200 hover:border-emerald-400 hover:text-emerald-600 text-gray-600 rounded-full text-sm font-semibold transition-colors"
+              className="hidden sm:flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-emerald-400 hover:text-emerald-600 text-gray-600 rounded-full text-sm font-semibold transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 flex-shrink-0" />
-              <span className="hidden sm:inline whitespace-nowrap">엑셀</span>
+              엑셀
             </button>
           )}
 
@@ -100,7 +101,7 @@ export function AppNavbar({
             <button
               onClick={onReport}
               title="문의 / 버그 신고"
-              className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+              className="hidden sm:flex w-8 h-8 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
             >
               <Flag className="w-4 h-4" />
             </button>
@@ -155,6 +156,26 @@ export function AppNavbar({
                     컬렉션
                     {active === 'collection' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-blue-500" />}
                   </Link>
+                  {/* 엑셀 내보내기 — 모바일 */}
+                  {onExcel && (
+                    <button
+                      onClick={() => { setDropdownOpen(false); onExcel() }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Download className="w-4 h-4 text-emerald-500" />
+                      엑셀 내보내기
+                    </button>
+                  )}
+                  {/* 문의 / 신고 — 모바일 */}
+                  {onReport && (
+                    <button
+                      onClick={() => { setDropdownOpen(false); onReport() }}
+                      className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+                    >
+                      <Flag className="w-4 h-4 text-gray-400" />
+                      문의 / 버그 신고
+                    </button>
+                  )}
                 </div>
                 <Link
                   href="/profile"

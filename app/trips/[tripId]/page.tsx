@@ -84,17 +84,23 @@ type FlightItem = {
   arriveTime:  string
   lat?:        number
   lng?:        number
+  price?:            number
+  currency?:         string
+  includeInSettlement?:  boolean
 }
 
 type AccommodationItem = {
-  id:             string
-  name:           string
-  checkInDayId:   string
-  checkInTime:    string
-  checkOutDayId:  string
-  checkOutTime:   string
-  lat?:           number
-  lng?:           number
+  id:               string
+  name:             string
+  checkInDayId:     string
+  checkInTime:      string
+  checkOutDayId:    string
+  checkOutTime:     string
+  lat?:             number
+  lng?:             number
+  price?:           number
+  currency?:        string
+  includeInSettlement?: boolean
 }
 
 type TripMeta = {
@@ -592,6 +598,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [comment,        setComment]        = useState('')
   const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
   const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
+  const [coordsFromMap,  setCoordsFromMap]  = useState(!!defaultPlace)
   const [participantIds, setParticipantIds] = useState<string[]>(members.map(m => m.id))
   const [receiptFiles,    setReceiptFiles]    = useState<File[]>([])
   const [receiptPreviews, setReceiptPreviews] = useState<string[]>([])
@@ -617,6 +624,15 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [flightLng,  setFlightLng]  = useState<number | null>(null)
   const [accLat,     setAccLat]     = useState<number | null>(null)
   const [accLng,     setAccLng]     = useState<number | null>(null)
+  /* 비행기/숙소 비용 */
+  const [flightPrice,          setFlightPrice]          = useState('')
+  const [flightCurrency,       setFlightCurrency]       = useState(defaultCurrency)
+  const [flightIncludeInSettlement, setFlightIncludeInSettlement] = useState(true)
+  const [accPrice,             setAccPrice]             = useState('')
+  const [accCurrency,          setAccCurrency]          = useState(defaultCurrency)
+  const [accIncludeInSettlement,   setAccIncludeInSettlement]   = useState(true)
+  const [showFlightPriceInfo,  setShowFlightPriceInfo]  = useState(false)
+  const [showAccPriceInfo,     setShowAccPriceInfo]     = useState(false)
 
   const inputRef       = useRef<HTMLInputElement>(null)
   const flightInputRef = useRef<HTMLInputElement>(null)
@@ -656,6 +672,9 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         if (place.geometry?.location) {
           setLat(place.geometry.location.lat())
           setLng(place.geometry.location.lng())
+          setCoordsFromMap(false)
+        } else {
+          setLat(null); setLng(null); setCoordsFromMap(false)
         }
       })
     }).catch(() => {})
@@ -760,19 +779,27 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         if (!flightName.trim()) return
         if (!inEnabled && !outEnabled) return
         const loc = flightLat !== null ? { lat: flightLat, lng: flightLng ?? 0 } : {}
+        const fCostBase = Number(flightPrice) > 0
+          ? { price: Number(flightPrice), currency: flightCurrency, includeInSettlement: flightIncludeInSettlement }
+          : {}
         const toAdd: Omit<FlightItem, 'id'>[] = []
-        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc })
-        if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc })
+        // 가격은 첫 번째 세그먼트에만 저장 (이중 계산 방지)
+        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc, ...fCostBase })
+        if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc, ...(inEnabled ? {} : fCostBase) })
         await onAddFlight(toAdd)
         setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
-        setFlightLat(null); setFlightLng(null)
+        setFlightLat(null); setFlightLng(null); setFlightPrice(''); setFlightIncludeInSettlement(true)
         showSuccess('비행기가 등록되었습니다'); return
       }
       if (mode === 'accommodation') {
         if (!accName.trim()) return
+        const aCost = Number(accPrice) > 0
+          ? { price: Number(accPrice), currency: accCurrency, includeInSettlement: accIncludeInSettlement }
+          : {}
         await onAddAccommodation({ name: accName.trim(), checkInDayId, checkInTime, checkOutDayId, checkOutTime,
-          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}) })
+          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}), ...aCost })
         setAccName(''); setCheckInTime(''); setCheckOutTime(''); setAccLat(null); setAccLng(null)
+        setAccPrice(''); setAccIncludeInSettlement(true)
         showSuccess('숙소가 등록되었습니다'); return
       }
       if (!ok) return
@@ -940,6 +967,45 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 )}
               </div>
 
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</span>
+                    <div className="relative">
+                      <button type="button" onClick={() => setShowFlightPriceInfo(v => !v)}
+                        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center hover:bg-gray-300 transition-colors">
+                        i
+                      </button>
+                      {showFlightPriceInfo && (
+                        <>
+                          <div className="fixed inset-0 z-[9]" onClick={() => setShowFlightPriceInfo(false)} />
+                          <div className="absolute left-0 top-6 z-10 w-64 bg-gray-900 text-white text-[11px] rounded-2xl p-3.5 shadow-xl leading-relaxed">
+                            <p className="font-semibold text-white mb-1.5">정산 포함 안내</p>
+                            <p className="text-gray-300">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 비행기 비용이 1/n 분배로 누적됩니다.</p>
+                            <p className="mt-1.5 text-gray-300">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={flightIncludeInSettlement}
+                      onChange={e => setFlightIncludeInSettlement(e.target.checked)}
+                      className="w-4 h-4 accent-blue-600" />
+                    <span className="text-[12px] font-medium text-gray-600">정산에 포함</span>
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <select value={flightCurrency} onChange={e => setFlightCurrency(e.target.value)}
+                    className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                    {[defaultCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== defaultCurrency)].map(c => (
+                      <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                    ))}
+                  </select>
+                  <input type="number" placeholder="0" value={flightPrice} onChange={e => setFlightPrice(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+                </div>
+              </div>
               <button type="submit" disabled={!flightName.trim() || (!inEnabled && !outEnabled) || submitting}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
                 {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '비행기 추가'}
@@ -992,6 +1058,45 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   <input type="time" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className={inputCls} />
                 </div>
               </div>
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</span>
+                    <div className="relative">
+                      <button type="button" onClick={() => setShowAccPriceInfo(v => !v)}
+                        className="w-4 h-4 rounded-full bg-gray-200 text-gray-500 text-[10px] font-bold flex items-center justify-center hover:bg-gray-300 transition-colors">
+                        i
+                      </button>
+                      {showAccPriceInfo && (
+                        <>
+                          <div className="fixed inset-0 z-[9]" onClick={() => setShowAccPriceInfo(false)} />
+                          <div className="absolute left-0 top-6 z-10 w-64 bg-gray-900 text-white text-[11px] rounded-2xl p-3.5 shadow-xl leading-relaxed">
+                            <p className="font-semibold text-white mb-1.5">정산 포함 안내</p>
+                            <p className="text-gray-300">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 숙소 비용이 1/n 분배로 누적됩니다.</p>
+                            <p className="mt-1.5 text-gray-300">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input type="checkbox" checked={accIncludeInSettlement}
+                      onChange={e => setAccIncludeInSettlement(e.target.checked)}
+                      className="w-4 h-4 accent-blue-600" />
+                    <span className="text-[12px] font-medium text-gray-600">정산에 포함</span>
+                  </label>
+                </div>
+                <div className="flex gap-2">
+                  <select value={accCurrency} onChange={e => setAccCurrency(e.target.value)}
+                    className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                    {[defaultCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== defaultCurrency)].map(c => (
+                      <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                    ))}
+                  </select>
+                  <input type="number" placeholder="0" value={accPrice} onChange={e => setAccPrice(e.target.value)}
+                    className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+                </div>
+              </div>
               <button type="submit" disabled={!accName.trim() || submitting}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
                 숙소 추가
@@ -1017,7 +1122,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   type="text"
                   placeholder="장소 검색 또는 직접 입력 (예: 택시, 교통카드, 기념품…)"
                   value={name}
-                  onChange={e => { setName(e.target.value); setLat(null); setLng(null) }}
+                  onChange={e => { setName(e.target.value); if (!coordsFromMap) { setLat(null); setLng(null) } }}
                   onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                   autoFocus
                   className={inputCls}
@@ -1736,6 +1841,18 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const activeDay    = days[activeDayIdx]
   const currentItems = activeDay ? (dayItems[activeDay.dayId] ?? []) : []
 
+  // 정산 포함 고정비용 (예산 바 제외, 정산 팝업에만 반영)
+  const settlementFixedKRW = useMemo(() => {
+    const flightsKRW = (meta?.flights ?? []).reduce(
+      (s, f) => s + (f.price && f.includeInSettlement ? toKRW(f.price, f.currency ?? 'KRW', rates) : 0), 0
+    )
+    const accKRW = (meta?.accommodations ?? []).reduce(
+      (s, a) => s + (a.price && a.includeInSettlement ? toKRW(a.price, a.currency ?? 'KRW', rates) : 0), 0
+    )
+    return flightsKRW + accKRW
+  }, [meta?.flights, meta?.accommodations, rates])
+
+  // totalSpent = 일정 항목만 (예산 바용)
   const totalSpent = useMemo(
     () => Object.values(dayItems).flat().reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
     [dayItems, rates]
@@ -1771,8 +1888,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
         meta.members.forEach(m => { result[m.id] += share })
       }
     })
+    // 정산 포함 고정비용 → 전원 균등 분배
+    if (settlementFixedKRW > 0) {
+      const share = settlementFixedKRW / meta.members.length
+      meta.members.forEach(m => { result[m.id] += share })
+    }
     return result
-  }, [dayItems, rates, meta])
+  }, [dayItems, rates, meta, settlementFixedKRW])
 
   const hasUnevenParticipants = useMemo(() => {
     const amounts = Object.values(memberSpent)
@@ -2417,39 +2539,48 @@ function PlannerContent({ tripId }: { tripId: string }) {
           </div>
         </div>
         {/* 줄 2 — 모바일 전용 액션 */}
-        <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-t border-gray-100">
-          <button onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors" title="멤버 관리">
+        <div className="sm:hidden flex items-center justify-between px-4 py-2 border-t border-gray-100">
+          {/* 멤버 버튼 — 아바타 + 이름만 */}
+          <button
+            onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
+            className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors"
+          >
             <div className="flex -space-x-2">
               {(meta.members ?? []).slice(0, 3).map((m, i) => (
                 <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
                   <PersonAvatar
                     name={m.name}
                     photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
-                    size={26} stacked
+                    size={24} stacked
                     colorIndex={m.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))}
                     hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
                   />
-                  {m.role === 'owner' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center"><Crown className="w-1.5 h-1.5 text-white" /></span>}
                 </div>
               ))}
               {(meta.members ?? []).length > 3 && (
                 <div className="w-6 h-6 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{(meta.members ?? []).length - 3}</div>
               )}
             </div>
-            <span className="text-xs font-semibold text-gray-600">멤버 편집</span>
-            <Users className="w-3.5 h-3.5 text-gray-400" />
+            <span className="text-xs font-medium text-gray-600">{(meta.members ?? []).length}명</span>
           </button>
-          <div className="flex-1" />
-          <NotificationBell />
-          <button onClick={() => setChecklist(v => !v)}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors min-h-[36px]">
-            <CheckSquare className="w-3.5 h-3.5" /><span>체크</span>
-          </button>
-          <Link href={`/trips/${tripId}/summary`}
-            className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors min-h-[36px]">
-            요약<ChevronRight className="w-3.5 h-3.5" />
-          </Link>
+
+          {/* 우측 액션 */}
+          <div className="flex items-center gap-1.5">
+            <NotificationBell />
+            <button
+              onClick={() => setChecklist(v => !v)}
+              className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 active:bg-gray-100 transition-colors"
+              title="체크리스트"
+            >
+              <CheckSquare className="w-4 h-4" />
+            </button>
+            <Link
+              href={`/trips/${tripId}/summary`}
+              className="h-9 px-3.5 flex items-center gap-1 rounded-full bg-gray-900 text-white text-xs font-semibold active:bg-gray-700 transition-colors"
+            >
+              요약<ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
         </div>
       </nav>
 
@@ -3260,9 +3391,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
       {showSettlement && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200]"
           onClick={() => setShowSettlement(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl max-h-[90dvh] flex flex-col"
             onClick={e => e.stopPropagation()}>
-            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
@@ -3272,7 +3403,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="px-6 py-4 flex flex-col gap-3">
+            <div className="px-6 py-4 flex flex-col gap-3 overflow-y-auto flex-1 min-h-0">
+              {/* 멤버별 정산 */}
               {(meta.members ?? []).map((m, mi) => {
                 const amt = memberSpent[m.id] ?? 0
                 const ci = m.role === 'owner'
@@ -3285,38 +3417,109 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     <PersonAvatar name={m.name} size={32} colorIndex={ci} hexColor={hexC} photoURL={photoURL} />
                     <span className="text-sm flex-1 font-medium text-gray-800 flex items-center gap-1.5">
                       {m.name}
-                      {m.left && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">탈퇴</span>
-                      )}
+                      {m.left && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">탈퇴</span>}
                     </span>
                     <div className="text-right">
                       <span className="text-sm font-bold text-gray-900 block">
                         {primaryCurrency !== 'KRW' && rates[primaryCurrency]
                           ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
-                          : (formatKRW(Math.round(amt)) || '0원')
-                        }
+                          : (formatKRW(Math.round(amt)) || '0원')}
                       </span>
-                      {primaryCurrency !== 'KRW' && (
-                        <span className="text-[11px] text-gray-400">{formatKRW(Math.round(amt))}</span>
-                      )}
+                      {primaryCurrency !== 'KRW' && <span className="text-[11px] text-gray-400">{formatKRW(Math.round(amt))}</span>}
                     </div>
                   </div>
                 )
               })}
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                  <Users className="w-3 h-3" />합계
-                </span>
-                <div className="text-right">
-                  <span className="text-xs font-bold text-gray-700 block">
-                    {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                      ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
-                      : formatKRW(totalSpent)
-                    }
+
+              {/* 금액 내역 breakdown */}
+              <div className="mt-1 pt-3 border-t border-gray-100 flex flex-col gap-2">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">금액 내역</p>
+
+                {/* 일정 합계 — primaryCurrency 기준 */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[12px] text-gray-500 flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[9px]">📋</span>
+                    일정 합계
                   </span>
-                  {primaryCurrency !== 'KRW' && (
-                    <span className="text-[11px] text-gray-400">{formatKRW(totalSpent)}</span>
-                  )}
+                  <div className="text-right">
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency] ? (
+                      <>
+                        <span className="text-[12px] font-semibold text-gray-700">
+                          {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}
+                        </span>
+                        <p className="text-[10px] text-gray-400">{formatKRW(totalSpent)}</p>
+                      </>
+                    ) : (
+                      <span className="text-[12px] font-semibold text-gray-700">{formatKRW(totalSpent)}</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 비행기 — 입력 통화 그대로, 원화 환산 병기 */}
+                {(meta.flights ?? []).filter(f => f.includeInSettlement && f.price).map(f => {
+                  const currency = f.currency ?? 'KRW'
+                  const krw = toKRW(f.price!, currency, rates)
+                  const isKRW = currency === 'KRW'
+                  return (
+                    <div key={f.id} className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <Plane className="w-2.5 h-2.5 text-sky-600" />
+                        </span>
+                        <span className="truncate">{f.name}</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-sky-600">
+                          {isKRW
+                            ? formatKRW(f.price!)
+                            : `${CURRENCY_SYMBOLS[currency] ?? currency}${f.price!.toLocaleString()}`}
+                        </span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">≈ {formatKRW(krw)}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 숙소 — 입력 통화 그대로, 원화 환산 병기 */}
+                {(meta.accommodations ?? []).filter(a => a.includeInSettlement && a.price).map(a => {
+                  const currency = a.currency ?? 'KRW'
+                  const krw = toKRW(a.price!, currency, rates)
+                  const isKRW = currency === 'KRW'
+                  return (
+                    <div key={a.id} className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <BedDouble className="w-2.5 h-2.5 text-amber-600" />
+                        </span>
+                        <span className="truncate">{a.name}</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-amber-600">
+                          {isKRW
+                            ? formatKRW(a.price!)
+                            : `${CURRENCY_SYMBOLS[currency] ?? currency}${a.price!.toLocaleString()}`}
+                        </span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">≈ {formatKRW(krw)}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 총합계 — 항상 원화 기준 */}
+                <div className="pt-2.5 mt-0.5 border-t border-gray-200 flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-gray-700 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> 합계
+                  </span>
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-gray-900 block">
+                      {formatKRW(totalSpent + settlementFixedKRW)}
+                    </span>
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                      <span className="text-[11px] text-gray-400">
+                        ≈ {formatLocal(Math.round((totalSpent + settlementFixedKRW) / rates[primaryCurrency]), primaryCurrency)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -3414,6 +3617,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
               </div>
             </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</label>
+              <div className="flex gap-2">
+                <select
+                  value={editingFlight.currency ?? primaryCurrency}
+                  onChange={e => setEditingFlight({ ...editingFlight, currency: e.target.value })}
+                  className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {[primaryCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== primaryCurrency)].map(c => (
+                    <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                  ))}
+                </select>
+                <input type="number" placeholder="0"
+                  value={editingFlight.price ?? ''}
+                  onChange={e => setEditingFlight({ ...editingFlight, price: Number(e.target.value) || undefined })}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+              {!!editingFlight.price && (
+                <label className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer select-none">
+                  <input type="checkbox"
+                    checked={editingFlight.includeInSettlement !== false}
+                    onChange={e => setEditingFlight({ ...editingFlight, includeInSettlement: e.target.checked })}
+                    className="w-4 h-4 rounded accent-blue-600 flex-shrink-0" />
+                  <span className="text-[12px] font-medium text-gray-700">정산에 포함</span>
+                </label>
+              )}
+            </div>
             <button onClick={() => handleUpdateFlight(editingFlight)}
               className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
               저장
@@ -3472,6 +3701,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   onChange={e => setEditingAcc({ ...editingAcc, checkOutTime: e.target.value })}
                   className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
               </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</label>
+              <div className="flex gap-2">
+                <select
+                  value={editingAcc.currency ?? primaryCurrency}
+                  onChange={e => setEditingAcc({ ...editingAcc, currency: e.target.value })}
+                  className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {[primaryCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== primaryCurrency)].map(c => (
+                    <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                  ))}
+                </select>
+                <input type="number" placeholder="0"
+                  value={editingAcc.price ?? ''}
+                  onChange={e => setEditingAcc({ ...editingAcc, price: Number(e.target.value) || undefined })}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+              {!!editingAcc.price && (
+                <label className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer select-none">
+                  <input type="checkbox"
+                    checked={editingAcc.includeInSettlement !== false}
+                    onChange={e => setEditingAcc({ ...editingAcc, includeInSettlement: e.target.checked })}
+                    className="w-4 h-4 rounded accent-blue-600 flex-shrink-0" />
+                  <span className="text-[12px] font-medium text-gray-700">정산에 포함</span>
+                </label>
+              )}
             </div>
             <button onClick={() => handleUpdateAccommodation(editingAcc)}
               className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">

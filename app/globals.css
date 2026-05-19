@@ -24,6 +24,15 @@
   z-index: 9999 !important;
 }
 
+/* 스크롤바 숨김 — 스와이프 UX용 */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
 @layer components {
   /* 모든 페이지 공통 Navbar 높이 + 좌우 패딩 */
   .nav-bar {

@@ -32,8 +32,17 @@ interface Props {
   ringColor?:  string
 }
 
+function proxied(url?: string): string | undefined {
+  if (!url) return undefined
+  if (url.includes('googleusercontent.com') || url.includes('graph.facebook.com')) {
+    return `/api/avatar?url=${encodeURIComponent(url)}`
+  }
+  return url
+}
+
 export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
   const [imgFailed, setImgFailed] = useState(false)
+  const src = proxied(photoURL)
 
   useEffect(() => {
     setImgFailed(false)
@@ -57,7 +66,7 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
     shadow = `0 0 0 2.5px white, 0 0 0 5px ${ringColor}, ${shadow}`
   }
 
-  const showPhoto = photoURL && !imgFailed
+  const showPhoto = src && !imgFailed
 
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
@@ -67,9 +76,8 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
       >
         {showPhoto ? (
           <img
-            src={photoURL}
+            src={src}
             alt={name}
-            referrerPolicy="no-referrer"
             onError={() => setImgFailed(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
           />

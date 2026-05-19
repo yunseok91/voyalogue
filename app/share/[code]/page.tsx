@@ -36,15 +36,21 @@ type FlightItem = {
   dayId:       string
   departTime:  string
   arriveTime:  string
+  price?:            number
+  currency?:         string
+  includeInSettlement?:  boolean
 }
 
 type AccommodationItem = {
-  id:             string
-  name:           string
-  checkInDayId:   string
-  checkInTime:    string
-  checkOutDayId:  string
-  checkOutTime:   string
+  id:               string
+  name:             string
+  checkInDayId:     string
+  checkInTime:      string
+  checkOutDayId:    string
+  checkOutTime:     string
+  price?:           number
+  currency?:        string
+  includeInSettlement?: boolean
 }
 
 type CheckItem = { id: string; label: string; done: boolean }
@@ -356,6 +362,7 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
   const [name,           setName]           = useState(defaultPlace?.name ?? '')
   const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
   const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
+  const [coordsFromMap,  setCoordsFromMap]  = useState(!!defaultPlace)
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>('미정')
   const [cat,            setCat]            = useState<Category>('장소')
   const [price,          setPrice]          = useState('')
@@ -378,7 +385,11 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
       ac.addListener('place_changed', () => {
         const p = ac!.getPlace()
         if (p.name) setName(p.name)
-        if (p.geometry?.location) { setLat(p.geometry.location.lat()); setLng(p.geometry.location.lng()) }
+        if (p.geometry?.location) {
+          setLat(p.geometry.location.lat()); setLng(p.geometry.location.lng()); setCoordsFromMap(false)
+        } else {
+          setLat(null); setLng(null); setCoordsFromMap(false)
+        }
       })
     }).catch(() => {})
     return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
@@ -448,7 +459,7 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">장소명 *</label>
             <input ref={inputRef} type="text" placeholder="장소 검색 (예: 센소지, Tsujihan…)"
-              value={name} onChange={e => { setName(e.target.value); setLat(null); setLng(null) }}
+              value={name} onChange={e => { setName(e.target.value); if (!coordsFromMap) { setLat(null); setLng(null) } }}
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
             {lat !== null && <p className="text-[11px] text-blue-500 mt-1 flex items-center gap-1"><MapPin className="w-3 h-3" /> 위치 확인됨</p>}
           </div>
