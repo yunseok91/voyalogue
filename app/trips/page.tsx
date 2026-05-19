@@ -530,36 +530,40 @@ function TripsContent() {
           }
         </div>
 
-        {/* 필터 탭 + 역할 셀렉트 — 스와이프 스크롤 */}
-        <div className="flex items-center gap-2 mb-4 sm:mb-5 overflow-x-auto scrollbar-hide -mx-4 sm:-mx-6 lg:-mx-16 px-4 sm:px-6 lg:px-16 pb-0.5">
-          {FILTERS.map(({ key, label }) => (
-            <button key={key} onClick={() => handleFilter(key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
-                filter === key
-                  ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
-              }`}
-            >
-              {label}
-              <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
-                filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
-              }`}>
-                {counts[key]}
-              </span>
-            </button>
-          ))}
-          <div className="w-px h-5 bg-gray-200 flex-shrink-0 mx-1" />
+        {/* 필터 영역 */}
+        <div className="flex items-center justify-between gap-3 mb-4 sm:mb-5">
+          {/* 상태 필터 — 스와이프 스크롤 */}
+          <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-0.5 flex-1 min-w-0">
+            {FILTERS.map(({ key, label }) => (
+              <button key={key} onClick={() => handleFilter(key)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap flex-shrink-0 ${
+                  filter === key
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                }`}
+              >
+                {label}
+                <span className={`text-xs px-1.5 py-0.5 rounded-full leading-none ${
+                  filter === key ? 'bg-white/20 text-white' : 'bg-gray-100 text-gray-500'
+                }`}>
+                  {counts[key]}
+                </span>
+              </button>
+            ))}
+          </div>
+
+          {/* 역할 필터 — 보조 필터 (사각형 select) */}
           <div className="relative flex-shrink-0">
             <select
               value={roleFilter}
               onChange={e => handleRoleFilter(e.target.value as RoleFilter)}
-              className="appearance-none pl-3 pr-8 py-2 rounded-full border border-gray-200 text-sm font-semibold text-gray-600 bg-white cursor-pointer hover:border-blue-400 transition-colors focus:outline-none"
+              className="appearance-none pl-3 pr-7 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 bg-gray-50 cursor-pointer hover:border-gray-300 hover:bg-white transition-colors focus:outline-none focus:border-blue-400"
             >
               <option value="all">전체 역할</option>
               <option value="owner">방장</option>
               <option value="member">게스트</option>
             </select>
-            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+            <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400 pointer-events-none" />
           </div>
         </div>
 
