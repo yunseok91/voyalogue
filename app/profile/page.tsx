@@ -16,6 +16,7 @@ import { CLAY } from '@/components/PersonAvatar'
 import { AuthGuard } from '@/components/AuthGuard'
 import { AppNavbar } from '@/components/AppNavbar'
 import { PersonAvatar } from '@/components/PersonAvatar'
+import { ReportModal } from '@/components/ReportModal'
 import {
   User, Key, LogOut, Check, ChevronRight,
   Plane, Moon, MapPin, Trash2, Download,
@@ -127,7 +128,7 @@ function ProfileContent() {
   const [photoLoading, setPhotoLoading] = useState(false)
   const [photoError,   setPhotoError]   = useState('')
   const [localPhoto,   setLocalPhoto]   = useState<string | null>(null)
-  const currentPhoto = localPhoto ?? user?.photoURL ?? null
+  const currentPhoto = localPhoto || user?.photoURL || null
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -213,6 +214,7 @@ function ProfileContent() {
   }
 
   /* ── 계정 탈퇴 ── */
+  const [showReport,  setShowReport]  = useState(false)
   const [showDelete,  setShowDelete]  = useState(false)
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
@@ -236,7 +238,8 @@ function ProfileContent() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
-      <AppNavbar active="profile" />
+      <AppNavbar active="profile" onReport={() => setShowReport(true)} />
+      {showReport && user && <ReportModal user={user} onClose={() => setShowReport(false)} />}
 
       <main className="max-w-[640px] mx-auto px-4 pt-8 sm:pt-12 pb-20">
 

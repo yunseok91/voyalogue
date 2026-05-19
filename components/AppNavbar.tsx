@@ -123,7 +123,7 @@ export function AppNavbar({
             >
               <PersonAvatar
                 name={displayName}
-                photoURL={user?.photoURL ?? firestorePhotoURL ?? undefined}
+                photoURL={user?.photoURL || firestorePhotoURL || undefined}
                 size={36}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}

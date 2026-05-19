@@ -8,6 +8,7 @@ import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AppNavbar } from '@/components/AppNavbar'
 import { AuthGuard } from '@/components/AuthGuard'
+import { ReportModal } from '@/components/ReportModal'
 
 type Trip = {
   id:        string
@@ -131,6 +132,7 @@ function CollectionContent() {
   const [loading,       setLoading]       = useState(true)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting,      setDeleting]      = useState(false)
+  const [showReport,    setShowReport]    = useState(false)
 
   useEffect(() => {
     if (!user) return
@@ -188,7 +190,8 @@ function CollectionContent() {
 
   return (
     <div className="min-h-screen bg-[#F5F5F3]" style={{ fontFamily: 'Inter, sans-serif' }}>
-      <AppNavbar active="collection" />
+      <AppNavbar active="collection" onReport={() => setShowReport(true)} />
+      {showReport && user && <ReportModal user={user} onClose={() => setShowReport(false)} />}
 
       {/* 삭제 확인 모달 */}
       {confirmDelete && (

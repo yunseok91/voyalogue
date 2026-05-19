@@ -59,6 +59,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await user.reload().catch(() => {})
       const freshUser = auth.currentUser ?? user
 
+      /* user.photoURL이 null인 경우 providerData(Google 등)에서 fallback */
+      const photoURL =
+        freshUser.photoURL ||
+        freshUser.providerData.find(p => p.photoURL)?.photoURL ||
+        (snap?.exists() ? (snap.data().photoURL as string | undefined) : undefined) ||
+        ''
+
       setUser(freshUser)
       if (snap?.exists()) setAdFree(snap.data().adFree === true)
 
@@ -67,7 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         {
           displayName: freshUser.displayName ?? '',
           email:       freshUser.email ?? '',
-          photoURL:    freshUser.photoURL ?? '',
+          photoURL,
           lastLoginAt: serverTimestamp(),
         },
         { merge: true }
