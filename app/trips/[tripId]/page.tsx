@@ -1600,12 +1600,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* 지도 검색 / 더블클릭 → 일정 추가 */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
+  const [showMapHint,   setShowMapHint]   = useState(true)
   const mapSearchRef    = useRef<HTMLInputElement>(null)
   const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
 
   const handleMapDblClick = useCallback((lat: number, lng: number, name?: string) => {
     setPendingPlace({ name: name ?? '', lat, lng })
+    setShowMapHint(false)
   }, [])
+
+  useEffect(() => {
+    if (!showMapHint) return
+    const t = setTimeout(() => setShowMapHint(false), 6000)
+    return () => clearTimeout(t)
+  }, [showMapHint])
 
   /* 좌우 패널 리사이즈 */
   const [leftWidth, setLeftWidth] = useState(420)
@@ -2929,13 +2937,26 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </span>
               )}
             </div>
-            {/* 더블클릭 힌트 말풍선 */}
-            {!pendingPlace && (
-              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center">
-                <span className="text-[11px] text-gray-600 bg-white/90 backdrop-blur-sm px-3 py-1.5 rounded-xl border border-gray-200 shadow-sm font-medium whitespace-nowrap">
-                  지도를 더블클릭하면 장소를 추가할 수 있어요
-                </span>
-                <span className="w-0 h-0 mt-[-1px]" style={{ borderLeft: '5px solid transparent', borderRight: '5px solid transparent', borderTop: '6px solid #e5e7eb' }} />
+            {/* 지도 사용 힌트 */}
+            {!pendingPlace && showMapHint && (
+              <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-10 pointer-events-none flex flex-col items-center animate-fade-in">
+                <div className="bg-gray-900/90 backdrop-blur-sm text-white rounded-2xl px-4 py-3 shadow-xl flex flex-col gap-1.5 min-w-[220px]">
+                  <p className="text-[11px] font-bold text-white/90 tracking-wide uppercase">장소 추가하기</p>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">🖱️</span>
+                    <span className="text-xs text-white/80 hidden sm:block">지도 빈 곳을 <b className="text-white">더블클릭</b></span>
+                    <span className="text-xs text-white/80 block sm:hidden">지도 빈 곳을 <b className="text-white">두 번 탭</b></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">📍</span>
+                    <span className="text-xs text-white/80">지도 위 <b className="text-white">장소 이름을 클릭</b></span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-base leading-none">🔍</span>
+                    <span className="text-xs text-white/80">위의 <b className="text-white">검색창</b> 활용</span>
+                  </div>
+                </div>
+                <span className="w-0 h-0 mt-[-1px]" style={{ borderLeft: '7px solid transparent', borderRight: '7px solid transparent', borderTop: '8px solid rgba(17,24,39,0.9)' }} />
               </div>
             )}
             {mapMounted && (

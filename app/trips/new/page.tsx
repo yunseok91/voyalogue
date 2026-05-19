@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2 } from 'lucide-react'
+import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles } from 'lucide-react'
 import { collection, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -11,6 +11,7 @@ import { AuthGuard } from '@/components/AuthGuard'
 import { THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { loadGoogleMaps } from '@/lib/googleMaps'
+import { AiTripPlanner } from '@/components/AiTripPlanner'
 
 /* ── 타입 ──────────────────────────────────── */
 type Country = {
@@ -132,6 +133,7 @@ function NewTripContent() {
   const [useCustom, setUseCustom]     = useState(false)
   const [tripTitle, setTitle]         = useState('')
   const [loading, setLoading]         = useState(false)
+  const [showAiPlanner, setShowAiPlanner] = useState(false)
 
   /* 자동완성 상태 */
   const [citySuggestions, setCitySug] = useState<Extract<Suggestion, { kind: 'city' }>[]>([])
@@ -319,6 +321,7 @@ function NewTripContent() {
 
   return (
     <div className="min-h-screen flex flex-col" style={{ fontFamily: 'Inter, sans-serif' }}>
+      {showAiPlanner && <AiTripPlanner onClose={() => setShowAiPlanner(false)} />}
 
       {/* Navbar */}
       <nav className="h-14 sm:h-16 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 lg:px-10 relative flex-shrink-0">
@@ -343,6 +346,28 @@ function NewTripContent() {
                 새 여행 만들기
               </h1>
               <p className="mt-2 text-sm text-gray-500">여행 정보를 입력하고 일정을 바로 시작하세요.</p>
+
+              {/* AI 플래너 배너 */}
+              <button
+                type="button"
+                onClick={() => setShowAiPlanner(true)}
+                className="mt-4 w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white transition-all shadow-md shadow-blue-500/20 group"
+              >
+                <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="text-sm font-bold leading-tight">AI로 여행 일정 자동 생성</p>
+                  <p className="text-xs text-white/70 mt-0.5">몇 가지 질문에 답하면 AI가 일정을 짜줘요</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/60 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
+              </button>
+
+              <div className="flex items-center gap-3 mt-4">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400 font-medium">또는 직접 입력</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
             </div>
 
             {/* ── 도시/국가 검색 ── */}
