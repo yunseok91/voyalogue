@@ -227,9 +227,16 @@ function ItemCard({ item, canEdit, myUid, totalPeople, rates, onEdit, onDelete, 
                   )}
                 </button>
               )}
-              <span className="text-xs font-semibold text-emerald-600 ml-auto">
-                {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
-              </span>
+              <div className="flex flex-col items-end ml-auto gap-0.5">
+                <span className="text-xs font-semibold text-emerald-600 leading-none">
+                  {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
+                </span>
+                {item.currency !== 'KRW' && rates && rates[item.currency] && (
+                  <span className="text-[10px] text-gray-400 leading-none">
+                    ≈ {formatKRW(Math.round(item.price * rates[item.currency]))}
+                  </span>
+                )}
+              </div>
             </div>
           )}
 

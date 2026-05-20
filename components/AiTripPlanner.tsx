@@ -603,9 +603,9 @@ export function AiTripPlanner({ onClose }: Props) {
         )}
 
         {/* 본문 — destination 단계만 dropdown을 위해 overflow-visible, 나머지 스크롤 가능 */}
-        <div className={`flex-1 px-5 pb-4 ${
+        <div className={`flex-1 px-5 pb-4 overflow-x-hidden ${
           phase === 'quiz' && current?.id === 'destination'
-            ? 'overflow-visible'
+            ? 'overflow-y-visible'
             : 'overflow-y-auto'
         }`}>
 
@@ -791,7 +791,7 @@ export function AiTripPlanner({ onClose }: Props) {
                     {/* 출발일 */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-gray-500">출발일</label>
-                      <div className="relative">
+                      <div className="relative min-w-0">
                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <input
                           type="date"
@@ -809,14 +809,14 @@ export function AiTripPlanner({ onClose }: Props) {
                               setAnswer('nights', String(calcNights(start, end)))
                             }
                           }}
-                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                          className="w-full max-w-full min-w-0 pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all appearance-none"
                         />
                       </div>
                     </div>
                     {/* 귀가일 */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-gray-500">귀가일</label>
-                      <div className="relative">
+                      <div className="relative min-w-0">
                         <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <input
                           type="date"
@@ -827,7 +827,7 @@ export function AiTripPlanner({ onClose }: Props) {
                             setAnswer('endDate', end)
                             setAnswer('nights', String(calcNights(answers['startDate'] as string, end)))
                           }}
-                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                          className="w-full max-w-full min-w-0 pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all appearance-none"
                         />
                       </div>
                     </div>

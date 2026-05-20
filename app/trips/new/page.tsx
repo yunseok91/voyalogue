@@ -357,7 +357,7 @@ function NewTripContent() {
       <div className="flex flex-1 overflow-hidden">
 
         {/* ── 왼쪽: 폼 ─────────────────────────── */}
-        <div className="w-full lg:w-[720px] flex-shrink-0 overflow-y-auto bg-[#F8FAFC]">
+        <div className="w-full lg:w-[720px] flex-shrink-0 overflow-y-auto overflow-x-hidden bg-[#F8FAFC]">
           <form onSubmit={handleSubmit} className="px-4 sm:px-10 lg:px-20 py-6 sm:py-8 lg:py-10 flex flex-col gap-8">
 
             <div>
@@ -528,21 +528,21 @@ function NewTripContent() {
               <label className="text-[13px] font-semibold text-gray-700">
                 여행 기간 <span className="text-blue-600">*</span>
               </label>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-3">
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] font-semibold text-gray-400">출발일</span>
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input type="date" value={startDate} onChange={e => setStart(e.target.value)}
-                      className="w-full pl-10 pr-2 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+                      className="w-full max-w-full min-w-0 pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all appearance-none" />
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] font-semibold text-gray-400">종료일</span>
-                  <div className="relative">
+                  <div className="relative min-w-0">
                     <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                     <input type="date" value={endDate} min={startDate || undefined} onChange={e => setEnd(e.target.value)}
-                      className="w-full pl-10 pr-2 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
+                      className="w-full max-w-full min-w-0 pl-10 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all appearance-none" />
                   </div>
                 </div>
               </div>
