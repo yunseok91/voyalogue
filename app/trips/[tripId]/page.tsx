@@ -3630,7 +3630,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       {editingFlight && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => setEditingFlight(null)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto overflow-x-hidden"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-gray-900">비행기 수정</h3>
@@ -3717,7 +3717,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       {editingAcc && (
         <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
           onClick={() => setEditingAcc(null)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4"
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto overflow-x-hidden"
             onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between">
               <h3 className="text-base font-bold text-gray-900">숙소 수정</h3>
@@ -3733,35 +3733,35 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[12px] font-semibold text-gray-600">체크인 날짜</label>
                 <select value={editingAcc.checkInDayId}
                   onChange={e => setEditingAcc({ ...editingAcc, checkInDayId: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
                   {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[12px] font-semibold text-gray-600">체크인 시간</label>
                 <input type="time" value={editingAcc.checkInTime}
                   onChange={e => setEditingAcc({ ...editingAcc, checkInTime: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[12px] font-semibold text-gray-600">체크아웃 날짜</label>
                 <select value={editingAcc.checkOutDayId}
                   onChange={e => setEditingAcc({ ...editingAcc, checkOutDayId: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
                   {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
                 </select>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[12px] font-semibold text-gray-600">체크아웃 시간</label>
                 <input type="time" value={editingAcc.checkOutTime}
                   onChange={e => setEditingAcc({ ...editingAcc, checkOutTime: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
               </div>
             </div>
             <div className="flex flex-col gap-1">
