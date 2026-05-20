@@ -850,8 +850,8 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
     }
   }
 
-  const inputCls = "w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-  const selectCls = "w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white"
+  const inputCls = "w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+  const selectCls = "w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white"
 
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
@@ -895,7 +895,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         </div>
 
         {/* 스크롤 영역 */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden px-6 py-4">
         <form onSubmit={submit} className="flex flex-col gap-4" onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}>
 
           {/* ── 비행기 폼 ── */}
@@ -934,13 +934,13 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                       ))}
                     </select>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <label className="text-[11px] font-semibold text-gray-500">출발 시간</label>
-                        <input type="time" value={inDepart} onChange={e => setInDepart(e.target.value)} className={inputCls} />
+                        <input type="time" value={inDepart} onChange={e => setInDepart(e.target.value)} className={`${inputCls} appearance-none`} />
                       </div>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <label className="text-[11px] font-semibold text-gray-500">도착 시간</label>
-                        <input type="time" value={inArrive} onChange={e => setInArrive(e.target.value)} className={inputCls} />
+                        <input type="time" value={inArrive} onChange={e => setInArrive(e.target.value)} className={`${inputCls} appearance-none`} />
                       </div>
                     </div>
                   </>
@@ -964,13 +964,13 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                       ))}
                     </select>
                     <div className="grid grid-cols-2 gap-2">
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <label className="text-[11px] font-semibold text-gray-500">출발 시간</label>
-                        <input type="time" value={outDepart} onChange={e => setOutDepart(e.target.value)} className={inputCls} />
+                        <input type="time" value={outDepart} onChange={e => setOutDepart(e.target.value)} className={`${inputCls} appearance-none`} />
                       </div>
-                      <div className="flex flex-col gap-1">
+                      <div className="flex flex-col gap-1 min-w-0">
                         <label className="text-[11px] font-semibold text-gray-500">도착 시간</label>
-                        <input type="time" value={outArrive} onChange={e => setOutArrive(e.target.value)} className={inputCls} />
+                        <input type="time" value={outArrive} onChange={e => setOutArrive(e.target.value)} className={`${inputCls} appearance-none`} />
                       </div>
                     </div>
                   </>
@@ -1041,7 +1041,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 min-w-0">
                   <label className="text-[12px] font-semibold text-gray-600">체크인 날짜</label>
                   <select value={checkInDayId} onChange={e => setCheckInDayId(e.target.value)} className={selectCls}>
                     {days.map(d => (
@@ -1049,13 +1049,13 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 min-w-0">
                   <label className="text-[12px] font-semibold text-gray-600">체크인 시간</label>
-                  <input type="time" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className={inputCls} />
+                  <input type="time" value={checkInTime} onChange={e => setCheckInTime(e.target.value)} className={`${inputCls} appearance-none`} />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 min-w-0">
                   <label className="text-[12px] font-semibold text-gray-600">체크아웃 날짜</label>
                   <select value={checkOutDayId} onChange={e => setCheckOutDayId(e.target.value)} className={selectCls}>
                     {days.map(d => (
@@ -1063,9 +1063,9 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     ))}
                   </select>
                 </div>
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1 min-w-0">
                   <label className="text-[12px] font-semibold text-gray-600">체크아웃 시간</label>
-                  <input type="time" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className={inputCls} />
+                  <input type="time" value={checkOutTime} onChange={e => setCheckOutTime(e.target.value)} className={`${inputCls} appearance-none`} />
                 </div>
               </div>
               <div className="flex flex-col gap-2">
@@ -3666,17 +3666,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[11px] font-semibold text-gray-500">출발 시간</label>
                 <input type="time" value={editingFlight.departTime}
                   onChange={e => setEditingFlight({ ...editingFlight, departTime: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1 min-w-0">
                 <label className="text-[11px] font-semibold text-gray-500">도착 시간</label>
                 <input type="time" value={editingFlight.arriveTime}
                   onChange={e => setEditingFlight({ ...editingFlight, arriveTime: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
               </div>
             </div>
             <div className="flex flex-col gap-1">
