@@ -17,6 +17,7 @@ import { AuthGuard } from '@/components/AuthGuard'
 import { AppNavbar } from '@/components/AppNavbar'
 import { PersonAvatar } from '@/components/PersonAvatar'
 import { ReportModal } from '@/components/ReportModal'
+import { useScrollLock } from '@/hooks/useScrollLock'
 import {
   User, Key, LogOut, Check, ChevronRight,
   Plane, Moon, MapPin, Trash2, Download,
@@ -226,6 +227,7 @@ function ProfileContent() {
   /* ── 계정 탈퇴 ── */
   const [showReport,  setShowReport]  = useState(false)
   const [showDelete,  setShowDelete]  = useState(false)
+  useScrollLock(showLogout || showDelete || showReport)
   const [deleteInput, setDeleteInput] = useState('')
   const [deleteLoading, setDeleteLoading] = useState(false)
   const [deleteError,   setDeleteError]   = useState('')

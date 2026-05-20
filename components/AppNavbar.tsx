@@ -10,6 +10,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { PersonAvatar } from '@/components/PersonAvatar'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useRouter } from 'next/navigation'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 type ActiveTab = 'trips' | 'collection' | 'profile'
 
@@ -27,6 +28,7 @@ export function AppNavbar({
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Y'
   const [dropdownOpen, setDropdownOpen]           = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  useScrollLock(showLogoutConfirm)
   const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 

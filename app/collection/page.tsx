@@ -9,6 +9,7 @@ import { useAuthStore } from '@/features/auth/store'
 import { AppNavbar } from '@/components/AppNavbar'
 import { AuthGuard } from '@/components/AuthGuard'
 import { ReportModal } from '@/components/ReportModal'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 type Trip = {
   id:        string
@@ -133,6 +134,7 @@ function CollectionContent() {
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
   const [deleting,      setDeleting]      = useState(false)
   const [showReport,    setShowReport]    = useState(false)
+  useScrollLock(!!confirmDelete || showReport)
 
   useEffect(() => {
     if (!user) return

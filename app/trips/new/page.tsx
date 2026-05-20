@@ -12,6 +12,7 @@ import { THEME_COLORS } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { loadGoogleMaps } from '@/lib/googleMaps'
 import { AiTripPlanner } from '@/components/AiTripPlanner'
+import { useScrollLock } from '@/hooks/useScrollLock'
 
 /* ── 타입 ──────────────────────────────────── */
 type Country = {
@@ -134,6 +135,7 @@ function NewTripContent() {
   const [tripTitle, setTitle]         = useState('')
   const [loading, setLoading]         = useState(false)
   const [showAiPlanner, setShowAiPlanner] = useState(false)
+  useScrollLock(showAiPlanner)
   const [coverPhotoFile,    setCoverPhotoFile]    = useState<File | null>(null)
   const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null)
   const coverFileRef = useRef<HTMLInputElement>(null)
