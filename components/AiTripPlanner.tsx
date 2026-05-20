@@ -22,9 +22,99 @@ type QuestionType = 'text' | 'select' | 'multiselect' | 'date_nights' | 'stepper
 /* ── 한국 주요 도시 ── */
 const KR_CITIES = [
   '서울','부산','제주','인천','대구','대전','광주','경주','여수','강릉','속초','전주',
+  '통영','거제','울산','춘천','가평','남해','포항','목포','순천','군산','담양','평창',
 ].map(city => ({ city, countryName: '한국', countryCode: 'kr', flagEmoji: '🇰🇷' }))
 
 type CitySuggestion = { city: string; countryName: string; countryCode: string; flagEmoji: string }
+
+/* ── 인기 해외 여행지 큐레이션 목록 ── */
+const POPULAR_INTL: CitySuggestion[] = [
+  // 일본
+  { city: '도쿄',    countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '오사카',  countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '교토',    countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '후쿠오카', countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '삿포로',  countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '나고야',  countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '오키나와', countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '나라',    countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '히로시마', countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '고베',    countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  { city: '나하',    countryName: '일본', countryCode: 'jp', flagEmoji: '🇯🇵' },
+  // 동남아
+  { city: '발리',     countryName: '인도네시아', countryCode: 'id', flagEmoji: '🇮🇩' },
+  { city: '자카르타', countryName: '인도네시아', countryCode: 'id', flagEmoji: '🇮🇩' },
+  { city: '롬복',     countryName: '인도네시아', countryCode: 'id', flagEmoji: '🇮🇩' },
+  { city: '방콕',     countryName: '태국', countryCode: 'th', flagEmoji: '🇹🇭' },
+  { city: '치앙마이', countryName: '태국', countryCode: 'th', flagEmoji: '🇹🇭' },
+  { city: '푸켓',     countryName: '태국', countryCode: 'th', flagEmoji: '🇹🇭' },
+  { city: '파타야',   countryName: '태국', countryCode: 'th', flagEmoji: '🇹🇭' },
+  { city: '코사무이', countryName: '태국', countryCode: 'th', flagEmoji: '🇹🇭' },
+  { city: '싱가포르', countryName: '싱가포르', countryCode: 'sg', flagEmoji: '🇸🇬' },
+  { city: '다낭',     countryName: '베트남', countryCode: 'vn', flagEmoji: '🇻🇳' },
+  { city: '호치민',   countryName: '베트남', countryCode: 'vn', flagEmoji: '🇻🇳' },
+  { city: '하노이',   countryName: '베트남', countryCode: 'vn', flagEmoji: '🇻🇳' },
+  { city: '나트랑',   countryName: '베트남', countryCode: 'vn', flagEmoji: '🇻🇳' },
+  { city: '호이안',   countryName: '베트남', countryCode: 'vn', flagEmoji: '🇻🇳' },
+  { city: '세부',     countryName: '필리핀', countryCode: 'ph', flagEmoji: '🇵🇭' },
+  { city: '마닐라',   countryName: '필리핀', countryCode: 'ph', flagEmoji: '🇵🇭' },
+  { city: '보라카이', countryName: '필리핀', countryCode: 'ph', flagEmoji: '🇵🇭' },
+  { city: '팔라완',   countryName: '필리핀', countryCode: 'ph', flagEmoji: '🇵🇭' },
+  { city: '코타키나발루', countryName: '말레이시아', countryCode: 'my', flagEmoji: '🇲🇾' },
+  { city: '쿠알라룸푸르', countryName: '말레이시아', countryCode: 'my', flagEmoji: '🇲🇾' },
+  { city: '랑카위',   countryName: '말레이시아', countryCode: 'my', flagEmoji: '🇲🇾' },
+  { city: '양곤',     countryName: '미얀마', countryCode: 'mm', flagEmoji: '🇲🇲' },
+  // 중화권
+  { city: '홍콩',   countryName: '홍콩', countryCode: 'hk', flagEmoji: '🇭🇰' },
+  { city: '마카오', countryName: '마카오', countryCode: 'mo', flagEmoji: '🇲🇴' },
+  { city: '타이베이', countryName: '대만', countryCode: 'tw', flagEmoji: '🇹🇼' },
+  { city: '가오슝', countryName: '대만', countryCode: 'tw', flagEmoji: '🇹🇼' },
+  { city: '상하이', countryName: '중국', countryCode: 'cn', flagEmoji: '🇨🇳' },
+  { city: '베이징', countryName: '중국', countryCode: 'cn', flagEmoji: '🇨🇳' },
+  // 유럽
+  { city: '파리',       countryName: '프랑스',    countryCode: 'fr', flagEmoji: '🇫🇷' },
+  { city: '런던',       countryName: '영국',      countryCode: 'gb', flagEmoji: '🇬🇧' },
+  { city: '로마',       countryName: '이탈리아',  countryCode: 'it', flagEmoji: '🇮🇹' },
+  { city: '밀라노',     countryName: '이탈리아',  countryCode: 'it', flagEmoji: '🇮🇹' },
+  { city: '피렌체',     countryName: '이탈리아',  countryCode: 'it', flagEmoji: '🇮🇹' },
+  { city: '베네치아',   countryName: '이탈리아',  countryCode: 'it', flagEmoji: '🇮🇹' },
+  { city: '바르셀로나', countryName: '스페인',    countryCode: 'es', flagEmoji: '🇪🇸' },
+  { city: '마드리드',   countryName: '스페인',    countryCode: 'es', flagEmoji: '🇪🇸' },
+  { city: '암스테르담', countryName: '네덜란드',  countryCode: 'nl', flagEmoji: '🇳🇱' },
+  { city: '베를린',     countryName: '독일',      countryCode: 'de', flagEmoji: '🇩🇪' },
+  { city: '뮌헨',       countryName: '독일',      countryCode: 'de', flagEmoji: '🇩🇪' },
+  { city: '빈',         countryName: '오스트리아', countryCode: 'at', flagEmoji: '🇦🇹' },
+  { city: '프라하',     countryName: '체코',      countryCode: 'cz', flagEmoji: '🇨🇿' },
+  { city: '부다페스트', countryName: '헝가리',    countryCode: 'hu', flagEmoji: '🇭🇺' },
+  { city: '취리히',     countryName: '스위스',    countryCode: 'ch', flagEmoji: '🇨🇭' },
+  { city: '리스본',     countryName: '포르투갈',  countryCode: 'pt', flagEmoji: '🇵🇹' },
+  { city: '아테네',     countryName: '그리스',    countryCode: 'gr', flagEmoji: '🇬🇷' },
+  { city: '산토리니',   countryName: '그리스',    countryCode: 'gr', flagEmoji: '🇬🇷' },
+  { city: '이스탄불',   countryName: '튀르키예',  countryCode: 'tr', flagEmoji: '🇹🇷' },
+  { city: '스톡홀름',   countryName: '스웨덴',    countryCode: 'se', flagEmoji: '🇸🇪' },
+  { city: '코펜하겐',   countryName: '덴마크',    countryCode: 'dk', flagEmoji: '🇩🇰' },
+  { city: '헬싱키',     countryName: '핀란드',    countryCode: 'fi', flagEmoji: '🇫🇮' },
+  // 미주
+  { city: '뉴욕',       countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: 'LA',         countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: '하와이',     countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: '라스베이거스', countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: '샌프란시스코', countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: '시카고',     countryName: '미국', countryCode: 'us', flagEmoji: '🇺🇸' },
+  { city: '밴쿠버',     countryName: '캐나다', countryCode: 'ca', flagEmoji: '🇨🇦' },
+  { city: '토론토',     countryName: '캐나다', countryCode: 'ca', flagEmoji: '🇨🇦' },
+  { city: '멕시코시티', countryName: '멕시코', countryCode: 'mx', flagEmoji: '🇲🇽' },
+  // 오세아니아
+  { city: '시드니',    countryName: '호주', countryCode: 'au', flagEmoji: '🇦🇺' },
+  { city: '멜버른',    countryName: '호주', countryCode: 'au', flagEmoji: '🇦🇺' },
+  { city: '골드코스트', countryName: '호주', countryCode: 'au', flagEmoji: '🇦🇺' },
+  { city: '오클랜드',  countryName: '뉴질랜드', countryCode: 'nz', flagEmoji: '🇳🇿' },
+  // 중동·기타
+  { city: '두바이',   countryName: '아랍에미리트', countryCode: 'ae', flagEmoji: '🇦🇪' },
+  { city: '아부다비', countryName: '아랍에미리트', countryCode: 'ae', flagEmoji: '🇦🇪' },
+  { city: '몰디브',   countryName: '몰디브', countryCode: 'mv', flagEmoji: '🇲🇻' },
+  { city: '모리셔스', countryName: '모리셔스', countryCode: 'mu', flagEmoji: '🇲🇺' },
+]
 
 /* ── 국가코드 → 국기 이모지 ── */
 function flagEmoji(code: string): string {
@@ -68,8 +158,9 @@ function DestinationSearch({
 
     if (val.length < 1) { setSuggestions([]); setLoading(false); return }
 
-    const krMatches = KR_CITIES.filter(c => c.city.includes(val))
-    setSuggestions(krMatches)
+    const krMatches     = KR_CITIES.filter(c => c.city.includes(val))
+    const popularMatches = POPULAR_INTL.filter(d => d.city.startsWith(val)).slice(0, 5)
+    setSuggestions([...krMatches, ...popularMatches])
 
     if (val.length < 2) { setLoading(false); return }
 
@@ -81,16 +172,24 @@ function DestinationSearch({
         await loadGoogleMaps()
         if (ctrl.signal.aborted) return
         const svc = new google.maps.places.AutocompleteService()
-        svc.getPlacePredictions({ input: val, types: ['(cities)'] }, (preds, status) => {
+        svc.getPlacePredictions({ input: val, types: ['(cities)'], language: 'ko' }, (preds, status) => {
           if (ctrl.signal.aborted) return
           setLoading(false)
           if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) return
-          const krNames = new Set(krMatches.map(c => c.city))
+          const excludedNames = new Set([
+            ...krMatches.map(c => c.city),
+            ...popularMatches.map(d => d.city),
+          ])
           const overseas: CitySuggestion[] = preds
-            .slice(0, 5)
+            .slice(0, 6)
             .filter(p => {
-              const city = p.terms[0]?.value
-              return city && !krNames.has(city) && p.terms[p.terms.length - 1]?.value !== '대한민국'
+              const city    = p.terms[0]?.value
+              const country = p.terms[p.terms.length - 1]?.value ?? ''
+              if (!city || country === '대한민국') return false
+              if (excludedNames.has(city)) return false
+              // 복합 도시명 제거 (예: "발리야구다" — 검색어의 2배 이상 긴 경우)
+              if (city.startsWith(val) && city.length > val.length * 2) return false
+              return true
             })
             .map(p => ({
               city:        p.terms[0]?.value ?? val,
@@ -98,7 +197,7 @@ function DestinationSearch({
               countryCode: '',
               flagEmoji:   '🌍',
             }))
-          setSuggestions([...krMatches, ...overseas])
+          setSuggestions([...krMatches, ...popularMatches, ...overseas])
         })
       } catch { setLoading(false) }
     }, 350)
@@ -201,73 +300,78 @@ export type AiQuestion = {
 /* ── 기본 질문 정의 (Firestore override 가능) ── */
 export const DEFAULT_QUESTIONS: AiQuestion[] = [
   {
-    id: 'destination', label: '어디로 여행하나요?', sub: '도시 또는 나라를 입력하세요',
+    id: 'destination', label: '어디로 떠나나요?', sub: '도시 또는 나라를 입력하세요',
     type: 'text', enabled: true, order: 1, required: true,
   },
   {
-    id: 'date_nights', label: '언제, 며칠 동안?', sub: '출발일과 귀국일을 선택하면 자동 계산돼요',
+    id: 'date_nights', label: '언제, 며칠 동안 가나요?', sub: '출발일·귀국일 선택 후 항공편 시간대도 알려주세요',
     type: 'date_nights', enabled: true, order: 2, required: true,
   },
   {
-    id: 'ageGroup', label: '여행자 나이대는?',
+    id: 'companion', label: '누구랑 가나요?',
     type: 'select', enabled: true, order: 3, required: true,
     options: [
-      { label: '10대', value: '10대' },
-      { label: '20대', value: '20대' },
-      { label: '30대', value: '30대' },
-      { label: '40대', value: '40대' },
-      { label: '50대+', value: '50대 이상' },
+      { label: '혼자',   value: '혼자'   },
+      { label: '커플',   value: '커플'   },
+      { label: '친구들', value: '친구들' },
+      { label: '가족',   value: '가족'   },
     ],
   },
   {
-    id: 'companion', label: '누구랑 가나요?',
-    type: 'select', enabled: true, order: 4, required: true,
+    id: 'budget', label: '인당 현지 경비는?', sub: '항공·숙박 제외 · 건너뛰어도 돼요',
+    type: 'select', enabled: true, order: 4, required: false,
     options: [
-      { label: '혼자',     value: '혼자'     },
-      { label: '커플',     value: '커플'     },
-      { label: '친구들',   value: '친구들'   },
-      { label: '가족',     value: '가족'     },
-      { label: '비즈니스', value: '비즈니스' },
+      { label: '💸 ~50만원',      value: '25'  },
+      { label: '💵 50~100만원',   value: '75'  },
+      { label: '💴 100~200만원',  value: '150' },
+      { label: '💎 200만원 이상', value: '300' },
     ],
   },
   {
-    id: 'people', label: '몇 명이서 가나요?',
-    type: 'stepper', enabled: true, order: 5, required: true,
-    min: 1, max: 20,
-  },
-  {
-    id: 'style', label: '여행 스타일은?',
-    type: 'select', enabled: true, order: 6, required: true,
+    id: 'vibe', label: '여행 바이브는?', sub: '스타일·관심사를 한 번에',
+    type: 'select', enabled: true, order: 5, required: true,
     options: [
-      { label: '가성비',   value: '가성비'   },
-      { label: '유명명소', value: '유명명소' },
-      { label: '맛집탐방', value: '맛집탐방' },
-      { label: '럭셔리',   value: '럭셔리'   },
-    ],
-  },
-  {
-    id: 'interests', label: '관심사를 골라주세요', sub: '복수 선택 가능',
-    type: 'multiselect', enabled: true, order: 7, required: false,
-    options: [
-      { label: '자연·풍경', value: '자연·풍경' },
-      { label: '문화·역사', value: '문화·역사' },
-      { label: '쇼핑',     value: '쇼핑'       },
-      { label: '액티비티', value: '액티비티'   },
-      { label: '휴식·카페', value: '휴식·카페' },
+      { label: '🍜 먹방 중심',       value: '먹방중심' },
+      { label: '🏯 핫플 + 관광',     value: '핫플관광' },
+      { label: '😌 느긋한 힐링',     value: '느긋하게' },
+      { label: '💎 럭셔리·프리미엄', value: '프리미엄' },
     ],
   },
   {
     id: 'pace', label: '하루 일정 강도는?',
-    type: 'select', enabled: true, order: 8, required: true,
+    type: 'select', enabled: true, order: 6, required: true,
     options: [
-      { label: '여유롭게', value: '여유롭게' },
-      { label: '적당히',   value: '적당히'   },
-      { label: '빽빽하게', value: '빽빽하게' },
+      { label: '🏃 빽빽하게', value: '빽빽하게' },
+      { label: '🚶 적당히',   value: '적당히'   },
+      { label: '🛋 느긋하게', value: '느긋하게' },
     ],
   },
   {
-    id: 'budget', label: '예상 총 예산은?', sub: '1인 기준 · 없으면 그냥 넘어가도 돼요',
-    type: 'text', enabled: true, order: 9, required: false,
+    id: 'foodPref', label: '음식 취향을 골라주세요', sub: '복수 선택 가능 · 건너뛰어도 돼요',
+    type: 'multiselect', enabled: true, order: 7, required: false,
+    options: [
+      { label: '현지 로컬 맛집',    value: '현지로컬'   },
+      { label: '인스타 감성 카페',  value: '인스타카페' },
+      { label: '가성비 식당',       value: '가성비식당' },
+      { label: '미슐랭·파인다이닝', value: '파인다이닝' },
+    ],
+  },
+  {
+    id: 'transport', label: '현지 이동 수단은?',
+    type: 'select', enabled: true, order: 8, required: true,
+    options: [
+      { label: '🚇 대중교통',  value: '대중교통' },
+      { label: '🚗 렌터카',    value: '렌터카'   },
+      { label: '🤷 아직 모름', value: '미정'     },
+    ],
+  },
+  {
+    id: 'accommodation', label: '숙소는 어떻게 할까요?',
+    type: 'select', enabled: true, order: 9, required: true,
+    options: [
+      { label: '이미 예약했어요', value: 'booked'    },
+      { label: '추천해 주세요',   value: 'recommend' },
+    ],
   },
 ]
 
@@ -324,11 +428,10 @@ const SLOT_COLOR: Record<string, string> = {
   '미정': 'bg-gray-100 text-gray-500',
 }
 
-function peopleFromCompanion(companion: string): number {
-  const map: Record<string, number> = {
-    '혼자': 1, '커플': 2, '친구들': 3, '가족': 4, '비즈니스': 2,
-  }
-  return map[companion] ?? 2
+function peopleFromCompanion(companion: string, people?: string): number {
+  if (companion === '혼자') return 1
+  if (companion === '커플') return 2
+  return Math.max(2, parseInt(people ?? '3') || 3)
 }
 
 /* ── 메인 컴포넌트 ── */
@@ -349,7 +452,7 @@ export function AiTripPlanner({ onClose }: Props) {
     tomorrow.setDate(tomorrow.getDate() + 1)
     const startDate = tomorrow.toISOString().slice(0, 10)
     const endDate   = addDays(startDate, 3)
-    return { startDate, endDate, nights: '3', people: '2' }
+    return { startDate, endDate, nights: '3', people: '3' }
   })
   const [phase,       setPhase]       = useState<'checking' | 'quiz' | 'generating' | 'preview' | 'creating'>('checking')
   const [plan,        setPlan]        = useState<GeneratedPlan | null>(null)
@@ -451,16 +554,21 @@ export function AiTripPlanner({ onClose }: Props) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          destination: answers['destination'],
-          startDate:   answers['startDate'],
-          nights:      Number(answers['nights']),
-          ageGroup:    answers['ageGroup']   ?? '20대',
-          companion:   answers['companion']  ?? '커플',
-          people:      answers['people']     ?? '2',
-          style:       answers['style']      ?? '유명명소',
-          interests:   answers['interests']  ?? [],
-          pace:        answers['pace']       ?? '적당히',
-          budget:      answers['budget']     ?? '',
+          destination:           answers['destination'],
+          startDate:             answers['startDate'],
+          nights:                Number(answers['nights']),
+          companion:             answers['companion']             ?? '커플',
+          people:                answers['people']               ?? '3',
+          vibe:                  answers['vibe']                  ?? '핫플관광',
+          pace:                  answers['pace']                  ?? '적당히',
+          foodPref:              answers['foodPref']              ?? [],
+          accommodation:         answers['accommodation']         ?? 'recommend',
+          accommodationStyle:    answers['accommodationStyle']    ?? '',
+          accommodationLocation: answers['accommodationLocation'] ?? '',
+          transport:             answers['transport']             ?? '미정',
+          arrivalTime:           answers['arrivalTime']           ?? '',
+          departureTime:         answers['departureTime']         ?? '',
+          budget:                answers['budget']                ?? '',
         }),
       })
       const data = await res.json()
@@ -501,9 +609,7 @@ export function AiTripPlanner({ onClose }: Props) {
       const gradient = `${THEME_COLORS[3].from},${THEME_COLORS[3].to}`
       const viewCode = generateCode()
       const editCode = generateCode()
-      const people   = answers['people']
-        ? parseInt(answers['people'] as string)
-        : peopleFromCompanion(answers['companion'] as string ?? '커플')
+      const people   = peopleFromCompanion(answers['companion'] as string ?? '커플', answers['people'] as string)
       const budget = Math.max(0, parseInt((answers['budget'] as string) || '0') || 0) * 10000
 
       const tripRef = await addDoc(collection(db, 'users', user.uid, 'trips'), {
@@ -852,26 +958,148 @@ export function AiTripPlanner({ onClose }: Props) {
                       </div>
                     </div>
                   )}
+
+                  {/* 항공편 시간대 */}
+                  <div className="flex flex-col gap-2.5">
+                    <p className="text-xs font-semibold text-gray-500">항공편 시간대 (선택)</p>
+                    <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] text-gray-400">첫날 도착 시간대</label>
+                        <div className="flex gap-1.5">
+                          {['오전', '오후', '저녁', '심야'].map(t => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setAnswer('arrivalTime', answers['arrivalTime'] === t ? '' : t)}
+                              className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                answers['arrivalTime'] === t
+                                  ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-[11px] text-gray-400">마지막날 출발 시간대</label>
+                        <div className="flex gap-1.5">
+                          {['오전', '오후', '저녁', '심야'].map(t => (
+                            <button
+                              key={t}
+                              type="button"
+                              onClick={() => setAnswer('departureTime', answers['departureTime'] === t ? '' : t)}
+                              className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                answers['departureTime'] === t
+                                  ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                              }`}
+                            >
+                              {t}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
               {/* 단일 선택 */}
               {current.type === 'select' && current.options && (
-                <div className="grid grid-cols-2 gap-2.5">
-                  {current.options.map(opt => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setAnswer(current.id, opt.value)}
-                      className={`flex items-center gap-2.5 px-4 py-3.5 rounded-2xl border-2 text-sm font-semibold text-left transition-all ${
-                        answers[current.id] === opt.value
-                          ? 'border-blue-600 bg-blue-50 text-blue-700'
-                          : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
-                      }`}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
+                <div className="flex flex-col gap-3">
+                  <div className="grid grid-cols-2 gap-2.5">
+                    {current.options.map(opt => (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setAnswer(current.id, opt.value)}
+                        className={`flex items-center gap-2.5 px-4 py-3.5 rounded-2xl border-2 text-sm font-semibold text-left transition-all ${
+                          answers[current.id] === opt.value
+                            ? 'border-blue-600 bg-blue-50 text-blue-700'
+                            : 'border-gray-200 text-gray-700 hover:border-gray-300 bg-white'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 친구들/가족 — 인원 스테퍼 */}
+                  {current.id === 'companion' && (answers['companion'] === '친구들' || answers['companion'] === '가족') && (
+                    <div className="flex flex-col gap-2 px-1">
+                      <label className="text-xs font-semibold text-gray-500">
+                        {answers['companion'] === '가족' ? '가족' : '친구'} 인원 (본인 포함)
+                      </label>
+                      <div className="flex items-center gap-4">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseInt((answers['people'] as string) ?? '3')
+                            if (cur > 2) setAnswer('people', String(cur - 1))
+                          }}
+                          disabled={parseInt((answers['people'] as string) ?? '3') <= 2}
+                          className="w-10 h-10 rounded-xl border-2 border-gray-200 flex items-center justify-center text-xl font-bold text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all disabled:opacity-30"
+                        >−</button>
+                        <span className="text-3xl font-extrabold text-gray-900 min-w-[48px] text-center" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                          {answers['people'] ?? '3'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const cur = parseInt((answers['people'] as string) ?? '3')
+                            if (cur < 20) setAnswer('people', String(cur + 1))
+                          }}
+                          disabled={parseInt((answers['people'] as string) ?? '3') >= 20}
+                          className="w-10 h-10 rounded-xl border-2 border-gray-200 flex items-center justify-center text-xl font-bold text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-all disabled:opacity-30"
+                        >+</button>
+                        <span className="text-sm text-gray-500 font-semibold">명</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* 숙소 위치 입력 (예약된 경우) */}
+                  {current.id === 'accommodation' && answers['accommodation'] === 'booked' && (
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-gray-500">숙소 위치 (선택)</label>
+                      <input
+                        type="text"
+                        placeholder="예: 신주쿠역 근처, 명동, 오사카 난바…"
+                        value={(answers['accommodationLocation'] as string) ?? ''}
+                        onChange={e => setAnswer('accommodationLocation', e.target.value)}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                      />
+                      <p className="text-[11px] text-gray-400">입력하시면 숙소 주변으로 동선을 최적화해 드려요</p>
+                    </div>
+                  )}
+
+                  {/* 숙소 스타일 선택 (추천받는 경우) */}
+                  {current.id === 'accommodation' && answers['accommodation'] === 'recommend' && (
+                    <div className="flex flex-col gap-2">
+                      <label className="text-xs font-semibold text-gray-500">원하는 숙소 스타일</label>
+                      <div className="flex flex-col gap-2">
+                        {[
+                          { label: '🛏️ 가성비 (잠만 자면 됨)', value: '가성비'  },
+                          { label: '🏨 깔끔한 3~4성급',         value: '3~4성급' },
+                          { label: '💎 럭셔리 호캉스',           value: '럭셔리'  },
+                        ].map(opt => (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setAnswer('accommodationStyle', opt.value)}
+                            className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                              answers['accommodationStyle'] === opt.value
+                                ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                : 'border-gray-200 text-gray-700 hover:border-gray-300'
+                            }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

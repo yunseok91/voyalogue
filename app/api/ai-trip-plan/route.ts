@@ -2,17 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const GROQ_API_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
-const PACE_COUNT: Record<string, string> = {
-  '여유롭게': '2-3',
-  '적당히':   '3-4',
-  '빽빽하게': '5-6',
-}
+type VibeData = { style: string; pace: string; focus: string }
 
-const STYLE_HINT: Record<string, string> = {
-  '가성비':   'budget-friendly, free or low-cost spots, local street food and markets',
-  '유명명소': 'iconic landmarks, famous tourist highlights and must-see attractions',
-  '맛집탐방': 'food-focused trip, popular restaurants, local specialties, food streets and markets',
-  '럭셔리':   'high-end restaurants, luxury experiences, premium shopping, upscale hotels and spas',
+const VIBE_HINT: Record<string, VibeData> = {
+  '먹방중심': {
+    style: 'food-focused — must-visit restaurants, local specialties, popular eateries, street food, trending cafes',
+    pace:  '3-4',
+    focus: 'Prioritize 2-3 meal/cafe spots per day. Each day should feel like a food tour. Minimize pure sightseeing unless it doubles as a food spot.',
+  },
+  '핫플관광': {
+    style: 'iconic landmarks, famous tourist highlights, Instagram-worthy cafes, trendy hotspots',
+    pace:  '4-5',
+    focus: 'Mix popular sightseeing with trendy cafes and good restaurants. Include at least one viral or must-visit spot per day.',
+  },
+  '느긋하게': {
+    style: 'slow travel, neighborhood exploration, local atmosphere, relaxed pace',
+    pace:  '2-3',
+    focus: 'Fewer places, more time per spot. Cozy cafes, scenic walks, relaxed dining. Avoid crowded tourist traps. Prioritize vibe over checklist.',
+  },
+  '프리미엄': {
+    style: 'high-end restaurants, luxury experiences, premium shopping, upscale spas and hotels',
+    pace:  '3-4',
+    focus: 'Quality over quantity. Only top-rated, Michelin-starred, or well-known premium venues. Include at least one high-end dining and one luxury experience per day.',
+  },
 }
 
 function currencyFor(dest: string): string {
@@ -32,55 +44,119 @@ function currencyFor(dest: string): string {
 
 export async function POST(req: NextRequest) {
   try {
-    const { destination, startDate, nights, ageGroup, companion, people, style, interests, pace, budget } = await req.json()
+    const { destination, startDate, nights, companion, people, vibe, pace, foodPref, accommodation, accommodationStyle, accommodationLocation, transport, arrivalTime, departureTime, budget } = await req.json()
 
     if (!destination || !startDate || !nights) {
       return NextResponse.json({ error: '필수 항목이 누락됐습니다.' }, { status: 400 })
     }
 
-    const totalDays   = Number(nights) + 1
-    const itemCount   = PACE_COUNT[pace]   ?? '3-4'
-    const styleHint   = STYLE_HINT[style]  ?? 'balanced mix of sightseeing and dining'
-    const currency    = currencyFor(destination)
-    const interestStr = Array.isArray(interests) && interests.length
-      ? interests.join(', ')
-      : '전반적인 관광'
+    const totalDays    = Number(nights) + 1
+    const vibeData     = VIBE_HINT[vibe as string] ?? VIBE_HINT['핫플관광']
+    const PACE_COUNT: Record<string, string> = { '빽빽하게': '5-6', '적당히': '3-4', '느긋하게': '2-3' }
+    const itemCount    = PACE_COUNT[pace as string] ?? vibeData.pace
+    const styleHint    = vibeData.style
+    const focusHint    = vibeData.focus
+    const currency     = currencyFor(destination)
+
+    /* 동행 유형 → 인원 추론 */
+    let groupCount: number
+    if ((companion as string) === '혼자')     groupCount = 1
+    else if ((companion as string) === '커플') groupCount = 2
+    else                                       groupCount = Math.max(2, parseInt(people as string) || 3)
+    const groupSize = `${groupCount} ${groupCount === 1 ? 'person' : 'people'}`
 
     /* budget: 만원 단위 숫자 문자열 → KRW 변환 */
-    const budgetKRW  = Math.max(0, parseInt(budget as string) || 0) * 10000
-    const groupSize  = people ? `${people} people` : '2 people'
-    let budgetHint   = ''
+    const budgetKRW = Math.max(0, parseInt(budget as string) || 0) * 10000
+    let budgetHint  = ''
     if (budgetKRW > 0) {
-      const fmt = `${(budgetKRW / 10000).toLocaleString()}만원 (${budgetKRW.toLocaleString()} KRW)`
-      if      (budgetKRW < 300000)   budgetHint = `very tight budget: ${fmt}. Free attractions only, street food, skip paid tours`
-      else if (budgetKRW < 1000000)  budgetHint = `budget travel: ${fmt}. Affordable dining, mix of free and low-cost attractions`
-      else if (budgetKRW < 3000000)  budgetHint = `comfortable budget: ${fmt}. Good restaurants, paid attractions`
-      else                           budgetHint = `generous budget: ${fmt}. Fine dining, premium experiences, luxury options`
+      const fmt = `${(budgetKRW / 10000).toLocaleString()}만원/인 (${budgetKRW.toLocaleString()} KRW per person, local expenses only)`
+      if      (budgetKRW < 300000)  budgetHint = `very tight budget: ${fmt}. Free attractions only, street food, skip paid tours`
+      else if (budgetKRW < 1000000) budgetHint = `budget travel: ${fmt}. Affordable dining, mix of free and low-cost attractions`
+      else if (budgetKRW < 3000000) budgetHint = `comfortable budget: ${fmt}. Good restaurants, paid attractions`
+      else                          budgetHint = `generous budget: ${fmt}. Fine dining, premium experiences, luxury options`
+    }
+
+    /* ── 항공편 시간 힌트 ── */
+    let flightHint = ''
+    if (arrivalTime)   flightHint += `\n- Day 1 arrival flight: ${arrivalTime} — do NOT schedule activities before this time on Day 1; start itinerary after arrival`
+    if (departureTime) flightHint += `\n- Last day departure flight: ${departureTime} — end last day's itinerary early enough before this departure`
+
+    /* ── 교통수단 힌트 ── */
+    const transportStr = (transport as string) ?? '미정'
+    let transportHint = ''
+    if (transportStr === '렌터카')  transportHint = '\n- Transport: rental car — include spots that benefit from driving; scenic drives, out-of-center gems are fine'
+    else if (transportStr === '대중교통') transportHint = '\n- Transport: public transit — only pick spots accessible by subway/bus/train; no car-only remote locations'
+
+    /* ── 음식 취향 힌트 ── */
+    const foodPrefArr = Array.isArray(foodPref) ? (foodPref as string[]) : []
+    const FOOD_LABEL: Record<string, string> = {
+      '현지로컬':   'authentic local restaurants (hidden gems, locals-only spots)',
+      '인스타카페': 'photogenic Instagram-worthy cafes and dessert spots',
+      '가성비식당': 'budget-friendly, affordable, great-value dining',
+      '파인다이닝':  'fine dining / Michelin-starred restaurants',
+    }
+    let foodPrefHint = ''
+    if (foodPrefArr.length > 0) {
+      foodPrefHint = `\n- Food style preferences: ${foodPrefArr.map(p => FOOD_LABEL[p] ?? p).join(', ')} — weight dining choices toward these`
+    }
+
+    /* ── 숙소 추천 힌트 — vibe + companion + budget 조합으로 자동 추론 ── */
+    let accommodationHint = ''
+    if ((accommodation as string) === 'booked') {
+      if (accommodationLocation) {
+        accommodationHint = `\n- Accommodation: already booked near "${accommodationLocation}". Optimize routing around this base — prefer spots reachable from there and cluster nearby activities together.`
+      }
+    } else {
+      const vibeStr      = (vibe      as string) ?? '핫플관광'
+      const companionStr = (companion as string) ?? '커플'
+
+      /* 사용자가 직접 스타일을 선택했으면 우선 적용 */
+      const styleMap: Record<string, string> = {
+        '가성비':  `budget hotel or affordable guesthouse (NOT hostel dorm — private room only)`,
+        '3~4성급': `clean 3-4 star hotel or boutique hotel`,
+        '럭셔리':  `5-star luxury hotel or high-end resort`,
+      }
+
+      let accomType = styleMap[accommodationStyle as string] ?? ''
+
+      if (!accomType) {
+        if (vibeStr === '프리미엄' || budgetKRW >= 2000000) {
+          accomType = '5-star luxury hotel or high-end resort'
+        } else if (budgetKRW > 0 && budgetKRW < 500000) {
+          if (companionStr === '혼자') accomType = 'capsule hotel or affordable private guesthouse'
+          else                         accomType = 'budget hotel (private room) or affordable Airbnb'
+        } else {
+          if      (companionStr === '혼자')   accomType = 'solo-friendly boutique hotel or small guesthouse'
+          else if (companionStr === '커플')   accomType = '3-4 star boutique hotel or charming Airbnb'
+          else if (companionStr === '가족')   accomType = 'spacious family hotel or apartment-style accommodation'
+          else if (companionStr === '친구들') accomType = '3-4 star hotel with multiple rooms or Airbnb apartment'
+          else                                accomType = '3-4 star hotel'
+        }
+      }
+
+      accommodationHint = `\n- Accommodation: not booked yet. Add 1 accommodation suggestion as the FIRST item of Day 1 (timeSlot: "미정", cat: "기타"). Choose a REAL ${accomType} that genuinely exists near the travel area. Name it like "[실제 숙소명] 체크인". Comment: 2 sentences in Korean — why it suits this traveler (group: ${companionStr}, vibe: ${vibeStr}), plus estimated price per night in ${currency}.`
     }
 
     const dayIds = Array.from({ length: totalDays }, (_, i) => `"d${i + 1}"`).join(', ')
 
     const isDomestic = /서울|부산|제주|인천|대구|대전|광주|수원|경주|여수|강릉|속초|전주|통영|거제|울산|춘천|가평|남해|포항|목포|순천|군산|담양|한국|korea/i.test(destination)
 
-    const ageHint: Record<string, string> = {
-      '10대':      'teens — trendy SNS hotspots, cute cafes, popular street food, youth culture spots',
-      '20대':      'twenties — Instagram-worthy cafes, hip neighborhoods, popular local restaurants, night life spots',
-      '30대':      'thirties — well-known restaurants with good reviews, mix of trendy and classic, comfortable experiences',
-      '40대':      'forties — established well-known restaurants, cultural sites, comfortable and reputable places',
-      '50대 이상': 'fifties and above — traditional and famous spots, reputable restaurants, comfortable sightseeing',
-    }
+    const systemPrompt = `You are a Korean local travel expert and enthusiastic guide. Always respond with valid JSON only. No explanation, no markdown, no code fences.
 
-    const systemPrompt = `You are a local travel expert who knows real restaurants, cafes, and attractions. Always respond with valid JSON only. No explanation, no markdown, no code fences.`
+LANGUAGE RULES (non-negotiable):
+1. ALL "comment" fields must be written in natural Korean (한국어) using 해요체 style — as if a Korean friend is recommending the place.
+2. Write Korean directly and naturally. Do NOT translate from Russian, English, or any other language — this causes unnatural phrasing and foreign word leakage.
+3. NEVER use Cyrillic (Russian), English, or any non-Korean characters inside comment fields, not even a single word.
+4. Use vivid, specific Korean expressions (e.g. "진짜 맛있어요", "뷰가 끝내줘요", "꼭 먹어봐야 해요") rather than stiff formal language.`
 
     const userPrompt = `Create a ${nights}-night ${totalDays}-day travel itinerary for "${destination}".
 
 Traveler profile:
-- Age group: ${ageGroup} (${ageHint[ageGroup as string] ?? ageHint['20대']})
 - Group: ${groupSize} (${companion})
-- Style: ${style} (${styleHint})
-- Interests: ${interestStr}
-- Pace: ${pace} (${itemCount} places per day)
-- Start date: ${startDate}${budgetHint ? `\n- Budget: ${budgetHint}` : ''}
+- Vibe: ${vibe} — ${styleHint}
+- Focus rule: ${focusHint}
+- Items per day: ${itemCount}
+- Start date: ${startDate}${budgetHint ? `\n- Budget: ${budgetHint}` : ''}${accommodationHint}${flightHint}${transportHint}${foodPrefHint}
 - Trip type: ${isDomestic ? 'Domestic Korea — recommend real Korean restaurants, trending cafes, local hotspots' : 'International — include famous local restaurants and must-visit attractions'}
 
 Return this exact JSON structure:
@@ -96,7 +172,7 @@ Return this exact JSON structure:
           "cat": "장소",
           "price": 0,
           "currency": "${currency}",
-          "comment": "2-3 sentences in Korean: why it's good, what to order or do, practical tip",
+          "comment": "2~3문장, 자연스러운 한국어(해요체). 친구에게 추천하듯: 이 곳의 매력 + 추천 메뉴나 볼거리 + 실용 팁. 한국어만 사용, 외국어·키릴 문자 절대 금지.",
           "lat": 0.000,
           "lng": 0.000
         }
@@ -127,7 +203,7 @@ PLACE NAMES — most critical rule:
 
 TRENDING & POPULAR focus:
 - Prioritize places that are currently popular, well-reviewed, and frequently visited
-- For ${ageGroup} travelers, pick places they would actually go and post on social media
+- Pick places the traveler group (${companion}) would actually visit and post on social media
 - Include at least one trendy cafe or dessert spot per day if style allows
 
 DO NOT include:
@@ -191,6 +267,7 @@ Prices: realistic in ${currency} (0 if free)`
       if (/장소|place|attraction|sightseeing|museum|park|temple|shrine|landmark|palace|garden|gallery|theme|view|castle/.test(v)) return '장소'
       if (/쇼핑|shopping|mall|market|store|shop|boutique|outlet|duty.free|department/.test(v)) return '쇼핑'
       if (/교통|transport|transit|cable.car|ropeway|train|cruise|ferry/.test(v)) return '교통'
+      if (/숙소|호텔|호스텔|게스트하우스|체크인|hotel|hostel|guesthouse|resort|accommodation|airbnb/.test(v)) return '기타'
       return '기타'
     }
     const normSlot = (s: string): string => {

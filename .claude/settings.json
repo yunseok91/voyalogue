@@ -1,4 +1,10 @@
 {
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:raw.githubusercontent.com)"
+    ]
+  },
   "mcpServers": {
     "supabase": {
       "type": "http",
