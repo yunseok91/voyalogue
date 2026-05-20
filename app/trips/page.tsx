@@ -497,7 +497,7 @@ function TripsContent() {
   const totalTrips = tripsWithStatus.length + invitedTrips.length
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-screen bg-[#F8FAFC] overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       <AppNavbar active="trips" onExcel={() => setShowExcel(true)} onReport={() => setShowReport(true)} />
 

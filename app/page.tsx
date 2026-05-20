@@ -126,7 +126,7 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white" style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── Navbar ────────────────────────────────────────────────────────── */}
       <header className={`fixed top-0 inset-x-0 z-50 h-[72px] flex items-center transition-all duration-200 ${scrolled ? 'bg-white/95 backdrop-blur shadow-sm border-b border-gray-100' : 'bg-white border-b border-gray-100'}`}>
@@ -260,11 +260,6 @@ export default function LandingPage() {
         </p>
       </section>
 
-      {/* ── 광고 1 — 히어로 하단 / 피처 상단 ── */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4">
-        <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
-      </div>
-
       {/* ── Features ──────────────────────────────────────────────────────── */}
       <section id="features" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
@@ -295,6 +290,11 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ── 광고 1 — Features 하단 / How it works 상단 ── */}
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4 bg-white">
+        <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
+      </div>
 
       {/* ── How it works ──────────────────────────────────────────────────── */}
       <section id="how" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-[#F9FAFB]">

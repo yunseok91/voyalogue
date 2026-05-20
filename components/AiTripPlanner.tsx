@@ -602,9 +602,11 @@ export function AiTripPlanner({ onClose }: Props) {
           </div>
         )}
 
-        {/* 본문 */}
+        {/* 본문 — destination 단계만 dropdown을 위해 overflow-visible, 나머지 스크롤 가능 */}
         <div className={`flex-1 px-5 pb-4 ${
-          phase === 'preview' ? 'overflow-y-auto' : 'overflow-visible'
+          phase === 'quiz' && current?.id === 'destination'
+            ? 'overflow-visible'
+            : 'overflow-y-auto'
         }`}>
 
             {/* ── 로딩 확인 중 ── */}
@@ -785,12 +787,12 @@ export function AiTripPlanner({ onClose }: Props) {
               {/* 날짜 범위 선택 */}
               {current.type === 'date_nights' && (
                 <div className="flex flex-col gap-3">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-3">
                     {/* 출발일 */}
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-gray-500">출발일</label>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <input
                           type="date"
                           value={(answers['startDate'] as string) ?? ''}
@@ -807,7 +809,7 @@ export function AiTripPlanner({ onClose }: Props) {
                               setAnswer('nights', String(calcNights(start, end)))
                             }
                           }}
-                          className="w-full pl-9 pr-2 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                         />
                       </div>
                     </div>
@@ -815,7 +817,7 @@ export function AiTripPlanner({ onClose }: Props) {
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-gray-500">귀가일</label>
                       <div className="relative">
-                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+                        <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                         <input
                           type="date"
                           value={(answers['endDate'] as string) ?? ''}
@@ -825,7 +827,7 @@ export function AiTripPlanner({ onClose }: Props) {
                             setAnswer('endDate', end)
                             setAnswer('nights', String(calcNights(answers['startDate'] as string, end)))
                           }}
-                          className="w-full pl-9 pr-2 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                         />
                       </div>
                     </div>
