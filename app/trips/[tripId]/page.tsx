@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
-  ChevronLeft, MapPin, Plus, Minus, X, Clock,
+  ChevronLeft, MapPin, Plus, X,
   GripVertical, Star, CheckSquare, Wallet, ChevronRight,
   Edit2, Trash2, MoreHorizontal, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera,
@@ -26,9 +26,9 @@ import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { TripMap, type MapItem, type AvatarMember } from '@/components/TripMap'
-import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES, ZERO_DECIMAL } from '@/lib/currencyMap'
+import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate'
-import { gradientStyle, THEME_COLORS } from '@/lib/tripGradient'
+import { gradientStyle } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { notifyTripMembers } from '@/lib/tripNotification'

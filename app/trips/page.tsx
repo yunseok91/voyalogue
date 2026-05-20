@@ -13,8 +13,6 @@ import { ExcelModal } from '@/components/organisms/ExcelModal'
 import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
 import { ReportModal } from '@/components/ReportModal'
 import { AppNavbar } from '@/components/AppNavbar'
-// import { AdUnit } from '@/components/AdUnit'
-// import { AdFreeButton } from '@/components/AdFreeButton'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { useScrollLock } from '@/hooks/useScrollLock'
 
@@ -523,7 +521,6 @@ function TripsContent() {
             <h1 className="text-2xl sm:text-[28px] font-extrabold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
               내 일정
             </h1>
-            {/* <AdFreeButton /> */}
           </div>
           {dbLoading
             ? <p className="text-sm text-gray-400">불러오는 중…</p>
