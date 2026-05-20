@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles } from 'lucide-react'
-import { collection, addDoc, setDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles, ImagePlus, X } from 'lucide-react'
+import { collection, addDoc, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
@@ -134,6 +134,9 @@ function NewTripContent() {
   const [tripTitle, setTitle]         = useState('')
   const [loading, setLoading]         = useState(false)
   const [showAiPlanner, setShowAiPlanner] = useState(false)
+  const [coverPhotoFile,    setCoverPhotoFile]    = useState<File | null>(null)
+  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(null)
+  const coverFileRef = useRef<HTMLInputElement>(null)
 
   /* 자동완성 상태 */
   const [citySuggestions, setCitySug] = useState<Extract<Suggestion, { kind: 'city' }>[]>([])
@@ -295,7 +298,7 @@ function NewTripContent() {
         days,
         gradient,
         people,
-        budget:    Math.max(0, budget || 0),
+        budget:    Math.max(0, budget || 0) * 10000,
         title:     tripTitle.trim() || '',
         viewCode,
         editCode,
@@ -307,6 +310,22 @@ function NewTripContent() {
         setDoc(doc(db, 'shareIndex', viewCode), { uid: user.uid, tripId: ref.id, canEdit: false }),
         setDoc(doc(db, 'shareIndex', editCode), { uid: user.uid, tripId: ref.id, canEdit: true }),
       ])
+
+      /* 대표 사진 업로드 */
+      if (coverPhotoFile) {
+        try {
+          const [{ storage }, { ref: storRef, uploadBytes, getDownloadURL }] = await Promise.all([
+            import('@/lib/firebase'),
+            import('firebase/storage'),
+          ])
+          const ext = coverPhotoFile.name.split('.').pop() ?? 'jpg'
+          const photoRef = storRef(storage, `users/${user.uid}/trips/${ref.id}/cover.${ext}`)
+          await uploadBytes(photoRef, coverPhotoFile)
+          const coverPhotoURL = await getDownloadURL(photoRef)
+          await updateDoc(doc(db, 'users', user.uid, 'trips', ref.id), { coverPhotoURL })
+        } catch { /* silent */ }
+      }
+
       router.push(`/trips/${ref.id}`)
     } catch {
       setLoading(false)
@@ -547,7 +566,7 @@ function NewTripContent() {
 
             {/* ── 여행 예산 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">여행 예산 <span className="text-gray-400 font-normal">(₩ 원화 기준, 선택)</span></label>
+              <label className="text-[13px] font-semibold text-gray-700">여행 예산 <span className="text-gray-400 font-normal">(만원 단위, 선택)</span></label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -557,43 +576,95 @@ function NewTripContent() {
                   placeholder="0"
                   className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 />
-                <span className="text-sm font-medium text-gray-500 flex-shrink-0">원</span>
+                <span className="text-sm font-medium text-gray-500 flex-shrink-0">만원</span>
+              </div>
+              {budget > 0 && (
+                <p className="text-xs text-blue-600 font-medium pl-1">
+                  = {(budget * 10000).toLocaleString()}원
+                </p>
+              )}
+              <div className="flex gap-2 flex-wrap">
+                {[10, 30, 50, 100, 200].map(v => (
+                  <button key={v} type="button" onClick={() => setBudget(v)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                      budget === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
+                    }`}>
+                    {v}만원
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* ── 테마 컬러 ── */}
+            {/* ── 대표 사진 · 테마 컬러 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">테마 컬러</label>
-              <p className="text-xs text-gray-400">카드 커버에 적용됩니다.</p>
-              <div className="flex items-center gap-3 mt-1 flex-wrap">
-                {THEME_COLORS.map((c, i) => (
-                  <button key={c.id} type="button"
-                    onClick={() => { setTheme(i); setUseCustom(false) }}
-                    className="relative w-10 h-10 rounded-full transition-transform hover:scale-110 flex-shrink-0"
-                    style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}>
-                    {!useCustom && themeIdx === i && (
-                      <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-blue-600" />
-                    )}
-                  </button>
-                ))}
-                <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
-                <label className="relative w-10 h-10 rounded-full cursor-pointer transition-transform hover:scale-110 flex-shrink-0 overflow-hidden" title="직접 색상 선택">
-                  <input type="color" value={customColor}
-                    onChange={e => { setCustom(e.target.value); setUseCustom(true) }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
-                  <div className="w-full h-full rounded-full flex items-center justify-center"
-                    style={{ background: useCustom ? customColor : 'conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #8b5cf6, #f43f5e)' }}>
-                    {!useCustom && (
-                      <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none">
-                        <circle cx="10" cy="10" r="2.5" fill="white" opacity="0.9" />
-                        <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
-                      </svg>
-                    )}
+              <label className="text-[13px] font-semibold text-gray-700">대표 사진 · 테마 컬러</label>
+
+              {/* 사진 업로드 */}
+              {coverPhotoPreview ? (
+                <div className="relative w-full h-28 rounded-xl overflow-hidden border border-gray-200 group">
+                  <img src={coverPhotoPreview} alt="커버" className="w-full h-full object-cover" />
+                  <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                    <button type="button" onClick={() => coverFileRef.current?.click()}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-white/90 rounded-full text-xs font-semibold text-gray-700 hover:bg-white transition-colors">
+                      <ImagePlus className="w-3 h-3" />변경
+                    </button>
+                    <button type="button" onClick={() => { setCoverPhotoFile(null); setCoverPhotoPreview(null) }}
+                      className="flex items-center gap-1 px-3 py-1.5 bg-red-500/90 rounded-full text-xs font-semibold text-white hover:bg-red-500 transition-colors">
+                      <X className="w-3 h-3" />제거
+                    </button>
                   </div>
-                  {useCustom && <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-blue-600 pointer-events-none" />}
-                </label>
-                {useCustom && <span className="text-xs font-mono text-gray-500">{customColor.toUpperCase()}</span>}
-              </div>
+                </div>
+              ) : (
+                <button type="button" onClick={() => coverFileRef.current?.click()}
+                  className="w-full h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/40 flex flex-col items-center justify-center gap-1 transition-colors text-gray-400 hover:text-blue-500">
+                  <ImagePlus className="w-5 h-5" />
+                  <span className="text-xs font-medium">사진 업로드 (선택)</span>
+                </button>
+              )}
+              <input ref={coverFileRef} type="file" accept="image/*" className="hidden"
+                onChange={e => {
+                  const file = e.target.files?.[0]
+                  if (!file) return
+                  setCoverPhotoFile(file)
+                  setCoverPhotoPreview(URL.createObjectURL(file))
+                  e.target.value = ''
+                }} />
+
+              {/* 색상 — 대표 사진 없을 때 */}
+              {!coverPhotoPreview && (
+                <>
+                  <p className="text-xs text-gray-400">또는 카드 색상을 선택하세요.</p>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    {THEME_COLORS.slice(0, 5).map((c, i) => (
+                      <button key={c.id} type="button"
+                        onClick={() => { setTheme(i); setUseCustom(false) }}
+                        className="relative w-10 h-10 rounded-full transition-transform hover:scale-110 flex-shrink-0"
+                        style={{ background: `linear-gradient(135deg, ${c.from}, ${c.to})` }}>
+                        {!useCustom && themeIdx === i && (
+                          <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-blue-600" />
+                        )}
+                      </button>
+                    ))}
+                    <div className="w-px h-8 bg-gray-200 flex-shrink-0" />
+                    <label className="relative w-10 h-10 rounded-full cursor-pointer transition-transform hover:scale-110 flex-shrink-0 overflow-hidden" title="직접 색상 선택">
+                      <input type="color" value={customColor}
+                        onChange={e => { setCustom(e.target.value); setUseCustom(true) }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+                      <div className="w-full h-full rounded-full flex items-center justify-center"
+                        style={{ background: useCustom ? customColor : 'conic-gradient(from 0deg, #f43f5e, #f59e0b, #10b981, #3b82f6, #8b5cf6, #f43f5e)' }}>
+                        {!useCustom && (
+                          <svg viewBox="0 0 20 20" className="w-4 h-4" fill="none">
+                            <circle cx="10" cy="10" r="2.5" fill="white" opacity="0.9" />
+                            <path d="M10 3v2M10 15v2M3 10h2M15 10h2" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
+                          </svg>
+                        )}
+                      </div>
+                      {useCustom && <span className="absolute inset-0 rounded-full ring-2 ring-offset-2 ring-blue-600 pointer-events-none" />}
+                    </label>
+                    {useCustom && <span className="text-xs font-mono text-gray-500">{customColor.toUpperCase()}</span>}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* ── 여행 제목 (선택) ── */}
@@ -630,7 +701,11 @@ function NewTripContent() {
 
             <div className="w-full rounded-3xl overflow-hidden border border-white/60 shadow-lg bg-white">
               <div className="h-44 p-6 flex flex-col justify-between transition-all duration-300"
-                style={{ background: `linear-gradient(135deg, ${activeFrom}, ${activeTo})` }}>
+                style={coverPhotoPreview ? {
+                  backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${coverPhotoPreview})`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                } : { background: `linear-gradient(135deg, ${activeFrom}, ${activeTo})` }}>
                 <div className="flex items-center gap-2.5">
                   <MapPin className="w-6 h-6 text-white/80" />
                   {previewFlagSvg && (

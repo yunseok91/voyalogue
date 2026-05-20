@@ -24,19 +24,20 @@ type Filter      = 'all' | 'ongoing' | 'upcoming' | 'done'
 type RoleFilter  = 'all' | 'owner' | 'member'
 
 type Trip = {
-  id:        string
-  city:      string
-  title?:    string
-  startDate: string
-  endDate:   string
-  nights:    number
-  days:      number
-  gradient:  string
-  textDark?: boolean
-  isSample?: boolean
-  people?:   number
-  currency?: string
-  budget?:   number
+  id:             string
+  city:           string
+  title?:         string
+  startDate:      string
+  endDate:        string
+  nights:         number
+  days:           number
+  gradient:       string
+  textDark?:      boolean
+  isSample?:      boolean
+  people?:        number
+  currency?:      string
+  budget?:        number
+  coverPhotoURL?: string
 }
 
 type InvitedTripRef = {
@@ -689,15 +690,31 @@ function TripsContent() {
                   ? 'bg-black/10 hover:bg-black/20 text-gray-800 ring-1 ring-black/10'
                   : 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20'
 
+                /* 대표 사진이 있으면 배경으로, 없으면 그라데이션 */
+                const hasCover = !!trip.coverPhotoURL
+                const cardBgStyle = hasCover
+                  ? {
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${trip.coverPhotoURL})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                    }
+                  : { background: gradientStyle(trip.gradient) }
+                const effClrTitle  = hasCover ? 'text-white'                    : clrTitle
+                const effClrSub    = hasCover ? 'text-white/85'                 : clrSub
+                const effClrDate   = hasCover ? 'text-white/75'                 : clrDate
+                const effClrIcon   = hasCover ? 'text-white/80'                 : clrIcon
+                const effClrBtn    = hasCover ? 'bg-black/20 hover:bg-black/40 text-white' : clrBtn
+                const effClrToggle = hasCover ? 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20' : clrToggle
+
                 return (
                   <Link key={trip.id} href={`/trips/${trip.id}`} className="group relative">
                     <div className={`bg-white rounded-2xl border overflow-hidden transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${
                       isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-gray-200'
                     }`}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={{ background: gradientStyle(trip.gradient) }}>
+                        style={cardBgStyle}>
                         <div className="flex items-start justify-between">
-                          <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${clrIcon}`} />
+                          <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${effClrIcon}`} />
                           <div className="flex items-center gap-1.5">
                             {trip.isSample && (
                               <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
@@ -705,50 +722,54 @@ function TripsContent() {
                               </span>
                             )}
                             {isOngoing && (
-                              <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
+                              <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${hasCover || !isDark ? 'text-white bg-white/20' : 'text-gray-800 bg-black/10'}`}>
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
                               </span>
                             )}
-                            {/* 텍스트 색상 토글 */}
-                            <button
-                              onClick={e => toggleTextColor(e, trip)}
-                              title={isDark ? '흰색 텍스트로 전환' : '검은색 텍스트로 전환'}
-                              className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black transition-all ${clrToggle}`}
-                            >
-                              A
-                            </button>
-                            {/* 팔레트 */}
-                            <label
-                              title="색상 변경"
-                              onClick={e => e.stopPropagation()}
-                              style={{ cursor: 'pointer', position: 'relative', display: 'flex' }}
-                            >
-                              <input
-                                type="color"
-                                defaultValue={parseGradientHex(trip.gradient).from}
-                                onChange={e => handleColorApply(e.target.value, trip.id)}
-                                style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                              />
-                              <div className={`w-6 h-6 flex items-center justify-center rounded-full transition-all ${clrToggle}`}>
-                                <Palette className="w-3.5 h-3.5" />
-                              </div>
-                            </label>
+                            {/* 텍스트 색상 토글 — 대표 사진 없을 때만 */}
+                            {!hasCover && (
+                              <button
+                                onClick={e => toggleTextColor(e, trip)}
+                                title={isDark ? '흰색 텍스트로 전환' : '검은색 텍스트로 전환'}
+                                className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black transition-all ${effClrToggle}`}
+                              >
+                                A
+                              </button>
+                            )}
+                            {/* 팔레트 — 대표 사진 없을 때만 */}
+                            {!hasCover && (
+                              <label
+                                title="색상 변경"
+                                onClick={e => e.stopPropagation()}
+                                style={{ cursor: 'pointer', position: 'relative', display: 'flex' }}
+                              >
+                                <input
+                                  type="color"
+                                  defaultValue={parseGradientHex(trip.gradient).from}
+                                  onChange={e => handleColorApply(e.target.value, trip.id)}
+                                  style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                                />
+                                <div className={`w-6 h-6 flex items-center justify-center rounded-full transition-all ${effClrToggle}`}>
+                                  <Palette className="w-3.5 h-3.5" />
+                                </div>
+                              </label>
+                            )}
                             <button
                               onClick={e => handleDelete(e, trip.id)}
-                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${clrBtn}`}
+                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${effClrBtn}`}
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
                         <div>
-                          <p className={`font-bold text-base leading-snug ${clrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                          <p className={`font-bold text-base leading-snug ${effClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                             {trip.title || trip.city}
                           </p>
                           {trip.title && (
-                            <p className={`text-xs font-medium mt-0.5 ${clrSub}`}>{trip.city}</p>
+                            <p className={`text-xs font-medium mt-0.5 ${effClrSub}`}>{trip.city}</p>
                           )}
-                          <p className={`text-xs mt-1 font-medium ${clrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
+                          <p className={`text-xs mt-1 font-medium ${effClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
                       <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2">
@@ -901,28 +922,33 @@ function TripsContent() {
           people={editTarget.people}
           currency={editTarget.currency}
           budgetKRW={editTarget.budget}
+          coverPhotoURL={editTarget.coverPhotoURL}
+          uid={user.uid}
+          tripId={editTarget.id}
           onClose={() => setEditTarget(null)}
           onSave={async (data: TripEditFormData) => {
             await updateDoc(doc(db, 'users', user.uid, 'trips', editTarget.id), {
-              title:     data.title || null,
-              startDate: data.startDate,
-              endDate:   data.endDate,
-              nights:    data.nights,
-              days:      data.days,
-              people:    data.people,
-              currency:  data.currency || null,
-              budget:    data.budgetKRW,
+              title:         data.title || null,
+              startDate:     data.startDate,
+              endDate:       data.endDate,
+              nights:        data.nights,
+              days:          data.days,
+              people:        data.people,
+              currency:      data.currency || null,
+              budget:        data.budgetKRW,
+              coverPhotoURL: data.coverPhotoURL ?? null,
             })
             setTrips(prev => prev.map(t => t.id === editTarget.id
               ? { ...t,
-                  title:     data.title || undefined,
-                  startDate: data.startDate,
-                  endDate:   data.endDate,
-                  nights:    data.nights,
-                  days:      data.days,
-                  people:    data.people,
-                  currency:  data.currency,
-                  budget:    data.budgetKRW,
+                  title:         data.title || undefined,
+                  startDate:     data.startDate,
+                  endDate:       data.endDate,
+                  nights:        data.nights,
+                  days:          data.days,
+                  people:        data.people,
+                  currency:      data.currency,
+                  budget:        data.budgetKRW,
+                  coverPhotoURL: data.coverPhotoURL,
                 }
               : t
             ))

@@ -1271,6 +1271,25 @@ export default function SharePage() {
               </span>
               {trip.title && <span className="text-[11px] text-gray-400 leading-tight truncate">{trip.city}</span>}
             </div>
+            <span className="text-xs text-gray-400 flex-shrink-0 hidden md:block">
+              {trip.startDate.slice(5).replace('-', '/')} – {trip.endDate.slice(5).replace('-', '/')} · {trip.nights}박
+            </span>
+            {user && (
+              <span className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
+                trip.uid === user?.uid
+                  ? 'bg-blue-600 text-white'
+                  : isTreasurer
+                  ? 'bg-amber-400 text-white'
+                  : 'bg-gray-100 text-gray-600'
+              }`}>
+                {trip.uid === user?.uid
+                  ? <><Crown className="w-2.5 h-2.5" />방장</>
+                  : isTreasurer
+                  ? <><Wallet className="w-2.5 h-2.5" />총무</>
+                  : <>게스트</>
+                }
+              </span>
+            )}
           </div>
           {/* 데스크톱 전용 액션 */}
           <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
@@ -1408,55 +1427,7 @@ export default function SharePage() {
         </div>
       )}
 
-      {/* 헤더 카드 */}
-      <div className="flex-shrink-0 p-4 pb-0">
-        <div className="rounded-2xl overflow-hidden shadow-sm bg-white">
-          {/* 그라디언트 영역 */}
-          <div className="h-20 px-5 flex items-center justify-between"
-            style={{ background: gradientStyle(trip.gradient) }}>
-            <div>
-              <p className={`font-bold text-lg leading-tight ${tw ? 'text-white' : 'text-gray-900'}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                {trip.title || trip.city}
-              </p>
-              <p className={`text-xs mt-0.5 font-medium ${tw ? 'text-white/70' : 'text-gray-600'}`} style={{ fontFamily: 'Inter, sans-serif' }}>
-                {trip.startDate.replace(/-/g,'.')} ~ {trip.endDate.replace(/-/g,'.')} · {trip.nights}박 {trip.days}일
-              </p>
-            </div>
-          </div>
-          {/* 멤버 이름 스트립 */}
-          <div className="px-4 py-2.5 flex items-center gap-2 overflow-x-auto scrollbar-hide border-t border-gray-100">
-            {resolvedMembers.map((m, i) => (
-              <div key={m.id} className="flex items-center gap-1.5 flex-shrink-0 bg-gray-50 border border-gray-100 rounded-full pl-0.5 pr-2.5 py-0.5">
-                <div className="relative flex-shrink-0">
-                  <PersonAvatar
-                    name={m.name}
-                    photoURL={m.photoURL}
-                    size={22}
-                    colorIndex={m.id === user?.uid ? (currentMember?.colorIndex ?? ((i % (CLAY.length - 1)) + 1)) : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
-                  />
-                  {m.role === 'owner' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500 rounded-full flex items-center justify-center">
-                      <Crown className="w-1.5 h-1.5 text-white" />
-                    </span>
-                  )}
-                  {m.role === 'treasurer' && (
-                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center">
-                      <Wallet className="w-1.5 h-1.5 text-white" />
-                    </span>
-                  )}
-                </div>
-                <span className={`text-[11px] font-semibold leading-none whitespace-nowrap ${
-                  m.id === user?.uid ? 'text-blue-600' : 'text-gray-700'
-                }`}>
-                  {m.id === user?.uid ? '나' : m.name}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* 광고 — 헤더 카드 하단 / Day 탭 상단 */}
+      {/* 광고 — Day 탭 상단 */}
       <div className="px-4 sm:px-6 py-2 bg-white">
         <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
       </div>

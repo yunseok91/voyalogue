@@ -138,6 +138,13 @@ DO NOT include:
 GPS: accurate real coordinates for every place
 Prices: realistic in ${currency} (0 if free)`
 
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json(
+        { error: 'AI 서비스 키가 설정되지 않았습니다. 관리자에게 문의해주세요.' },
+        { status: 503 }
+      )
+    }
+
     const res = await fetch(GROQ_API_URL, {
       method: 'POST',
       headers: {
@@ -160,9 +167,12 @@ Prices: realistic in ${currency} (0 if free)`
       const err = await res.json().catch(() => ({}))
       const msg = (err as { error?: { message?: string } }).error?.message ?? res.statusText
       const is429 = res.status === 429
+      const is401 = res.status === 401
       return NextResponse.json(
         { error: is429
             ? '현재 AI 서비스가 잠시 혼잡합니다. 잠시 후 다시 시도해주세요.'
+            : is401
+            ? 'AI 서비스 인증에 실패했습니다. 관리자에게 문의해주세요.'
             : `AI 오류: ${msg}` },
         { status: res.status }
       )
