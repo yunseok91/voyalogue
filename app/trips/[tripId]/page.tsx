@@ -115,6 +115,8 @@ type TripMeta = {
   budget:          number
   viewCode:        string
   editCode:        string
+  joinCode?:       string
+  joinPin?:        string
   members:         Member[]
   checklist?:      CheckItem[]
   flights?:        FlightItem[]
@@ -1593,7 +1595,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
   const [showMembers,   setShowMembers]   = useState(false)
-  const [copied,        setCopied]        = useState<'view' | 'edit' | null>(null)
+  const [copied,        setCopied]        = useState<'view' | 'edit' | 'join' | null>(null)
   const [copiedMember,  setCopiedMember]  = useState<string | null>(null)
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberEmoji,setNewMemberEmoji]= useState('😊')
@@ -1758,7 +1760,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!meta) return
     setDoc(doc(db, 'shareIndex', meta.viewCode), { uid, tripId, canEdit: false })
     setDoc(doc(db, 'shareIndex', meta.editCode), { uid, tripId, canEdit: true })
-  }, [meta?.viewCode, meta?.editCode])
+    if (meta.joinCode && meta.joinPin) {
+      setDoc(doc(db, 'shareIndex', meta.joinCode), { uid, tripId, canEdit: true, pin: meta.joinPin })
+    }
+  }, [meta?.viewCode, meta?.editCode, meta?.joinCode, meta?.joinPin])
 
   /* ── 오너 이름 동기화: displayName이 있으면 '나' 플레이스홀더 덮어쓰기 ── */
   useEffect(() => {
@@ -2215,6 +2220,23 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const url  = `${window.location.origin}/share/${code}`
     await navigator.clipboard.writeText(url)
     setCopied(type)
+    setTimeout(() => setCopied(null), 2000)
+  }
+
+  const generateJoinLink = async () => {
+    if (!meta) return
+    const newCode = generateCode(10)
+    const newPin  = String(Math.floor(1000 + Math.random() * 9000))
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { joinCode: newCode, joinPin: newPin })
+    await setDoc(doc(db, 'shareIndex', newCode), { uid, tripId, canEdit: true, pin: newPin })
+    setMeta(prev => prev ? { ...prev, joinCode: newCode, joinPin: newPin } : prev)
+  }
+
+  const copyJoinLink = async () => {
+    if (!meta?.joinCode) return
+    const url = `${window.location.origin}/share/${meta.joinCode}`
+    await navigator.clipboard.writeText(`${url}\nPIN: ${meta.joinPin}`)
+    setCopied('join')
     setTimeout(() => setCopied(null), 2000)
   }
 
@@ -3260,22 +3282,61 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
             {/* 초대 링크 */}
             <div className="border-t border-gray-100 px-4 sm:px-5 pb-5 pt-4 flex flex-col gap-2 flex-shrink-0">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">초대 링크</p>
+              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">참여 링크</p>
 
-              {/* 편집 참여 링크 */}
-              <button onClick={() => copyLink('edit')}
-                className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-blue-200 bg-blue-50/60 hover:border-blue-400 hover:bg-blue-100/60 transition-colors group">
-                <div className="w-8 h-8 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                  <Share2 className="w-3.5 h-3.5 text-blue-600" />
+              {/* PIN 참여 링크 */}
+              {meta?.joinCode ? (
+                <div className="rounded-2xl border border-blue-200 bg-blue-50/60 overflow-hidden">
+                  <div className="px-3.5 pt-3 pb-2 flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                      <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-blue-700">멤버 참여 링크</p>
+                      <p className="text-[11px] text-blue-400">PIN 입력 후 일정 편집 가능</p>
+                    </div>
+                  </div>
+                  {/* PIN 표시 */}
+                  <div className="px-3.5 pb-2 flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-blue-500">PIN</span>
+                    <div className="flex gap-1">
+                      {(meta.joinPin ?? '').split('').map((d, i) => (
+                        <div key={i} className="w-8 h-8 rounded-lg bg-white border border-blue-200 flex items-center justify-center text-base font-black text-blue-700 shadow-sm">
+                          {d}
+                        </div>
+                      ))}
+                    </div>
+                    <button
+                      onClick={generateJoinLink}
+                      className="ml-auto text-[11px] font-semibold text-blue-400 hover:text-blue-600 transition-colors px-2 py-1 rounded-lg hover:bg-blue-100"
+                    >
+                      새로 받기
+                    </button>
+                  </div>
+                  <div className="px-3.5 pb-3">
+                    <button
+                      onClick={copyJoinLink}
+                      className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      {copied === 'join'
+                        ? <><Check className="w-3.5 h-3.5" />복사됨</>
+                        : <><Copy className="w-3.5 h-3.5" />링크 + PIN 복사</>}
+                    </button>
+                  </div>
                 </div>
-                <div className="flex-1 text-left">
-                  <p className="text-xs font-semibold text-blue-700">여행 초대 링크 복사</p>
-                  <p className="text-[11px] text-blue-400">일정 편집 · 멤버로 참여 가능</p>
-                </div>
-                {copied === 'edit'
-                  ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  : <Copy className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />}
-              </button>
+              ) : (
+                <button
+                  onClick={generateJoinLink}
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-dashed border-blue-300 hover:border-blue-400 hover:bg-blue-50/40 transition-colors group">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 group-hover:bg-blue-100 flex items-center justify-center flex-shrink-0 transition-colors">
+                    <Share2 className="w-3.5 h-3.5 text-blue-500" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-xs font-semibold text-blue-600">멤버 참여 링크 생성</p>
+                    <p className="text-[11px] text-blue-400">PIN을 알아야 참여 가능</p>
+                  </div>
+                </button>
+              )}
 
               {/* 뷰어 링크 */}
               <button onClick={() => copyLink('view')}
