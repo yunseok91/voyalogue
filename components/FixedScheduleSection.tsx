@@ -1,6 +1,6 @@
 'use client'
 
-import { Plane, BedDouble, Pencil, X } from 'lucide-react'
+import { Plane, BedDouble, Pencil, X, MapPin } from 'lucide-react'
 
 export type FlightItem = {
   id:         string
@@ -21,6 +21,8 @@ export type AccommodationItem = {
   checkInTime:      string
   checkOutDayId:    string
   checkOutTime:     string
+  lat?:             number
+  lng?:             number
   price?:           number
   currency?:        string
   includeInSettlement?: boolean
@@ -140,22 +142,32 @@ export function FixedScheduleSection({
               </p>
             )}
           </div>
-          {role !== 'stay' && (onEditAcc || onDeleteAcc) && (
-            <div className="flex items-center gap-1 flex-shrink-0">
-              {onEditAcc && (
-                <button onClick={() => onEditAcc(acc)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors">
-                  <Pencil className="w-3 h-3" />
-                </button>
-              )}
-              {onDeleteAcc && (
-                <button onClick={() => onDeleteAcc(acc.id)}
-                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
-                  <X className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-          )}
+          <div className="flex items-center gap-1 flex-shrink-0">
+            {acc.lat && acc.lng && (
+              <a
+                href={`https://maps.google.com/?q=${acc.lat},${acc.lng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={e => e.stopPropagation()}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors"
+                title="구글 지도에서 보기"
+              >
+                <MapPin className="w-3 h-3" />
+              </a>
+            )}
+            {role !== 'stay' && onEditAcc && (
+              <button onClick={() => onEditAcc(acc)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition-colors">
+                <Pencil className="w-3 h-3" />
+              </button>
+            )}
+            {role !== 'stay' && onDeleteAcc && (
+              <button onClick={() => onDeleteAcc(acc.id)}
+                className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>

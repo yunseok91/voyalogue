@@ -142,7 +142,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      accommodationHint = `\n- Accommodation: not booked yet. Add 1 accommodation suggestion as the FIRST item of Day 1 (timeSlot: "미정", cat: "기타"). Choose a REAL ${accomType} that genuinely exists near the travel area. Name it like "[실제 숙소명] 체크인". Comment: 2 sentences in Korean — why it suits this traveler (group: ${companionStr}, vibe: ${vibeStr}), plus estimated price per night in ${currency}.`
+      accommodationHint = `\n- Accommodation: not booked. Add "accommodationOptions" (array of exactly 3 items) to the JSON response. Each option must be a REAL, verifiable hotel/accommodation that exists on Google Maps near the destination. Choose ${accomType} suitable for: group ${companionStr}, vibe ${vibeStr}. Do NOT add any hotel or check-in item inside "days" items.`
     }
 
     const dayIds = Array.from({ length: totalDays }, (_, i) => `"d${i + 1}"`).join(', ')
@@ -172,6 +172,16 @@ Traveler profile:
 Return this exact JSON structure:
 {
   "tripTitle": "short catchy trip title in Korean (max 15 chars)",
+  "accommodationOptions": [
+    {
+      "name": "실제 호텔명 (Google Maps에서 검색 가능한 실제 숙소)",
+      "price": 150,
+      "currency": "${currency}",
+      "comment": "2문장 한국어 추천 이유 (해요체). 왜 이 여행자에게 맞는지 + 가격 정보.",
+      "lat": 0.000,
+      "lng": 0.000
+    }
+  ],
   "days": [
     {
       "dayId": "d1",
@@ -192,7 +202,7 @@ Return this exact JSON structure:
 }
 
 RULES — follow strictly:
-- timeSlot: MUST be exactly one of: 아침 / 점심 / 저녁 / 미정
+- timeSlot: MUST be exactly one of: 아침 / 점심 / 저녁. NEVER use 미정 — every item needs a time slot. Spread items so each day has morning/lunch/dinner coverage matching ${itemCount} items total
 - cat: MUST be exactly one of:
   • 식사 → restaurants, cafes, bakeries, bars, food courts, street food stalls
   • 장소 → attractions, parks, museums, temples, palaces, landmarks, viewpoints, galleries, theme parks
@@ -285,7 +295,7 @@ Prices: realistic in ${currency} (0 if free)`
       if (/아침|morning|breakfast/.test(v)) return '아침'
       if (/점심|lunch|noon|afternoon|midday/.test(v)) return '점심'
       if (/저녁|dinner|evening|night/.test(v)) return '저녁'
-      return '미정'
+      return '점심'
     }
 
     for (const day of plan.days ?? []) {
@@ -300,6 +310,11 @@ Prices: realistic in ${currency} (0 if free)`
         /* 키릴 문자 등 오염 문자 제거 */
         if (typeof item.comment === 'string') item.comment = sanitizeComment(item.comment)
       }
+    }
+    /* accommodationOptions 정규화 */
+    for (const opt of plan.accommodationOptions ?? []) {
+      if (typeof opt.comment === 'string') opt.comment = sanitizeComment(opt.comment)
+      if (typeof opt.price !== 'number') opt.price = 0
     }
 
     return NextResponse.json(plan)

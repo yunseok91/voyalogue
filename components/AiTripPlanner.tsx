@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   X, ChevronRight, ChevronLeft, Sparkles, Loader2,
-  MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus,
+  MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus, BedDouble,
 } from 'lucide-react'
 import {
   collection, addDoc, setDoc, doc, serverTimestamp, getDoc, writeBatch, increment,
@@ -377,8 +377,18 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
 
 type Answers = Record<string, string | string[]>
 
+type AccOption = {
+  name:     string
+  price:    number
+  currency: string
+  comment:  string
+  lat:      number
+  lng:      number
+}
+
 type GeneratedPlan = {
   tripTitle: string
+  accommodationOptions?: AccOption[]
   days: {
     dayId: string
     items: {
@@ -457,6 +467,7 @@ export function AiTripPlanner({ onClose }: Props) {
   const [phase,       setPhase]       = useState<'checking' | 'quiz' | 'generating' | 'preview' | 'creating'>('checking')
   const [plan,        setPlan]        = useState<GeneratedPlan | null>(null)
   const [previewDay,  setPreviewDay]  = useState(0)
+  const [selectedAccIdx, setSelectedAccIdx] = useState<number | null>(null)
   const [error,          setError]          = useState('')
   const [dailyUsed,      setDailyUsed]      = useState(false)
   const [remainingCount, setRemainingCount] = useState(DAILY_LIMIT)
@@ -591,6 +602,7 @@ export function AiTripPlanner({ onClose }: Props) {
       setPlan(data)
       setPhase('preview')
       setPreviewDay(0)
+      setSelectedAccIdx(null)
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
       setError(msg || 'AI 오류가 발생했습니다. 다시 시도해주세요.')
@@ -612,6 +624,24 @@ export function AiTripPlanner({ onClose }: Props) {
       const people   = peopleFromCompanion(answers['companion'] as string ?? '커플', answers['people'] as string)
       const budget = Math.max(0, parseInt((answers['budget'] as string) || '0') || 0) * 10000
 
+      /* 선택된 숙소 옵션 → accommodations 배열 */
+      const accOptions = plan.accommodationOptions ?? []
+      const selectedAcc = selectedAccIdx !== null && accOptions[selectedAccIdx]
+        ? {
+            id:            generateCode(8),
+            name:          accOptions[selectedAccIdx].name,
+            checkInDayId:  'd1',
+            checkInTime:   '',
+            checkOutDayId: `d${nights + 1}`,
+            checkOutTime:  '',
+            lat:           accOptions[selectedAccIdx].lat,
+            lng:           accOptions[selectedAccIdx].lng,
+            price:         accOptions[selectedAccIdx].price,
+            currency:      accOptions[selectedAccIdx].currency,
+            includeInSettlement: false,
+          }
+        : null
+
       const tripRef = await addDoc(collection(db, 'users', user.uid, 'trips'), {
         city:       answers['destination'],
         country:    '',
@@ -627,6 +657,7 @@ export function AiTripPlanner({ onClose }: Props) {
         editCode,
         aiGenerated: true,
         members:    [{ id: user.uid, name: user.displayName ?? '나', role: 'owner', ...(user.photoURL ? { photoURL: user.photoURL } : {}) }],
+        accommodations: selectedAcc ? [selectedAcc] : [],
         createdAt:  serverTimestamp(),
         updatedAt:  serverTimestamp(),
       })
@@ -1212,6 +1243,49 @@ export function AiTripPlanner({ onClose }: Props) {
                         )}
                       </div>
                     </div>
+                  ))}
+                </div>
+              )}
+
+              {/* 숙소 선택 (추천 옵션이 있을 때) */}
+              {(plan.accommodationOptions ?? []).length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                    <BedDouble className="w-3.5 h-3.5 text-amber-500" />
+                    숙소 선택 <span className="text-gray-400 font-normal">(선택하면 고정 일정에 자동 등록)</span>
+                  </p>
+                  {(plan.accommodationOptions ?? []).map((opt, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setSelectedAccIdx(selectedAccIdx === i ? null : i)}
+                      className={`w-full text-left rounded-2xl border p-3 transition-all ${
+                        selectedAccIdx === i
+                          ? 'border-amber-400 bg-amber-50 ring-1 ring-amber-300'
+                          : 'border-gray-200 bg-gray-50 hover:border-amber-300 hover:bg-amber-50/40'
+                      }`}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <div className={`w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                          selectedAccIdx === i ? 'bg-amber-500' : 'bg-white border border-gray-200'
+                        }`}>
+                          <BedDouble className={`w-3.5 h-3.5 ${selectedAccIdx === i ? 'text-white' : 'text-gray-400'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-gray-900 leading-snug">{opt.name}</p>
+                          {opt.price > 0 && (
+                            <p className="text-xs text-amber-600 font-semibold mt-0.5">
+                              {opt.price.toLocaleString()} {opt.currency} / 박
+                            </p>
+                          )}
+                          {opt.comment && (
+                            <p className="text-[11px] text-gray-500 mt-1 leading-relaxed line-clamp-2">{opt.comment}</p>
+                          )}
+                        </div>
+                        {selectedAccIdx === i && (
+                          <Check className="w-4 h-4 text-amber-500 flex-shrink-0 mt-1" />
+                        )}
+                      </div>
+                    </button>
                   ))}
                 </div>
               )}
