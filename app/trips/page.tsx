@@ -901,6 +901,9 @@ function TripsContent() {
                     : m
                   )
                 const extraCount = Math.max(0, activeMembers.length - 4)
+                const isPending    = !!trip.pendingDelete
+                const deletedAtMs  = trip.deletedAt?.toMillis() ?? Date.now()
+                const remainHours  = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
                 const hasCover = !!trip.coverPhotoURL
                 const invCardBgStyle = hasCover
                   ? {
@@ -915,10 +918,11 @@ function TripsContent() {
                 const invClrIcon  = hasCover ? 'text-white/80' : clrIcon
 
                 return (
-                  <Link key={trip.id} href={`/share/${trip.viewCode}`} className="group relative">
-                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${
-                      isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-indigo-100 ring-1 ring-indigo-50'
-                    }`}>
+                  <div key={trip.id} className={`group relative ${!isPending ? 'cursor-pointer' : ''}`}
+                    onClick={!isPending ? () => window.location.href = `/share/${trip.viewCode}` : undefined}>
+                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all ${
+                      isPending ? 'border-red-200' : isOngoing ? 'border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : 'border-indigo-100 ring-1 ring-indigo-50 group-hover:shadow-md group-hover:-translate-y-0.5'
+                    }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
                         style={invCardBgStyle}>
                         <div className="flex items-start justify-between">
@@ -934,20 +938,22 @@ function TripsContent() {
                               </span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            {isOngoing && (
-                              <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
-                              </span>
-                            )}
-                            <button
-                              onClick={e => handleLeaveInvited(e, trip)}
-                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
-                              title="여행 탈퇴"
-                            >
-                              <LogOut className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                          {!isPending && (
+                            <div className="flex items-center gap-1.5">
+                              {isOngoing && (
+                                <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
+                                </span>
+                              )}
+                              <button
+                                onClick={e => handleLeaveInvited(e, trip)}
+                                className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
+                                title="여행 탈퇴"
+                              >
+                                <LogOut className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <p className={`font-bold text-base leading-snug ${invClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -991,7 +997,17 @@ function TripsContent() {
                         )}
                       </div>
                     </div>
-                  </Link>
+                    {isPending && (
+                      <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">
+                          {remainHours}시간 후 삭제
+                        </span>
+                        <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/90 text-gray-600 shadow">
+                          방장이 여행을 삭제했습니다
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
