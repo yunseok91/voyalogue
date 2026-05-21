@@ -163,13 +163,16 @@ export function TripEditModal({
                     window.addEventListener('mouseup', onUp)
                   }}
                   onTouchStart={e => {
+                    e.stopPropagation()
                     dragStartY.current   = e.touches[0].clientY
                     dragStartPos.current = coverPhotoPosition
                   }}
                   onTouchMove={e => {
+                    e.stopPropagation()
                     const delta = (dragStartY.current - e.touches[0].clientY) / 2
                     setCoverPhotoPosition(Math.min(100, Math.max(0, dragStartPos.current + delta)))
                   }}
+                  style={{ touchAction: 'none' }}
                 >
                   <img
                     src={coverPhotoPreview}

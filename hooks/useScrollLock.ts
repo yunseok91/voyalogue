@@ -13,11 +13,11 @@ export function useScrollLock(active: boolean) {
     body.style.overflowY = 'scroll'
 
     return () => {
-      body.style.position = ''
       body.style.top = ''
+      body.style.position = ''
       body.style.width = ''
       body.style.overflowY = ''
-      window.scrollTo(0, scrollY)
+      window.scrollTo({ top: scrollY, behavior: 'instant' as ScrollBehavior })
     }
   }, [active])
 }

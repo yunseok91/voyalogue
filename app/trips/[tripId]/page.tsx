@@ -7,7 +7,7 @@ import {
   GripVertical, Star, CheckSquare, Wallet, ChevronRight,
   Edit2, Trash2, MoreHorizontal, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera,
-  Plane, BedDouble, Pencil,
+  Plane, BedDouble, Pencil, Headset,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -37,6 +37,8 @@ import { useScrollLock } from '@/hooks/useScrollLock'
 import { useParams, useRouter } from 'next/navigation'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
+import { ReportModal } from '@/components/ReportModal'
+import { TripNavbar } from '@/components/TripNavbar'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -123,7 +125,8 @@ type TripMeta = {
   accommodations?: AccommodationItem[]
   currency?:       string
   dayRates?:       Record<string, number>
-  coverPhotoURL?:  string
+  coverPhotoURL?:       string
+  coverPhotoPosition?:  number
 }
 
 type Day = {
@@ -1605,6 +1608,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [colorPickHex,    setColorPickHex]    = useState('')
   const [lightbox,        setLightbox]        = useState<{ receipts: string[]; idx: number } | null>(null)
   const [showSettlement,  setShowSettlement]  = useState(false)
+  const [showReport,      setShowReport]      = useState(false)
 
   /* 환율 */
   const [rates,    setRates]    = useState<Record<string, number>>({ KRW: 1 })
@@ -1617,7 +1621,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const editAccInputRef    = useRef<HTMLInputElement>(null)
 
   /* 모달 열릴 때 배경 스크롤 잠금 */
-  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc
+  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
   useScrollLock(anyModalOpen)
 
   /* 지도 포커스 */
@@ -2528,120 +2532,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── Navbar ── */}
-      <nav className="bg-white border-b border-gray-200 flex-shrink-0 z-20">
-        {/* 모바일: 2줄 / 데스크톱: 1줄 */}
-        {/* 줄 1 — 뒤로 + 여행 정보 */}
-        <div className="h-12 sm:h-14 flex items-center px-4 sm:px-6 gap-2 sm:gap-3">
-          <Link href="/trips" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0 min-w-[28px] min-h-[36px] justify-center">
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">내 여행</span>
-          </Link>
-          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(meta.gradient) }} />
-            <div className="flex flex-col min-w-0">
-              <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                {meta.title || meta.city}
-              </span>
-              {meta.title && (
-                <span className="text-[11px] text-gray-400 leading-tight truncate">{meta.city}</span>
-              )}
-            </div>
-            <span className="text-xs text-gray-400 flex-shrink-0 hidden md:block">
-              {meta.startDate.slice(5).replace('-', '/')} – {meta.endDate.slice(5).replace('-', '/')} · {meta.nights}박
-            </span>
-            <span className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
-              <Crown className="w-2.5 h-2.5" />방장
-            </span>
-            <button
-              onClick={openEdit}
-              title="여행 정보 편집"
-              className="flex-shrink-0 w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            >
-              <Edit2 className="w-4 h-4" />
-            </button>
-          </div>
-          {/* 데스크톱 전용 액션 버튼 */}
-          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-            <button onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
-              className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors" title="멤버 관리">
-              <div className="flex -space-x-2.5">
-                {(meta.members ?? []).slice(0, 4).map((m, i) => (
-                  <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                    <PersonAvatar
-                      name={m.name}
-                      photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
-                      size={28} stacked
-                      colorIndex={m.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))}
-                      hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
-                    />
-                    {m.role === 'owner' && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-blue-500 rounded-full flex items-center justify-center"><Crown className="w-2 h-2 text-white" /></span>}
-                    {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-2 h-2 text-white" /></span>}
-                  </div>
-                ))}
-                {(meta.members ?? []).length > 4 && (
-                  <div className="w-7 h-7 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[10px] font-bold text-gray-500">+{(meta.members ?? []).length - 4}</div>
-                )}
-              </div>
-              <span className="text-xs font-semibold text-gray-600">멤버 편집</span>
-              <Users className="w-3.5 h-3.5 text-gray-400" />
-            </button>
-            <NotificationBell />
-            <button onClick={() => setChecklist(v => !v)}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
-              <CheckSquare className="w-3.5 h-3.5" />체크리스트
-            </button>
-            <Link href={`/trips/${tripId}/summary`}
-              className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
-              여행 요약<ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-        {/* 줄 2 — 모바일 전용 액션 */}
-        <div className="sm:hidden flex items-center justify-between px-4 py-2 border-t border-gray-100">
-          {/* 멤버 버튼 — 아바타 + 이름만 */}
-          <button
-            onClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
-            className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors"
-          >
-            <div className="flex -space-x-2">
-              {(meta.members ?? []).slice(0, 3).map((m, i) => (
-                <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                  <PersonAvatar
-                    name={m.name}
-                    photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
-                    size={24} stacked
-                    colorIndex={m.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)))}
-                    hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
-                  />
-                </div>
-              ))}
-              {(meta.members ?? []).length > 3 && (
-                <div className="w-6 h-6 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{(meta.members ?? []).length - 3}</div>
-              )}
-            </div>
-            <span className="text-xs font-medium text-gray-600">{(meta.members ?? []).length}명</span>
-          </button>
-
-          {/* 우측 액션 */}
-          <div className="flex items-center gap-1.5">
-            <NotificationBell />
-            <button
-              onClick={() => setChecklist(v => !v)}
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 active:bg-gray-100 transition-colors"
-              title="체크리스트"
-            >
-              <CheckSquare className="w-4 h-4" />
-            </button>
-            <Link
-              href={`/trips/${tripId}/summary`}
-              className="h-9 px-3.5 flex items-center gap-1 rounded-full bg-gray-900 text-white text-xs font-semibold active:bg-gray-700 transition-colors"
-            >
-              요약<ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </div>
-      </nav>
+      <TripNavbar
+        tripId={tripId}
+        ownerId={uid}
+        city={meta.city}
+        title={meta.title}
+        gradient={meta.gradient}
+        coverPhotoURL={meta.coverPhotoURL}
+        coverPhotoPosition={meta.coverPhotoPosition}
+        startDate={meta.startDate}
+        endDate={meta.endDate}
+        nights={meta.nights}
+        isOwner
+        user={user}
+        members={(meta.members ?? []).filter(m => !m.left).map(m =>
+          m.role === 'owner'
+            ? { ...m, photoURL: user?.photoURL ?? m.photoURL,
+                colorIndex: avatarHexColor ? undefined : (avatarColor ?? 0),
+                hexColor: avatarHexColor ?? undefined }
+            : m
+        )}
+        summaryHref={`/trips/${tripId}/summary`}
+        onMemberClick={() => { setShowMembers(true); getDoc(doc(db, 'users', uid, 'trips', tripId)).then(snap => { if (snap.exists()) setMeta(snap.data() as TripMeta) }).catch(() => {}) }}
+        onChecklistToggle={() => setChecklist(v => !v)}
+        onReportClick={() => setShowReport(true)}
+        onEditTrip={openEdit}
+      />
 
       {/* ── Day 탭 + 모바일 지도/일정 토글 ── */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 shadow-sm">
@@ -3130,7 +3046,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
             </div>
 
             {/* 멤버 목록 */}
-            <div className="px-2 sm:px-3 py-2 flex flex-col gap-0.5 overflow-y-auto flex-shrink min-h-0">
+            <div className="px-3 sm:px-4 py-2 flex flex-col gap-1 overflow-y-auto flex-1 min-h-0">
               {(meta.members ?? []).map((m, mi) => {
                 const effectiveColorIdx = m.role === 'owner'
                   ? (avatarHexColor ? undefined : (avatarColor ?? 0))
@@ -3139,7 +3055,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 const initialHex = m.hexColor ?? (effectiveColorIdx !== undefined ? CLAY[effectiveColorIdx].base : '#4A90E8')
                 const ringC = effectiveHex ?? (effectiveColorIdx !== undefined ? CLAY[effectiveColorIdx % CLAY.length].base : undefined)
                 return (
-                  <div key={m.id} className={`flex items-center gap-2 sm:gap-3 px-2 sm:px-3 py-2 sm:py-2.5 rounded-2xl hover:bg-gray-50/80 group transition-colors ${m.left ? 'opacity-50' : ''}`}>
+                  <div key={m.id} className={`flex items-center gap-3 px-3 py-3 rounded-2xl hover:bg-gray-50/80 group transition-colors ${m.left ? 'opacity-50' : ''}`}>
                     {/* 아바타 */}
                     {m.role !== 'owner' ? (
                       <div className="relative flex-shrink-0">
@@ -3271,7 +3187,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       type="text"
                       placeholder="닉네임 입력"
                       value={newMemberName}
-                      onChange={e => setNewMemberName(e.target.value)}
+                      maxLength={12}
+                      onChange={e => setNewMemberName(e.target.value.slice(0, 12))}
                       onKeyDown={e => { if (e.key === 'Enter') addMember() }}
                       className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                     />
@@ -3348,26 +3265,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </button>
             </div>
 
-            {/* 여행 명세 */}
-            {totalSpent > 0 && (meta.members ?? []).length > 1 && (
-              <div className="border-t border-gray-100 px-4 sm:px-5 pb-5 pt-4 flex-shrink-0">
-                <button
-                  onClick={() => { setShowMembers(false); setShowSettlement(true) }}
-                  className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-100 transition-colors group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-xl bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <Wallet className="w-3.5 h-3.5 text-blue-600" />
-                    </div>
-                    <div className="text-left">
-                      <p className="text-xs font-semibold text-blue-700">여행 명세 (정산금액)</p>
-                      <p className="text-[11px] text-blue-500">멤버별 지출 내역 보기</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-blue-400" />
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
@@ -3851,6 +3748,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
             </button>
           </div>
         </div>
+      )}
+
+      {showReport && user && (
+        <ReportModal
+          user={user}
+          onClose={() => setShowReport(false)}
+        />
       )}
 
     </div>

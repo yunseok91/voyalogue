@@ -20,6 +20,7 @@ import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { ReportModal } from '@/components/ReportModal'
+import { TripNavbar } from '@/components/TripNavbar'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -810,9 +811,10 @@ export default function SharePage() {
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
   const [showSettlement, setShowSettlement] = useState(false)
-  const [showReport,     setShowReport]     = useState(false)
+  const [showReport,       setShowReport]       = useState(false)
+  const [showMemberPopup,  setShowMemberPopup]  = useState(false)
 
-  useScrollLock(showAdd || !!editingItem || showSettlement || showReport)
+  useScrollLock(showAdd || !!editingItem || showSettlement || showReport || showMemberPopup)
 
   /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
@@ -1118,7 +1120,7 @@ export default function SharePage() {
     )
     await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
     await deleteDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id)).catch(() => {})
-    router.replace('/')
+    router.replace('/trips')
   }
 
   /* ── 로딩 ── */
@@ -1316,156 +1318,30 @@ export default function SharePage() {
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* Navbar */}
-      <nav className="bg-white border-b border-gray-200 flex-shrink-0 z-20">
-        {/* 줄 1 — 뒤로 + 여행 정보 + 유저칩 */}
-        <div className="h-12 sm:h-14 flex items-center px-4 sm:px-6 gap-2 sm:gap-3">
-          <Link href="/trips" className="flex items-center gap-1 text-sm text-gray-500 hover:text-gray-900 transition-colors flex-shrink-0 min-w-[28px] min-h-[36px] justify-center">
-            <ChevronLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">내 여행</span>
-          </Link>
-          <div className="h-4 w-px bg-gray-200 hidden sm:block" />
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-6 h-6 rounded-md flex-shrink-0 overflow-hidden" style={
-              trip.coverPhotoURL
-                ? { backgroundImage: `url(${trip.coverPhotoURL})`, backgroundSize: 'cover', backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%` }
-                : { background: gradientStyle(trip.gradient) }
-            } />
-            <div className="flex flex-col min-w-0">
-              <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                {trip.title || trip.city}
-              </span>
-              {trip.title && <span className="text-[11px] text-gray-400 leading-tight truncate">{trip.city}</span>}
-            </div>
-            <span className="text-xs text-gray-400 flex-shrink-0 hidden md:block">
-              {trip.startDate.slice(5).replace('-', '/')} – {trip.endDate.slice(5).replace('-', '/')} · {trip.nights}박
-            </span>
-            {user && (
-              <span className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                trip.uid === user?.uid
-                  ? 'bg-blue-600 text-white'
-                  : isTreasurer
-                  ? 'bg-amber-400 text-white'
-                  : 'bg-gray-100 text-gray-600'
-              }`}>
-                {trip.uid === user?.uid
-                  ? <><Crown className="w-2.5 h-2.5" />방장</>
-                  : isTreasurer
-                  ? <><Wallet className="w-2.5 h-2.5" />총무</>
-                  : <>게스트</>
-                }
-              </span>
-            )}
-          </div>
-          {/* 데스크톱 전용 액션 */}
-          <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
-            {canEdit && (
-              <button onClick={() => setShowChecklist(v => !v)}
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors">
-                <CheckSquare className="w-3.5 h-3.5" />체크리스트
-              </button>
-            )}
-            {(user && (currentMember || trip.uid === user?.uid)) && (
-              <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
-                className="flex items-center gap-1.5 text-xs font-semibold px-4 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors">
-                여행 요약<ChevronRight className="w-3.5 h-3.5" />
-              </Link>
-            )}
-            {user && <NotificationBell />}
-            <button
-              onClick={() => setShowReport(true)}
-              title="문의 / 버그 신고"
-              className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500 transition-colors flex-shrink-0"
-            >
-              <Headset className="w-4 h-4" />
-            </button>
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-3 py-1">
-              <div className="relative flex-shrink-0">
-                <PersonAvatar
-                  name={currentName}
-                  photoURL={currentPhotoURL}
-                  size={30}
-                  colorIndex={currentMember?.colorIndex}
-                />
-                {isTreasurer && (
-                  <span className="absolute -top-0.5 -right-0.5 w-4 h-4 bg-amber-400 rounded-full flex items-center justify-center">
-                    <Wallet className="w-2.5 h-2.5 text-white" />
-                  </span>
-                )}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="text-[12px] font-semibold text-gray-800 truncate max-w-[80px] leading-tight">{currentName}</span>
-                <span className="text-[10px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
-                  {trip.uid === user?.uid ? '방장' : isTreasurer ? '총무' : currentMember ? '게스트' : '비회원'}
-                </span>
-              </div>
-            </div>
-            {user && currentMember && !currentMember.left && trip.uid !== user.uid && (
-              <button
-                onClick={handleLeaveTrip}
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors flex-shrink-0"
-                title="여행 탈퇴"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          {/* 모바일 유저칩 (1줄) */}
-          <div className="sm:hidden flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-0.5 pr-2 py-0.5 flex-shrink-0">
-            <div className="relative flex-shrink-0">
-              <PersonAvatar
-                name={currentName}
-                photoURL={currentPhotoURL}
-                size={26}
-                colorIndex={currentMember?.colorIndex}
-              />
-              {isTreasurer && (
-                <span className="absolute -top-0.5 -right-0.5 w-3.5 h-3.5 bg-amber-400 rounded-full flex items-center justify-center">
-                  <Wallet className="w-2 h-2 text-white" />
-                </span>
-              )}
-            </div>
-            <div className="flex flex-col min-w-0">
-              <span className="text-[11px] font-semibold text-gray-800 truncate max-w-[60px] leading-tight">{currentName}</span>
-              <span className="text-[9px] leading-tight font-medium" style={{ color: isTreasurer ? '#d97706' : '#9ca3af' }}>
-                {trip.uid === user?.uid ? '방장' : isTreasurer ? '총무' : currentMember ? '게스트' : '비회원'}
-              </span>
-            </div>
-          </div>
-        </div>
-        {/* 줄 2 — 모바일 전용 액션 */}
-        <div className="sm:hidden flex items-center gap-2 px-4 py-2 border-t border-gray-100">
-          <div className="flex-1" />
-          {user && <NotificationBell />}
-          <button
-            onClick={() => setShowReport(true)}
-            title="문의 / 버그 신고"
-            className="w-9 h-9 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0"
-          >
-            <Headset className="w-4 h-4" />
-          </button>
-          {canEdit && (
-            <button onClick={() => setShowChecklist(v => !v)}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors min-h-[36px]">
-              <CheckSquare className="w-3.5 h-3.5" /><span>체크</span>
-            </button>
-          )}
-          {(user && (currentMember || trip.uid === user?.uid)) && (
-            <Link href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full bg-gray-900 text-white hover:bg-gray-700 transition-colors min-h-[36px]">
-              요약<ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-          {user && currentMember && !currentMember.left && trip.uid !== user.uid && (
-            <button
-              onClick={handleLeaveTrip}
-              className="flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-full border border-red-200 text-red-400 hover:bg-red-50 transition-colors min-h-[36px]"
-              title="여행 탈퇴"
-            >
-              <LogOut className="w-3.5 h-3.5" /><span>탈퇴</span>
-            </button>
-          )}
-        </div>
-      </nav>
+      <TripNavbar
+        tripId={trip.id}
+        ownerId={trip.uid}
+        city={trip.city}
+        title={trip.title}
+        gradient={trip.gradient}
+        coverPhotoURL={trip.coverPhotoURL}
+        coverPhotoPosition={trip.coverPhotoPosition}
+        startDate={trip.startDate}
+        endDate={trip.endDate}
+        nights={trip.nights}
+        isOwner={trip.uid === user?.uid}
+        isTreasurer={isTreasurer}
+        user={user}
+        members={resolvedMembers}
+
+        currentMember={currentMember}
+
+        summaryHref={`/trips/${trip.id}/summary?owner=${trip.uid}`}
+        onMemberClick={() => setShowMemberPopup(true)}
+        onChecklistToggle={() => setShowChecklist(v => !v)}
+        onReportClick={() => setShowReport(true)}
+        onLeaveTrip={trip.uid !== user?.uid ? handleLeaveTrip : undefined}
+      />
 
       {/* ── PIN이 필요 없거나 이미 unlock된 경우는 아무것도 표시 안 함 ── */}
 
@@ -1866,41 +1742,102 @@ export default function SharePage() {
                   ) : (
                     <span className={`flex-1 text-sm select-none ${c.done ? 'line-through text-gray-400' : 'text-gray-700'}`}>{c.label}</span>
                   )}
-                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setCheckEditId(c.id); setCheckEditVal(c.label) }}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
-                      <Edit2 className="w-3 h-3" />
-                    </button>
-                    <button onClick={() => deleteCheckItem(c.id)}
-                      className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
-                      <Trash2 className="w-3 h-3" />
-                    </button>
-                  </div>
+                  {canEdit && (
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => { setCheckEditId(c.id); setCheckEditVal(c.label) }}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600">
+                        <Edit2 className="w-3 h-3" />
+                      </button>
+                      <button onClick={() => deleteCheckItem(c.id)}
+                        className="w-6 h-6 flex items-center justify-center rounded hover:bg-red-50 text-gray-400 hover:text-red-500">
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
-            <div className="px-6 py-4 border-t border-gray-100">
-              <div className="flex items-center gap-2">
-                <input
-                  type="text"
-                  placeholder="새 항목 추가…"
-                  value={checkInput}
-                  onChange={e => setCheckInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCheckItem() }}
-                  className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all"
-                />
-                <button onClick={addCheckItem}
-                  className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
-                  <Plus className="w-4 h-4" />
-                </button>
+            {canEdit && (
+              <div className="px-6 py-4 border-t border-gray-100">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    placeholder="새 항목 추가…"
+                    value={checkInput}
+                    onChange={e => setCheckInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') addCheckItem() }}
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all"
+                  />
+                  <button onClick={addCheckItem}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-blue-600 hover:bg-blue-700 text-white">
+                    <Plus className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
 
       {showReport && user && (
         <ReportModal user={user} onClose={() => setShowReport(false)} />
+      )}
+
+      {/* 멤버 목록 팝업 */}
+      {showMemberPopup && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100]"
+          onClick={() => setShowMemberPopup(false)}
+        >
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:w-[360px] mx-0 sm:mx-4 shadow-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-bold text-gray-900">{trip.title || trip.city}</p>
+                <p className="text-xs text-gray-400 mt-0.5">여행 멤버 {resolvedMembers.length}명</p>
+              </div>
+              <button
+                onClick={() => setShowMemberPopup(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
+              {resolvedMembers.map((m, i) => {
+                const roleLabel = m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '멤버'
+                const roleCls   = m.role === 'owner'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : m.role === 'treasurer'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-500'
+                return (
+                  <div key={m.id} className="flex items-center gap-3 py-3">
+                    <PersonAvatar
+                      name={m.name ?? '?'}
+                      photoURL={m.photoURL}
+                      size={36}
+                      colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
+                      hexColor={m.hexColor}
+                    />
+                    <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{m.name ?? '알 수 없음'}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="px-5 pb-5 pt-2">
+              <button
+                onClick={() => setShowMemberPopup(false)}
+                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── PIN 풀스크린 게이트 — joinCode 접속 시 콘텐츠를 완전히 가림 ── */}
@@ -1926,7 +1863,7 @@ export default function SharePage() {
               </div>
 
               {/* 4자리 입력 박스 */}
-              <div className="flex gap-2">
+              <div className="flex gap-3 justify-center">
                 {pinDigits.map((d, i) => (
                   <input
                     key={i}
@@ -1951,7 +1888,7 @@ export default function SharePage() {
                       if (text.length === 4) { setPinDigits(text.split('')); setPinError(''); setTimeout(() => pinRefs[3].current?.focus(), 0) }
                       e.preventDefault()
                     }}
-                    className={`flex-1 h-14 rounded-xl border-2 text-center text-2xl font-black transition-all focus:outline-none ${
+                    className={`w-14 h-14 rounded-xl border-2 text-center text-2xl font-black transition-all focus:outline-none ${
                       pinError ? 'border-red-300 text-red-500 bg-red-50' : 'border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
                     }`}
                   />

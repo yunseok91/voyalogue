@@ -38,7 +38,7 @@ type Trip = {
   budget?:        number
   coverPhotoURL?:      string
   coverPhotoPosition?: number
-  members?:            Array<{ id: string; name: string; role: string; photoURL?: string }>
+  members?:            Array<{ id: string; name: string; role: string; photoURL?: string; left?: boolean }>
 }
 
 type InvitedTripRef = {
@@ -853,13 +853,14 @@ function TripsContent() {
                 const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
                 const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
                 const isTreasurer = trip.myRole === 'treasurer'
-                const visibleMembers = (trip.members ?? [])
+                const activeMembers = (trip.members ?? []).filter(m => !m.left)
+                const visibleMembers = activeMembers
                   .slice(0, 4)
                   .map(m => m.id === user?.uid
                     ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
                     : m
                   )
-                const extraCount = Math.max(0, (trip.members?.length ?? 0) - 4)
+                const extraCount = Math.max(0, activeMembers.length - 4)
                 const hasCover = !!trip.coverPhotoURL
                 const invCardBgStyle = hasCover
                   ? {
@@ -941,7 +942,7 @@ function TripsContent() {
                                 </div>
                               )}
                             </div>
-                            <span className="text-xs text-gray-400 font-medium">{trip.members?.length ?? 0}명</span>
+                            <span className="text-xs text-gray-400 font-medium">{activeMembers.length}명</span>
                           </button>
                         ) : (
                           <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
