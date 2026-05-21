@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet } from 'lucide-react'
 import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -853,8 +853,25 @@ function TripsContent() {
                 const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
                 const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
                 const isTreasurer = trip.myRole === 'treasurer'
-                const visibleMembers = (trip.members ?? []).slice(0, 4)
+                const visibleMembers = (trip.members ?? [])
+                  .slice(0, 4)
+                  .map(m => m.id === user?.uid
+                    ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
+                    : m
+                  )
                 const extraCount = Math.max(0, (trip.members?.length ?? 0) - 4)
+                const hasCover = !!trip.coverPhotoURL
+                const invCardBgStyle = hasCover
+                  ? {
+                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${trip.coverPhotoURL})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%`,
+                    }
+                  : { background: gradientStyle(trip.gradient) }
+                const invClrTitle = hasCover ? 'text-white'    : clrTitle
+                const invClrSub   = hasCover ? 'text-white/85' : clrSub
+                const invClrDate  = hasCover ? 'text-white/75' : clrDate
+                const invClrIcon  = hasCover ? 'text-white/80' : clrIcon
 
                 return (
                   <Link key={trip.id} href={`/share/${trip.viewCode}`} className="group relative">
@@ -862,42 +879,41 @@ function TripsContent() {
                       isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-indigo-100 ring-1 ring-indigo-50'
                     }`}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={{ background: gradientStyle(trip.gradient) }}>
+                        style={invCardBgStyle}>
                         <div className="flex items-start justify-between">
-                          <User className={`w-5 h-5 sm:w-6 sm:h-6 ${clrIcon}`} />
+                          <User className={`w-5 h-5 sm:w-6 sm:h-6 ${invClrIcon}`} />
                           <div className="flex items-center gap-1.5">
                             {isOngoing && (
-                              <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-gray-800 bg-black/10' : 'text-white bg-white/20'}`}>
+                              <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
                               </span>
                             )}
-                            {/* 총무 뱃지 — 솔리드 골드로 식별력 강화 */}
                             {isTreasurer && (
                               <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full bg-amber-400 text-white shadow-sm">
-                                <Crown className="w-2.5 h-2.5" />총무
+                                <Wallet className="w-2.5 h-2.5" />총무
                               </span>
                             )}
                             {!isTreasurer && (
-                              <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20'}`}>
+                              <span className="text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
                                 게스트
                               </span>
                             )}
                             <button
                               onClick={e => handleLeaveInvited(e, trip)}
-                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'}`}
+                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-black/20 hover:bg-black/40 text-white"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
                         <div>
-                          <p className={`font-bold text-base leading-snug ${clrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                          <p className={`font-bold text-base leading-snug ${invClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                             {trip.title || trip.city}
                           </p>
                           {trip.title && (
-                            <p className={`text-xs font-medium mt-0.5 ${clrSub}`}>{trip.city}</p>
+                            <p className={`text-xs font-medium mt-0.5 ${invClrSub}`}>{trip.city}</p>
                           )}
-                          <p className={`text-xs mt-1 font-medium ${clrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
+                          <p className={`text-xs mt-1 font-medium ${invClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
                       <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
@@ -1023,7 +1039,10 @@ function TripsContent() {
             </div>
             <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
               {(memberPopupTrip.members ?? []).map(m => {
-                const roleLabel = m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '멤버'
+                const resolved = m.id === user?.uid
+                  ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
+                  : m
+                const roleLabel = resolved.role === 'owner' ? '방장' : resolved.role === 'treasurer' ? '총무' : '멤버'
                 const roleCls   = m.role === 'owner'
                   ? 'bg-indigo-100 text-indigo-700'
                   : m.role === 'treasurer'
@@ -1031,8 +1050,8 @@ function TripsContent() {
                   : 'bg-gray-100 text-gray-500'
                 return (
                   <div key={m.id} className="flex items-center gap-3 py-3">
-                    <PersonAvatar name={m.name ?? '?'} photoURL={m.photoURL} size={36} />
-                    <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{m.name ?? '알 수 없음'}</span>
+                    <PersonAvatar name={resolved.name ?? '?'} photoURL={resolved.photoURL} size={36} />
+                    <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{resolved.name ?? '알 수 없음'}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
                   </div>
                 )

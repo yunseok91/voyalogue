@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "WebSearch",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(grep -n \"showReport.*ReportModal\\\\|</div>\\\\s*$\" /Users/yunseok/Downloads/voyagelogue/voyalogue/app/share/\\\\[code\\\\]/page.tsx)"
     ]
   },
   "mcpServers": {

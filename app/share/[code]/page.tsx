@@ -68,11 +68,13 @@ type TripMeta = {
   budget:          number
   viewCode:        string
   editCode:        string
-  members:         Member[]
-  flights?:        FlightItem[]
-  accommodations?: AccommodationItem[]
-  checklist?:      CheckItem[]
-  textDark?:       boolean
+  members:              Member[]
+  flights?:             FlightItem[]
+  accommodations?:      AccommodationItem[]
+  checklist?:           CheckItem[]
+  textDark?:            boolean
+  coverPhotoURL?:       string
+  coverPhotoPosition?:  number
 }
 
 type PlanItem = {
@@ -793,6 +795,7 @@ export default function SharePage() {
   const [joining,      setJoining]     = useState(false)
   const [joinError,    setJoinError]   = useState('')
   const [pinRequired,  setPinRequired] = useState(false)
+  const [pinUnlocked,  setPinUnlocked] = useState(false)
   const [storedPin,    setStoredPin]   = useState('')
   const [pinDigits,    setPinDigits]   = useState(['', '', '', ''])
   const [pinError,     setPinError]    = useState('')
@@ -878,9 +881,19 @@ export default function SharePage() {
         return
       }
       setGate('granted')
+      const member = (trip.members ?? []).find(m => m.id === user.uid && !m.left)
       /* 총무만 편집 권한 */
-      const member = (trip.members ?? []).find(m => m.id === user.uid)
       if (member?.role === 'treasurer') setCanEdit(true)
+      /* 이미 등록된 멤버는 PIN 없이 입장 */
+      if (member) setPinUnlocked(true)
+      /* 프로필 사진 변경됐으면 members 배열 조용히 동기화 */
+      if (member && user.photoURL && member.photoURL !== user.photoURL) {
+        const updatedMembers = (trip.members ?? []).map(m =>
+          m.id === user.uid ? { ...m, photoURL: user.photoURL!, name: user.displayName ?? m.name } : m
+        )
+        updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers }).catch(() => {})
+        setTrip(prev => prev ? { ...prev, members: updatedMembers } : prev)
+      }
     } else {
       setGate('choosing')
     }
@@ -1220,20 +1233,34 @@ export default function SharePage() {
     if (!user) { router.push(`/auth?redirect=/share/${code}`); return }
     if (trip.uid === user.uid) return
     const members = trip.members ?? []
+    /* 이미 활성 멤버 — 중복 방지 */
     if (members.some(m => m.id === user.uid && !m.left)) return
-    const activeCount = members.filter(m => !m.left).length
-    if (activeCount >= (trip.people || 1)) {
-      setJoinError('여행 인원이 가득 찼습니다. 방장에게 인원 증가를 요청하세요.')
-      return
-    }
     setJoining(true)
     try {
-      const updatedMembers = [...members, {
-        id:       user.uid,
-        name:     user.displayName || user.email?.split('@')[0] || '멤버',
-        photoURL: user.photoURL ?? undefined,
-        role:     'member' as const,
-      }]
+      let updatedMembers: typeof members
+      const leftIdx = members.findIndex(m => m.id === user.uid && m.left)
+      if (leftIdx >= 0) {
+        /* 탈퇴 멤버 복원 */
+        updatedMembers = members.map(m =>
+          m.id === user.uid
+            ? { ...m, left: false, name: user.displayName || m.name, photoURL: user.photoURL ?? m.photoURL }
+            : m
+        )
+      } else {
+        /* 신규 등록 — 인원 확인 */
+        const activeCount = members.filter(m => !m.left).length
+        if (activeCount >= (trip.people || 1)) {
+          setJoinError('여행 인원이 가득 찼습니다. 방장에게 인원 증가를 요청하세요.')
+          setJoining(false)
+          return
+        }
+        updatedMembers = [...members, {
+          id:       user.uid,
+          name:     user.displayName || user.email?.split('@')[0] || '멤버',
+          photoURL: user.photoURL ?? undefined,
+          role:     'member' as const,
+        }]
+      }
       await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers })
       await setDoc(doc(db, 'users', user.uid, 'invitedTrips', trip.id), {
         ownerUid: trip.uid, tripId: trip.id, viewCode: trip.viewCode,
@@ -1250,17 +1277,23 @@ export default function SharePage() {
   const handlePinSubmit = async () => {
     const entered = pinDigits.join('')
     if (entered.length < 4) { setPinError('4자리를 모두 입력해주세요.'); return }
-    if (entered !== storedPin) { setPinError('PIN이 올바르지 않아요. 다시 확인해주세요.'); setPinDigits(['', '', '', '']); pinRefs[0].current?.focus(); return }
+    if (entered !== storedPin) {
+      setPinError('PIN이 올바르지 않아요.')
+      setPinDigits(['', '', '', ''])
+      setTimeout(() => pinRefs[0].current?.focus(), 50)
+      return
+    }
     setPinError('')
-    await handleJoinTrip()
+    if (user) await handleJoinTrip()
+    setPinUnlocked(true)
   }
-  /* 탈퇴한 멤버 화면 */
-  if (currentMember?.left === true) {
+  /* 탈퇴한 멤버 화면 — joinCode(pinRequired)면 PIN 재진입 허용, viewCode면 안내만 */
+  if (currentMember?.left === true && !pinRequired) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]">
         <LogOut className="w-8 h-8 text-gray-300" />
         <p className="text-sm font-semibold text-gray-500">탈퇴한 여행입니다.</p>
-        <p className="text-xs text-gray-400">초대 링크를 통해 다시 참여할 수 있어요.</p>
+        <p className="text-xs text-gray-400">방장에게 참여 링크를 요청해 다시 참여할 수 있어요.</p>
         <Link href="/" className="text-sm text-blue-600 hover:underline">홈으로</Link>
       </div>
     )
@@ -1292,7 +1325,11 @@ export default function SharePage() {
           </Link>
           <div className="h-4 w-px bg-gray-200 hidden sm:block" />
           <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-6 h-6 rounded-md flex-shrink-0" style={{ background: gradientStyle(trip.gradient) }} />
+            <div className="w-6 h-6 rounded-md flex-shrink-0 overflow-hidden" style={
+              trip.coverPhotoURL
+                ? { backgroundImage: `url(${trip.coverPhotoURL})`, backgroundSize: 'cover', backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%` }
+                : { background: gradientStyle(trip.gradient) }
+            } />
             <div className="flex flex-col min-w-0">
               <span className="font-bold text-gray-900 text-sm truncate leading-tight" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                 {trip.title || trip.city}
@@ -1430,74 +1467,7 @@ export default function SharePage() {
         </div>
       </nav>
 
-      {/* ── PIN 참여 배너 (joinCode + 로그인 + 비멤버) ── */}
-      {pinRequired && user && !currentMember && trip.uid !== user.uid && (
-        <div className="flex-shrink-0 px-4 pt-3">
-          <div className="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-4 flex flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-                <UserPlus className="w-3.5 h-3.5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-blue-900">PIN을 입력하면 여행에 참여돼요</p>
-                {pinError && <p className="text-[11px] text-red-500 mt-0.5">{pinError}</p>}
-                {joinError && <p className="text-[11px] text-red-500 mt-0.5">{joinError}</p>}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex gap-2 flex-1">
-                {pinDigits.map((d, i) => (
-                  <input
-                    key={i}
-                    ref={pinRefs[i]}
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={1}
-                    value={d}
-                    onChange={e => {
-                      const v = e.target.value.replace(/\D/, '')
-                      const next = [...pinDigits]; next[i] = v
-                      setPinDigits(next); setPinError('')
-                      if (v && i < 3) pinRefs[i + 1].current?.focus()
-                    }}
-                    onKeyDown={e => {
-                      if (e.key === 'Backspace' && !pinDigits[i] && i > 0) pinRefs[i - 1].current?.focus()
-                      if (e.key === 'Enter') handlePinSubmit()
-                    }}
-                    onPaste={e => {
-                      const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
-                      if (text.length === 4) { setPinDigits(text.split('')); setPinError(''); pinRefs[3].current?.focus() }
-                      e.preventDefault()
-                    }}
-                    className="flex-1 h-11 rounded-xl border border-blue-200 bg-white text-center text-xl font-black text-blue-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                  />
-                ))}
-              </div>
-              <button
-                onClick={handlePinSubmit}
-                disabled={joining || pinDigits.join('').length < 4}
-                className="flex-shrink-0 h-11 px-4 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition-colors disabled:opacity-50 flex items-center gap-1.5"
-              >
-                {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : '참여'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── PIN 필요 + 비로그인 ── */}
-      {pinRequired && !user && gate === 'granted' && (
-        <div className="flex-shrink-0 px-4 pt-3">
-          <div className="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 flex items-center gap-3">
-            <UserPlus className="w-4 h-4 text-blue-500 flex-shrink-0" />
-            <p className="text-xs font-semibold text-blue-700 flex-1">로그인 후 PIN을 입력하면 멤버로 참여돼요.</p>
-            <button
-              onClick={() => router.push(`/auth?redirect=/share/${code}`)}
-              className="flex-shrink-0 px-3 py-1.5 bg-blue-600 text-white text-xs font-bold rounded-lg"
-            >로그인</button>
-          </div>
-        </div>
-      )}
+      {/* ── PIN이 필요 없거나 이미 unlock된 경우는 아무것도 표시 안 함 ── */}
 
       {/* Day 탭 */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
@@ -1931,6 +1901,93 @@ export default function SharePage() {
 
       {showReport && user && (
         <ReportModal user={user} onClose={() => setShowReport(false)} />
+      )}
+
+      {/* ── PIN 풀스크린 게이트 — joinCode 접속 시 콘텐츠를 완전히 가림 ── */}
+      {pinRequired && !pinUnlocked && trip && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-950/70 backdrop-blur-md px-4">
+          <div className="bg-white rounded-2xl w-full max-w-[340px] shadow-2xl overflow-hidden">
+            {/* 여행 헤더 */}
+            <div className="h-20 flex items-end px-5 pb-4" style={{ background: gradientStyle(trip.gradient) }}>
+              <div>
+                <p className="font-bold text-base leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {trip.title || trip.city}
+                </p>
+                <p className="text-xs text-white/70 mt-0.5">
+                  {trip.startDate.replace(/-/g, '.')} – {trip.endDate.slice(5).replace('-', '.')}
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-5 flex flex-col gap-4">
+              <div>
+                <p className="text-sm font-bold text-gray-900">PIN을 입력해주세요</p>
+                <p className="text-xs text-gray-400 mt-0.5">방장에게 받은 4자리 숫자를 입력하세요.</p>
+              </div>
+
+              {/* 4자리 입력 박스 */}
+              <div className="flex gap-2">
+                {pinDigits.map((d, i) => (
+                  <input
+                    key={i}
+                    ref={pinRefs[i]}
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={1}
+                    value={d}
+                    autoFocus={i === 0}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\D/, '')
+                      const next = [...pinDigits]; next[i] = v
+                      setPinDigits(next); setPinError('')
+                      if (v && i < 3) pinRefs[i + 1].current?.focus()
+                    }}
+                    onKeyDown={e => {
+                      if (e.key === 'Backspace' && !pinDigits[i] && i > 0) pinRefs[i - 1].current?.focus()
+                      if (e.key === 'Enter') handlePinSubmit()
+                    }}
+                    onPaste={e => {
+                      const text = e.clipboardData.getData('text').replace(/\D/g, '').slice(0, 4)
+                      if (text.length === 4) { setPinDigits(text.split('')); setPinError(''); setTimeout(() => pinRefs[3].current?.focus(), 0) }
+                      e.preventDefault()
+                    }}
+                    className={`flex-1 h-14 rounded-xl border-2 text-center text-2xl font-black transition-all focus:outline-none ${
+                      pinError ? 'border-red-300 text-red-500 bg-red-50' : 'border-gray-200 text-gray-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/15'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {pinError && (
+                <p className="text-xs text-red-500 font-semibold text-center -mt-1">{pinError}</p>
+              )}
+
+              {/* 로그인 안 된 경우 */}
+              {!user ? (
+                <button
+                  onClick={() => router.push(`/auth?redirect=/share/${code}`)}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="white" fillOpacity="0.9" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="white" fillOpacity="0.9" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="white" fillOpacity="0.9" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="white" fillOpacity="0.9" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  로그인 후 PIN 입력
+                </button>
+              ) : (
+                <button
+                  onClick={handlePinSubmit}
+                  disabled={joining || pinDigits.join('').length < 4}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : '입장하기'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

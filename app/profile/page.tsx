@@ -9,7 +9,7 @@ import {
   deleteUser,
 } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { collection, getDocs, doc, getDoc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
 import { auth, db, storage } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { CLAY } from '@/components/PersonAvatar'
@@ -131,6 +131,46 @@ function ProfileContent() {
   const [localPhoto,   setLocalPhoto]   = useState<string | null>(null)
   const currentPhoto = localPhoto || user?.photoURL || null
 
+  /* 모든 여행 members 배열의 photoURL 동기화 */
+  const syncPhotoToTrips = async (uid: string, url: string) => {
+    const [ownSnap, invSnap] = await Promise.all([
+      getDocs(collection(db, 'users', uid, 'trips')),
+      getDocs(collection(db, 'users', uid, 'invitedTrips')),
+    ])
+    const tasks: Promise<void>[] = []
+    ownSnap.docs.forEach(tripDoc => {
+      const members = (tripDoc.data().members ?? []) as Array<{ id: string; photoURL?: string }>
+      if (!members.some(m => m.id === uid)) return
+      tasks.push(updateDoc(tripDoc.ref, {
+        members: members.map(m => m.id === uid ? { ...m, photoURL: url } : m),
+      }))
+    })
+    await Promise.all(
+      invSnap.docs.map(async invDoc => {
+        const { ownerUid, tripId } = invDoc.data() as { ownerUid: string; tripId: string }
+        const tripRef  = doc(db, 'users', ownerUid, 'trips', tripId)
+        const tripSnap = await getDoc(tripRef)
+        if (!tripSnap.exists()) return
+        const members = (tripSnap.data().members ?? []) as Array<{ id: string; photoURL?: string }>
+        if (!members.some(m => m.id === uid)) return
+        tasks.push(updateDoc(tripRef, {
+          members: members.map(m => m.id === uid ? { ...m, photoURL: url } : m),
+        }))
+      })
+    )
+    await Promise.all(tasks)
+  }
+
+  const applyPhoto = async (url: string) => {
+    if (!user) return
+    await updateProfile(user, { photoURL: url })
+    await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true })
+    setLocalPhoto(url)
+    await user.reload().catch(() => {})
+    if (auth.currentUser) setUser(auth.currentUser)
+    syncPhotoToTrips(user.uid, url).catch(() => {})
+  }
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file || !user) return
@@ -140,22 +180,29 @@ function ProfileContent() {
       const sRef = storageRef(storage, `users/${user.uid}/avatar`)
       await uploadBytes(sRef, file)
       const url = await getDownloadURL(sRef)
-      await updateProfile(user, { photoURL: url })
-      await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true })
-      setLocalPhoto(url)
-      await user.reload().catch(() => {})
-      if (auth.currentUser) setUser(auth.currentUser)
+      await applyPhoto(url)
     } catch (err: unknown) {
       const code = (err as { code?: string }).code ?? ''
       const msg  = (err as { message?: string }).message ?? ''
-      console.error('[PhotoUpload]', code, msg)
       if (code === 'storage/unauthorized') {
         setPhotoError('업로드 권한이 없습니다. 다시 로그인해주세요.')
       } else {
         setPhotoError(`사진 업로드에 실패했습니다. (${code || msg || '알 수 없는 오류'})`)
       }
-    }
-    finally { setPhotoLoading(false) }
+    } finally { setPhotoLoading(false) }
+  }
+
+  const googlePhotoURL = user?.providerData?.find(p => p.providerId === 'google.com')?.photoURL ?? null
+  const hasCustomPhoto = !!currentPhoto && currentPhoto !== googlePhotoURL
+
+  const handleRevertToGoogle = async () => {
+    if (!googlePhotoURL || !user) return
+    setPhotoLoading(true); setPhotoError('')
+    try {
+      await applyPhoto(googlePhotoURL)
+    } catch {
+      setPhotoError('되돌리기에 실패했습니다.')
+    } finally { setPhotoLoading(false) }
   }
   const joinDate     = user?.metadata?.creationTime
     ? new Date(user.metadata.creationTime).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
@@ -314,6 +361,18 @@ function ProfileContent() {
           {/* 사진 업로드 에러 */}
           {photoError && (
             <p className="text-xs text-red-500 mb-3 -mt-2">{photoError}</p>
+          )}
+
+          {/* 구글 사진 원복 버튼 — 커스텀 사진이 있고 구글 유저인 경우만 */}
+          {isGoogleUser && googlePhotoURL && hasCustomPhoto && (
+            <button
+              onClick={handleRevertToGoogle}
+              disabled={photoLoading}
+              className="text-xs text-gray-400 hover:text-blue-500 transition-colors mb-3 -mt-2 flex items-center gap-1 disabled:opacity-50"
+            >
+              <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              구글 계정 사진으로 되돌리기
+            </button>
           )}
 
           {/* 아이콘 색상 선택 */}
