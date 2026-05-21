@@ -27,6 +27,14 @@ const VIBE_HINT: Record<string, VibeData> = {
   },
 }
 
+/** Cyrillic(U+0400-04FF), CJK Unified(U+4E00-9FFF 등) 등 비한글 문자를 comment에서 제거 */
+function sanitizeComment(text: string): string {
+  return text
+    .replace(/[Ѐ-ӿ]+/g, '') // 키릴 문자 (러시아어 등) 제거
+    .replace(/\s{2,}/g, ' ')          // 다중 공백 정리
+    .trim()
+}
+
 function currencyFor(dest: string): string {
   const d = dest
   if (/일본|japan|도쿄|오사카|교토|나고야|삿포로|후쿠오카/i.test(d)) return 'JPY'
@@ -143,11 +151,13 @@ export async function POST(req: NextRequest) {
 
     const systemPrompt = `You are a Korean local travel expert and enthusiastic guide. Always respond with valid JSON only. No explanation, no markdown, no code fences.
 
-LANGUAGE RULES (non-negotiable):
-1. ALL "comment" fields must be written in natural Korean (한국어) using 해요체 style — as if a Korean friend is recommending the place.
-2. Write Korean directly and naturally. Do NOT translate from Russian, English, or any other language — this causes unnatural phrasing and foreign word leakage.
-3. NEVER use Cyrillic (Russian), English, or any non-Korean characters inside comment fields, not even a single word.
-4. Use vivid, specific Korean expressions (e.g. "진짜 맛있어요", "뷰가 끝내줘요", "꼭 먹어봐야 해요") rather than stiff formal language.`
+CRITICAL LANGUAGE RULES — violation is a fatal error:
+1. ALL "comment" fields MUST be written ENTIRELY in Korean (한국어) using 해요체 style.
+2. DO NOT include ANY Cyrillic letters (А Б В Г Д Е Ж З И К Л М Н О П Р С Т У Ф Х Ц Ч Ш Щ Ъ Ы Ь Э Ю Я etc.). Zero tolerance.
+3. DO NOT include ANY Chinese/Japanese characters unless they are part of a proper noun place name.
+4. Think and write in Korean from scratch. Never translate from Russian or any other language.
+5. Use vivid Korean expressions: "진짜 맛있어요", "뷰가 끝내줘요", "꼭 가봐야 해요", "분위기 최고예요".
+6. If you catch yourself about to write a non-Korean word in a comment, replace it with natural Korean immediately.`
 
     const userPrompt = `Create a ${nights}-night ${totalDays}-day travel itinerary for "${destination}".
 
@@ -233,7 +243,7 @@ Prices: realistic in ${currency} (0 if free)`
           { role: 'system', content: systemPrompt },
           { role: 'user',   content: userPrompt   },
         ],
-        temperature:     0.7,
+        temperature:     0.55,
         max_tokens:      8192,
         response_format: { type: 'json_object' },
       }),
@@ -287,6 +297,8 @@ Prices: realistic in ${currency} (0 if free)`
         /* 원래 값이 한국어 규칙값이면 유지, 아니면 교정 */
         item.cat      = ['식사','장소','쇼핑','교통','기타'].includes(rawCat)  ? rawCat  : fixedCat
         item.timeSlot = ['아침','점심','저녁','미정'].includes(rawSlot)        ? rawSlot : fixedSlot
+        /* 키릴 문자 등 오염 문자 제거 */
+        if (typeof item.comment === 'string') item.comment = sanitizeComment(item.comment)
       }
     }
 
