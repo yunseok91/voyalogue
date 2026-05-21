@@ -280,7 +280,7 @@ function TripsContent() {
         return { ...data, id: d.id }
       }).filter(Boolean) as Trip[]
 
-      setTrips(all.filter(t => !t.pendingDelete))
+      setTrips(all)
 
       /* 백그라운드: 24시간 지난 항목 실제 삭제 */
       for (const tripId of toHardDelete) {
@@ -370,11 +370,14 @@ function TripsContent() {
   const sorted = useMemo(() => {
     let filtered = filter === 'all'
       ? tripsWithStatus
-      : tripsWithStatus.filter(t => t.status === filter)
+      : tripsWithStatus.filter(t => t.pendingDelete || t.status === filter)
     if (countryFilter) {
-      filtered = filtered.filter(t => parseTripCountry(t.city) === countryFilter)
+      filtered = filtered.filter(t => t.pendingDelete || parseTripCountry(t.city) === countryFilter)
     }
     return [...filtered].sort((a, b) => {
+      /* pendingDelete 항목은 맨 뒤 */
+      if (a.pendingDelete && !b.pendingDelete) return 1
+      if (!a.pendingDelete && b.pendingDelete) return -1
       const od = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
       if (od !== 0) return od
       const ta = new Date(a.startDate).getTime()
@@ -463,33 +466,34 @@ function TripsContent() {
   const handleDelete = async (e: React.MouseEvent, tripId: string) => {
     e.preventDefault()
     e.stopPropagation()
-    if (!user || !confirm('이 여행을 삭제할까요?\n24시간 후 완전히 삭제됩니다.')) return
+    if (!user) return
 
-    /* UI 즉시 숨김 */
-    setTrips(prev => prev.filter(t => t.id !== tripId))
+    const now = Date.now()
+    /* 로컬 상태 즉시 딤 처리 */
+    setTrips(prev => prev.map(t =>
+      t.id === tripId ? { ...t, pendingDelete: true, deletedAt: { toMillis: () => now } } : t
+    ))
 
-    /* 소프트 딜리트: pendingDelete 마킹 */
+    /* Firestore 소프트 딜리트 마킹 */
     await updateDoc(doc(db, 'users', user.uid, 'trips', tripId), {
       pendingDelete: true,
       deletedAt:     serverTimestamp(),
     }).catch(() => {})
+  }
 
-    /* 멤버들에게 알림 */
-    getDoc(doc(db, 'users', user.uid, 'trips', tripId)).then(snap => {
-      if (!snap.exists()) return
-      const data = snap.data() as { members?: Array<{ id: string; role: string }>; title?: string; city?: string }
-      const tripLabel = data.title || data.city || ''
-      const members = (data.members ?? []).filter(m => m.role !== 'owner' && m.id.length >= 15)
-      members.forEach(m => {
-        addDoc(collection(db, 'users', m.id, 'messages'), {
-          title: '여행이 삭제되었습니다',
-          body:  tripLabel,
-          type:  'trip',
-          tripPath: null,
-          read:  false,
-          createdAt: serverTimestamp(),
-        }).catch(() => {})
-      })
+  const handleRestore = async (e: React.MouseEvent, tripId: string) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user) return
+
+    /* 로컬 상태 즉시 복원 */
+    setTrips(prev => prev.map(t =>
+      t.id === tripId ? { ...t, pendingDelete: false, deletedAt: null } : t
+    ))
+
+    await updateDoc(doc(db, 'users', user.uid, 'trips', tripId), {
+      pendingDelete: false,
+      deletedAt:     null,
     }).catch(() => {})
   }
 
@@ -719,62 +723,67 @@ function TripsContent() {
                 const effClrBtn    = hasCover ? 'bg-black/20 hover:bg-black/40 text-white' : clrBtn
                 const effClrToggle = hasCover ? 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20' : clrToggle
 
+                const isPending = !!trip.pendingDelete
+                const deletedAtMs = trip.deletedAt?.toMillis() ?? Date.now()
+                const remainHours = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
+
                 return (
-                  <Link key={trip.id} href={`/trips/${trip.id}`} className="group relative">
-                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all group-hover:shadow-md group-hover:-translate-y-0.5 ${
-                      isOngoing ? 'border-green-300 ring-1 ring-green-200' : 'border-gray-200'
-                    }`}>
+                  <div key={trip.id} className={`group relative ${isPending ? '' : 'cursor-pointer'}`}
+                    onClick={isPending ? undefined : () => window.location.href = `/trips/${trip.id}`}>
+                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all ${
+                      isPending ? 'border-red-200' : isOngoing ? 'border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : 'border-gray-200 group-hover:shadow-md group-hover:-translate-y-0.5'
+                    }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
                         style={cardBgStyle}>
                         <div className="flex items-start justify-between">
                           <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${effClrIcon}`} />
-                          <div className="flex items-center gap-1.5">
-                            {trip.isSample && (
-                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
-                                샘플
-                              </span>
-                            )}
-                            {isOngoing && (
-                              <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${hasCover || !isDark ? 'text-white bg-white/20' : 'text-gray-800 bg-black/10'}`}>
-                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
-                              </span>
-                            )}
-                            {/* 텍스트 색상 토글 — 대표 사진 없을 때만 */}
-                            {!hasCover && (
+                          {!isPending && (
+                            <div className="flex items-center gap-1.5">
+                              {trip.isSample && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
+                                  샘플
+                                </span>
+                              )}
+                              {isOngoing && (
+                                <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${hasCover || !isDark ? 'text-white bg-white/20' : 'text-gray-800 bg-black/10'}`}>
+                                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
+                                </span>
+                              )}
+                              {!hasCover && (
+                                <button
+                                  onClick={e => toggleTextColor(e, trip)}
+                                  title={isDark ? '흰색 텍스트로 전환' : '검은색 텍스트로 전환'}
+                                  className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black transition-all ${effClrToggle}`}
+                                >
+                                  A
+                                </button>
+                              )}
+                              {!hasCover && (
+                                <label
+                                  title="색상 변경"
+                                  onClick={e => e.stopPropagation()}
+                                  style={{ cursor: 'pointer', position: 'relative', display: 'flex' }}
+                                >
+                                  <input
+                                    type="color"
+                                    defaultValue={parseGradientHex(trip.gradient).from}
+                                    onChange={e => handleColorApply(e.target.value, trip.id)}
+                                    style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                                  />
+                                  <div className={`w-6 h-6 flex items-center justify-center rounded-full transition-all ${effClrToggle}`}>
+                                    <Palette className="w-3.5 h-3.5" />
+                                  </div>
+                                </label>
+                              )}
                               <button
-                                onClick={e => toggleTextColor(e, trip)}
-                                title={isDark ? '흰색 텍스트로 전환' : '검은색 텍스트로 전환'}
-                                className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black transition-all ${effClrToggle}`}
+                                onClick={e => handleDelete(e, trip.id)}
+                                className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
+                                title="여행 삭제"
                               >
-                                A
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
-                            {/* 팔레트 — 대표 사진 없을 때만 */}
-                            {!hasCover && (
-                              <label
-                                title="색상 변경"
-                                onClick={e => e.stopPropagation()}
-                                style={{ cursor: 'pointer', position: 'relative', display: 'flex' }}
-                              >
-                                <input
-                                  type="color"
-                                  defaultValue={parseGradientHex(trip.gradient).from}
-                                  onChange={e => handleColorApply(e.target.value, trip.id)}
-                                  style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                                />
-                                <div className={`w-6 h-6 flex items-center justify-center rounded-full transition-all ${effClrToggle}`}>
-                                  <Palette className="w-3.5 h-3.5" />
-                                </div>
-                              </label>
-                            )}
-                            <button
-                              onClick={e => handleDelete(e, trip.id)}
-                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
-                              title="여행 삭제 (24시간 후 완전 삭제)"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
+                            </div>
+                          )}
                         </div>
                         <div>
                           <p className={`font-bold text-base leading-snug ${effClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
@@ -787,18 +796,36 @@ function TripsContent() {
                         </div>
                       </div>
                       <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2">
-                        <span className="text-sm font-semibold text-gray-700 flex-1">{trip.nights}박 {trip.days}일</span>
-                        <button
-                          onClick={e => openCardEdit(e, trip)}
-                          title="여행 수정"
-                          className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
-                        >
-                          <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                        </button>
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                        <span className={`text-sm font-semibold flex-1 ${isPending ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
+                        {!isPending && (
+                          <button
+                            onClick={e => openCardEdit(e, trip)}
+                            title="여행 수정"
+                            className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
+                          >
+                            <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                          </button>
+                        )}
+                        {isPending
+                          ? <span className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 bg-red-100 text-red-500">삭제 예정</span>
+                          : <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                        }
                       </div>
                     </div>
-                  </Link>
+                    {isPending && (
+                      <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
+                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">
+                          {remainHours}시간 후 삭제
+                        </span>
+                        <button
+                          onClick={e => handleRestore(e, trip.id)}
+                          className="text-[11px] font-bold px-4 py-1.5 rounded-full bg-white text-gray-800 hover:bg-gray-50 shadow-lg transition-all pointer-events-auto"
+                        >
+                          복원하기
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )
               })}
             </div>
