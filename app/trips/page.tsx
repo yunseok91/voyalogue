@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut } from 'lucide-react'
 import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -16,6 +16,8 @@ import { AppNavbar } from '@/components/AppNavbar'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar } from '@/components/PersonAvatar'
+import { OnboardingModal } from '@/components/OnboardingModal'
+import { useOnboarding } from '@/hooks/useOnboarding'
 
 /* ── 타입 ── */
 type TripStatus  = 'ongoing' | 'upcoming' | 'done'
@@ -39,6 +41,8 @@ type Trip = {
   coverPhotoURL?:      string
   coverPhotoPosition?: number
   members?:            Array<{ id: string; name: string; role: string; photoURL?: string; left?: boolean }>
+  pendingDelete?:      boolean
+  deletedAt?:          { toMillis(): number } | null
 }
 
 type InvitedTripRef = {
@@ -252,15 +256,36 @@ function TripsContent() {
   const [editTarget,  setEditTarget]  = useState<Trip | null>(null)
   const [showReport,  setShowReport]  = useState(false)
   const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
+  const { tourStep, skipTour } = useOnboarding()
 
   useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
 
-  /* Firestore 1회 읽기 (onSnapshot 대신 getDocs — 비용 절감) */
+  /* Firestore 1회 읽기 + 24시간 지난 소프트 딜리트 항목 정리 */
   const fetchTrips = async (uid: string) => {
     try {
       const q = query(collection(db, 'users', uid, 'trips'), orderBy('startDate', 'asc'))
       const snap = await getDocs(q)
-      setTrips(snap.docs.map(d => ({ id: d.id, ...d.data() })) as Trip[])
+      const now = Date.now()
+      const MS_24H = 24 * 60 * 60 * 1000
+
+      const toHardDelete: string[] = []
+      const all = snap.docs.map(d => {
+        const data = d.data() as Omit<Trip, 'id'> & { deletedAt?: { toMillis(): number } }
+        if (data.pendingDelete && data.deletedAt) {
+          if (now - data.deletedAt.toMillis() >= MS_24H) {
+            toHardDelete.push(d.id)
+            return null
+          }
+        }
+        return { ...data, id: d.id }
+      }).filter(Boolean) as Trip[]
+
+      setTrips(all.filter(t => !t.pendingDelete))
+
+      /* 백그라운드: 24시간 지난 항목 실제 삭제 */
+      for (const tripId of toHardDelete) {
+        deleteDoc(doc(db, 'users', uid, 'trips', tripId)).catch(() => {})
+      }
     } catch { /* silent */ } finally {
       setDbLoading(false)
     }
@@ -437,9 +462,19 @@ function TripsContent() {
 
   const handleDelete = async (e: React.MouseEvent, tripId: string) => {
     e.preventDefault()
-    if (!user || !confirm('이 여행을 삭제할까요?')) return
+    e.stopPropagation()
+    if (!user || !confirm('이 여행을 삭제할까요?\n24시간 후 완전히 삭제됩니다.')) return
 
-    /* 삭제 전 멤버 목록 조회 → 멤버들에게 알림 (클릭 시 이동 없음) */
+    /* UI 즉시 숨김 */
+    setTrips(prev => prev.filter(t => t.id !== tripId))
+
+    /* 소프트 딜리트: pendingDelete 마킹 */
+    await updateDoc(doc(db, 'users', user.uid, 'trips', tripId), {
+      pendingDelete: true,
+      deletedAt:     serverTimestamp(),
+    }).catch(() => {})
+
+    /* 멤버들에게 알림 */
     getDoc(doc(db, 'users', user.uid, 'trips', tripId)).then(snap => {
       if (!snap.exists()) return
       const data = snap.data() as { members?: Array<{ id: string; role: string }>; title?: string; city?: string }
@@ -456,31 +491,6 @@ function TripsContent() {
         }).catch(() => {})
       })
     }).catch(() => {})
-
-    /* UI 즉시 반영 (getDocs 재조회 없이 로컬 state 갱신) */
-    setTrips(prev => prev.filter(t => t.id !== tripId))
-
-    /* Firestore 하위 문서 일괄 삭제 */
-    const daysSnap = await getDocs(collection(db, 'users', user.uid, 'trips', tripId, 'days'))
-    for (const dayDoc of daysSnap.docs) {
-      const itemsSnap = await getDocs(collection(db, 'users', user.uid, 'trips', tripId, 'days', dayDoc.id, 'items'))
-      for (const itemDoc of itemsSnap.docs) {
-        await deleteDoc(doc(db, 'users', user.uid, 'trips', tripId, 'days', dayDoc.id, 'items', itemDoc.id))
-      }
-      await deleteDoc(doc(db, 'users', user.uid, 'trips', tripId, 'days', dayDoc.id))
-    }
-    await deleteDoc(doc(db, 'users', user.uid, 'trips', tripId))
-
-    /* Storage 영수증 파일 삭제 */
-    try {
-      const [{ storage }, { ref, listAll, deleteObject }] = await Promise.all([
-        import('@/lib/firebase'),
-        import('firebase/storage'),
-      ])
-      const receiptsRef = ref(storage, `users/${user.uid}/trips/${tripId}/receipts`)
-      const listed = await listAll(receiptsRef)
-      await Promise.all(listed.items.map(item => deleteObject(item)))
-    } catch { /* Storage 경로 없으면 무시 */ }
   }
 
   const openCardEdit = (e: React.MouseEvent, trip: Trip) => {
@@ -504,6 +514,8 @@ function TripsContent() {
       <AppNavbar active="trips" onExcel={() => setShowExcel(true)} onReport={() => setShowReport(true)} />
 
       <AnnouncementModal />
+
+      {tourStep > 0 && <OnboardingModal onClose={skipTour} />}
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">
 
@@ -757,7 +769,8 @@ function TripsContent() {
                             )}
                             <button
                               onClick={e => handleDelete(e, trip.id)}
-                              className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${effClrBtn}`}
+                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
+                              title="여행 삭제 (24시간 후 완전 삭제)"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -882,28 +895,30 @@ function TripsContent() {
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
                         style={invCardBgStyle}>
                         <div className="flex items-start justify-between">
-                          <User className={`w-5 h-5 sm:w-6 sm:h-6 ${invClrIcon}`} />
+                          <div className="flex items-center gap-1.5">
+                            <User className={`w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 ${invClrIcon}`} />
+                            {isTreasurer ? (
+                              <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white shadow-sm">
+                                <Wallet className="w-2.5 h-2.5" />총무
+                              </span>
+                            ) : (
+                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm text-white bg-white/20">
+                                게스트
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-1.5">
                             {isOngoing && (
                               <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
                               </span>
                             )}
-                            {isTreasurer && (
-                              <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full bg-amber-400 text-white shadow-sm">
-                                <Wallet className="w-2.5 h-2.5" />총무
-                              </span>
-                            )}
-                            {!isTreasurer && (
-                              <span className="text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
-                                게스트
-                              </span>
-                            )}
                             <button
                               onClick={e => handleLeaveInvited(e, trip)}
-                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-black/20 hover:bg-black/40 text-white"
+                              className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
+                              title="여행 탈퇴"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <LogOut className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>

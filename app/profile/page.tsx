@@ -79,6 +79,13 @@ type Stats = { total: number; nights: number; cities: number }
 function ProfileContent() {
   const { user, setUser, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor } = useAuthStore()
   const router            = useRouter()
+  const handleResetTour = async () => {
+    try { localStorage.setItem('voyalogue_tour_step', '1') } catch {}
+    if (user) {
+      try { await updateDoc(doc(db, 'users', user.uid), { onboardingDone: false }) } catch {}
+    }
+    router.push('/trips')
+  }
 
   const displayName  = user?.displayName || user?.email?.split('@')[0] || 'Y'
   const isGoogleUser = user?.providerData?.[0]?.providerId === 'google.com'
@@ -515,6 +522,18 @@ function ProfileContent() {
                 <option key={c.code} value={c.code}>{c.label}</option>
               ))}
             </select>
+          </div>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-900">도움말 투어</p>
+              <p className="text-xs text-gray-400 mt-0.5">앱 사용법 소개 투어를 다시 볼 수 있어요.</p>
+            </div>
+            <button
+              onClick={handleResetTour}
+              className="text-xs font-semibold text-blue-600 hover:underline flex-shrink-0"
+            >
+              다시 보기
+            </button>
           </div>
         </Section>
 

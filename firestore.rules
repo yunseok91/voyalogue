@@ -56,6 +56,12 @@ service cloud.firestore {
         request.auth.uid != uid &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']) &&
         request.resource.data.members.size() <= resource.data.people;
+      // Guest review: authenticated non-owner may write only their own memberReviews entry
+      allow update: if request.auth != null &&
+        request.auth.uid != uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberReviews']) &&
+        resource.data.viewCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
     }
 
     // Member invite codes: public read, owner write

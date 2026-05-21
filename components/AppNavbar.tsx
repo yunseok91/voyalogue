@@ -111,6 +111,7 @@ export function AppNavbar({
 
           <Link
             href="/trips/new"
+            data-tour="create-trip"
             className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors"
           >
             <Plus className="w-3.5 h-3.5 flex-shrink-0" />

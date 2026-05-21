@@ -141,8 +141,8 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, myUid, totalPeople, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
-  item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number
+function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
+  item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number; memberIds?: string[]
   rates?: Record<string, number>
   onEdit?: (item: PlanItem) => void
   onDelete?: (id: string) => void
@@ -170,8 +170,12 @@ function ItemCard({ item, canEdit, myUid, totalPeople, rates, onEdit, onDelete, 
     return () => document.removeEventListener('mousedown', handler)
   }, [menu])
 
-  const perPersonKRW = item.price > 0 && item.participants > 0 && rates
-    ? Math.round(toKRW(item.price, item.currency, rates) / item.participants)
+  const validSet   = memberIds ? new Set(memberIds) : null
+  const actualPart = item.participantIds
+    ? (validSet ? item.participantIds.filter(id => validSet.has(id)).length : item.participantIds.length) || (totalPeople ?? 1)
+    : (item.participants || totalPeople || 1)
+  const perPersonKRW = item.price > 0 && actualPart > 0 && rates
+    ? Math.round(toKRW(item.price, item.currency, rates) / actualPart)
     : 0
 
   return (
@@ -217,14 +221,14 @@ function ItemCard({ item, canEdit, myUid, totalPeople, rates, onEdit, onDelete, 
           {/* 2행: ÷N (좌) + 금액 (우) */}
           {item.price > 0 && (
             <div className="flex items-center gap-2">
-              {item.participants > 0 && (
+              {actualPart > 1 && (
                 <button
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
                   className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap transition-all text-blue-600 bg-blue-50 hover:bg-blue-100"
                 >
                   <Users className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span>÷{item.participants}</span>
+                  <span>÷{actualPart}</span>
                   {showPP && perPersonKRW > 0 && (
                     <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
                   )}
@@ -1452,7 +1456,7 @@ export default function SharePage() {
                     </div>
                     <div className="flex flex-col gap-2">
                       {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={trip?.people || 1} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                       ))}
                     </div>
                   </div>

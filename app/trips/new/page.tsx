@@ -344,6 +344,7 @@ function NewTripContent() {
     <div className="min-h-screen flex flex-col overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
       {showAiPlanner && <AiTripPlanner onClose={() => setShowAiPlanner(false)} />}
 
+
       {/* Navbar */}
       <nav className="h-14 sm:h-16 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 lg:px-10 relative flex-shrink-0">
         <div className="flex items-center gap-2 flex-shrink-0">
@@ -404,6 +405,7 @@ function NewTripContent() {
                   }
                   <input
                     type="text"
+                    data-tour="city-search"
                     placeholder={rcLoading ? '국가 데이터 로딩 중…' : '국가·도시 검색  (예: 일본, 파리, 뉴욕…)'}
                     value={query}
                     onChange={e => handleQueryChange(e.target.value)}

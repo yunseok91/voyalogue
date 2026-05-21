@@ -3,7 +3,10 @@
     "allow": [
       "WebSearch",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(grep -n \"showReport.*ReportModal\\\\|</div>\\\\s*$\" /Users/yunseok/Downloads/voyagelogue/voyalogue/app/share/\\\\[code\\\\]/page.tsx)"
+      "Bash(grep -n \"showReport.*ReportModal\\\\|</div>\\\\s*$\" /Users/yunseok/Downloads/voyagelogue/voyalogue/app/share/\\\\[code\\\\]/page.tsx)",
+      "Bash(firebase deploy *)",
+      "Bash(find /Users/yunseok/Downloads/voyagelogue -name \"firebase.json\" 2>/dev/null)",
+      "Read(//Users/yunseok/Downloads/voyagelogue/**)"
     ]
   },
   "mcpServers": {

@@ -22,7 +22,7 @@ import {
   onSnapshot, getDocs, doc, collection, getDoc,
   addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp, writeBatch,
 } from 'firebase/firestore'
-import { db } from '@/lib/firebase'
+import { db, auth } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
 import { TripMap, type MapItem, type AvatarMember } from '@/components/TripMap'
@@ -1188,7 +1188,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                         ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                         : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                       const hexC    = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                      const photoURL = m.role === 'owner' ? (authUser?.photoURL ?? m.photoURL) : m.photoURL
+                      const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
                       return (
                         <button
                           key={m.id}
@@ -1473,7 +1473,7 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
                     ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                     : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                   const hexC     = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                  const photoURL = m.role === 'owner' ? (authUser?.photoURL ?? m.photoURL) : m.photoURL
+                  const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
                   return (
                     <button
                       key={m.id}
@@ -1577,6 +1577,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const uid    = user!.uid
   const router = useRouter()
 
+
   /* 여행 메타 */
   const [meta,        setMeta]        = useState<TripMeta | null>(null)
   const [metaLoading, setMetaLoading] = useState(true)
@@ -1623,6 +1624,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* 모달 열릴 때 배경 스크롤 잠금 */
   const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
   useScrollLock(anyModalOpen)
+
 
   /* 지도 포커스 */
   const [focusItemId,   setFocusItemId]   = useState<string | undefined>(undefined)
@@ -2503,7 +2505,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
       const hexC = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
       const clay = ci !== undefined ? CLAY[ci % CLAY.length] : CLAY[0]
-      const photoURL = m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL
+      const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
       return { name: m.name, baseColor: hexC ?? clay.base, photoURL: photoURL ?? undefined }
     })
   }, [meta?.members, avatarColor, avatarHexColor, user?.photoURL])
@@ -2586,7 +2588,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           >
                             <PersonAvatar
                               name={m.name}
-                              photoURL={m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL}
+                              photoURL={m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL}
                               colorIndex={
                                 m.role === 'owner'
                                   ? (avatarHexColor ? undefined : (avatarColor ?? 0))
@@ -2776,8 +2778,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             onUploadReceipt={files => handleUploadReceipts(item.id, files)}
                             mapIndex={mapIndexMap[item.id]}
                             rates={effectiveRates}
-                            totalPeople={meta.people || 1}
-                            memberIds={(meta.members ?? []).map(m => m.id)}
+                            totalPeople={(meta.members ?? []).filter(m => !m.left).length || meta.people || 1}
+                            memberIds={(meta.members ?? []).filter(m => !m.left).map(m => m.id)}
                           />
                         ))}
                       </div>
@@ -3105,7 +3107,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       <div className="relative flex-shrink-0">
                         <PersonAvatar
                           name={m.name}
-                          photoURL={user?.photoURL ?? m.photoURL}
+                          photoURL={auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL}
                           size={42}
                           colorIndex={effectiveColorIdx}
                           hexColor={effectiveHex}
@@ -3273,7 +3275,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       {showChecklist && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setChecklist(false)} />
-          <div className="relative z-50 w-80 bg-white h-full shadow-2xl flex flex-col">
+          <div className="relative z-50 w-full sm:w-80 bg-white h-full shadow-2xl flex flex-col">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
               <h3 className="font-bold text-gray-900">여행 체크리스트</h3>
               <button onClick={() => setChecklist(false)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
@@ -3425,7 +3427,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                   : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                 const hexC = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                const photoURL = m.role === 'owner' ? (user?.photoURL ?? m.photoURL) : m.photoURL
+                const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
                 return (
                   <div key={m.id} className={`flex items-center gap-3 ${m.left ? 'opacity-50' : ''}`}>
                     <PersonAvatar name={m.name} size={32} colorIndex={ci} hexColor={hexC} photoURL={photoURL} />
@@ -3756,6 +3758,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           onClose={() => setShowReport(false)}
         />
       )}
+
 
     </div>
   )

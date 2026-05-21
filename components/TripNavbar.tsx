@@ -127,6 +127,7 @@ export function TripNavbar({
           {/* 멤버 버튼: sm~lg 아이콘, lg+ 텍스트 포함 */}
           <button
             onClick={onMemberClick}
+            data-tour="member-btn"
             className="flex items-center gap-1.5 px-2 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
             title="멤버 목록"
           >
@@ -165,6 +166,7 @@ export function TripNavbar({
           {/* 체크리스트: sm~lg 아이콘, lg+ 텍스트 포함 */}
           <button
             onClick={onChecklistToggle}
+            data-tour="checklist-btn"
             title="체크리스트"
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors flex-shrink-0"
           >
@@ -176,6 +178,7 @@ export function TripNavbar({
           {showSummary && (
             <Link
               href={summaryHref}
+              data-tour="summary-btn"
               className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 active:bg-gray-700 transition-colors flex-shrink-0"
             >
               <span className="hidden lg:inline text-xs font-semibold">여행 </span>
@@ -202,6 +205,7 @@ export function TripNavbar({
         {/* 멤버 버튼 */}
         <button
           onClick={onMemberClick}
+          data-tour="member-btn"
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors"
         >
           <div className="flex -space-x-2">
@@ -233,6 +237,7 @@ export function TripNavbar({
           </button>
           <button
             onClick={onChecklistToggle}
+            data-tour="checklist-btn"
             className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors"
             title="체크리스트"
           >
@@ -241,6 +246,7 @@ export function TripNavbar({
           {showSummary && (
             <Link
               href={summaryHref}
+              data-tour="summary-btn"
               className="h-9 px-3.5 flex items-center gap-1 rounded-full bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 active:bg-gray-700 transition-colors"
             >
               요약<ChevronRight className="w-3.5 h-3.5" />
