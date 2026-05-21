@@ -1,19 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { ImagePlus, X, Loader2 } from 'lucide-react'
+import { useState, useRef } from 'react'
+import { ImagePlus, X, Loader2, Move } from 'lucide-react'
 import { CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 
 export type TripEditFormData = {
-  title:          string
-  startDate:      string
-  endDate:        string
-  nights:         number
-  days:           number
-  people:         number
-  currency:       string
-  budgetKRW:      number
-  coverPhotoURL?: string
+  title:               string
+  startDate:           string
+  endDate:             string
+  nights:              number
+  days:                number
+  people:              number
+  currency:            string
+  budgetKRW:           number
+  coverPhotoURL?:      string
+  coverPhotoPosition?: number
 }
 
 type Props = {
@@ -24,22 +25,24 @@ type Props = {
   people?:        number
   currency?:      string
   budgetKRW?:     number
-  coverPhotoURL?: string
-  uid?:           string
-  tripId?:        string
+  coverPhotoURL?:      string
+  coverPhotoPosition?: number
+  uid?:                string
+  tripId?:             string
   onClose:        () => void
   onSave:         (data: TripEditFormData) => Promise<void>
 }
 
 export function TripEditModal({
   city,
-  title:         initTitle    = '',
-  startDate:     initStart,
-  endDate:       initEnd,
-  people:        initPeople   = 2,
-  currency:      initCurrency = 'KRW',
-  budgetKRW:     initBudgetKRW = 0,
-  coverPhotoURL: initCoverURL,
+  title:               initTitle    = '',
+  startDate:           initStart,
+  endDate:             initEnd,
+  people:              initPeople   = 2,
+  currency:            initCurrency = 'KRW',
+  budgetKRW:           initBudgetKRW = 0,
+  coverPhotoURL:       initCoverURL,
+  coverPhotoPosition:  initCoverPos = 50,
   uid,
   tripId,
   onClose, onSave,
@@ -52,11 +55,15 @@ export function TripEditModal({
     currency:  initCurrency,
     budget:    Math.round((initBudgetKRW ?? 0) / 10000),
   })
-  const [coverPhotoFile,    setCoverPhotoFile]    = useState<File | null>(null)
-  const [coverPhotoPreview, setCoverPhotoPreview] = useState<string | null>(initCoverURL ?? null)
-  const [coverRemoved,      setCoverRemoved]      = useState(false)
-  const [saving,            setSaving]            = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [coverPhotoFile,     setCoverPhotoFile]     = useState<File | null>(null)
+  const [coverPhotoPreview,  setCoverPhotoPreview]  = useState<string | null>(initCoverURL ?? null)
+  const [coverPhotoPosition, setCoverPhotoPosition] = useState(initCoverPos ?? 50)
+  const [coverRemoved,       setCoverRemoved]       = useState(false)
+  const [saving,             setSaving]             = useState(false)
+  const [dragging,           setDragging]           = useState(false)
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const dragStartY     = useRef(0)
+  const dragStartPos   = useRef(50)
 
   const nights = form.startDate && form.endDate
     ? Math.max(0, Math.round(
@@ -107,7 +114,8 @@ export function TripEditModal({
         people:        Math.max(1, form.people),
         currency:      form.currency,
         budgetKRW:     Math.max(0, (form.budget || 0) * 10000),
-        coverPhotoURL: finalCoverURL,
+        coverPhotoURL:      finalCoverURL,
+        coverPhotoPosition: coverPhotoPreview ? coverPhotoPosition : undefined,
       })
       onClose()
     } catch { /* silent */ } finally {
@@ -133,23 +141,68 @@ export function TripEditModal({
               대표 사진 <span className="font-normal text-gray-400">(선택)</span>
             </label>
             {coverPhotoPreview ? (
-              <div className="relative w-full h-28 rounded-xl overflow-hidden border border-gray-200 group">
-                <img src={coverPhotoPreview} alt="커버" className="w-full h-full object-cover" />
-                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-white/90 rounded-full text-xs font-semibold text-gray-700 hover:bg-white transition-colors"
-                  >
-                    <ImagePlus className="w-3 h-3" />변경
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemovePhoto}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-red-500/90 rounded-full text-xs font-semibold text-white hover:bg-red-500 transition-colors"
-                  >
-                    <X className="w-3 h-3" />제거
-                  </button>
+              <div className="flex flex-col gap-2">
+                {/* 드래그로 위치 조정 */}
+                <div
+                  className={`relative w-full h-36 rounded-xl overflow-hidden border border-gray-200 select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  onMouseDown={e => {
+                    e.preventDefault()
+                    setDragging(true)
+                    dragStartY.current   = e.clientY
+                    dragStartPos.current = coverPhotoPosition
+                    const onMove = (ev: MouseEvent) => {
+                      const delta = (dragStartY.current - ev.clientY) / 2
+                      setCoverPhotoPosition(p => Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                    }
+                    const onUp = () => {
+                      setDragging(false)
+                      window.removeEventListener('mousemove', onMove)
+                      window.removeEventListener('mouseup', onUp)
+                    }
+                    window.addEventListener('mousemove', onMove)
+                    window.addEventListener('mouseup', onUp)
+                  }}
+                  onTouchStart={e => {
+                    dragStartY.current   = e.touches[0].clientY
+                    dragStartPos.current = coverPhotoPosition
+                  }}
+                  onTouchMove={e => {
+                    const delta = (dragStartY.current - e.touches[0].clientY) / 2
+                    setCoverPhotoPosition(Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                  }}
+                >
+                  <img
+                    src={coverPhotoPreview}
+                    alt="커버"
+                    draggable={false}
+                    className="w-full h-full object-cover pointer-events-none"
+                    style={{ objectPosition: `center ${coverPhotoPosition}%` }}
+                  />
+                  {/* 위치 조정 힌트 */}
+                  {!dragging && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm text-white text-[11px] font-semibold px-3 py-1.5 rounded-full opacity-80">
+                        <Move className="w-3 h-3" />드래그로 위치 조정
+                      </div>
+                    </div>
+                  )}
+                  {/* 변경/제거 버튼 — 우상단 */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5 pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-white/90 rounded-full text-xs font-semibold text-gray-700 hover:bg-white transition-colors shadow-sm"
+                    >
+                      <ImagePlus className="w-3 h-3" />변경
+                    </button>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); handleRemovePhoto() }}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-red-500/90 rounded-full text-xs font-semibold text-white hover:bg-red-500 transition-colors shadow-sm"
+                    >
+                      <X className="w-3 h-3" />제거
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

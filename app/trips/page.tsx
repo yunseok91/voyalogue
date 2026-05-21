@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2 } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users } from 'lucide-react'
 import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -15,6 +15,7 @@ import { ReportModal } from '@/components/ReportModal'
 import { AppNavbar } from '@/components/AppNavbar'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { useScrollLock } from '@/hooks/useScrollLock'
+import { PersonAvatar } from '@/components/PersonAvatar'
 
 /* ── 타입 ── */
 type TripStatus  = 'ongoing' | 'upcoming' | 'done'
@@ -35,7 +36,9 @@ type Trip = {
   people?:        number
   currency?:      string
   budget?:        number
-  coverPhotoURL?: string
+  coverPhotoURL?:      string
+  coverPhotoPosition?: number
+  members?:            Array<{ id: string; name: string; role: string; photoURL?: string }>
 }
 
 type InvitedTripRef = {
@@ -248,8 +251,9 @@ function TripsContent() {
   const [seedLoading, setSeedLoading] = useState(false)
   const [editTarget,  setEditTarget]  = useState<Trip | null>(null)
   const [showReport,  setShowReport]  = useState(false)
+  const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
 
-  useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport)
+  useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
 
   /* Firestore 1회 읽기 (onSnapshot 대신 getDocs — 비용 절감) */
   const fetchTrips = async (uid: string) => {
@@ -693,7 +697,7 @@ function TripsContent() {
                   ? {
                       backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${trip.coverPhotoURL})`,
                       backgroundSize: 'cover',
-                      backgroundPosition: 'center',
+                      backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%`,
                     }
                   : { background: gradientStyle(trip.gradient) }
                 const effClrTitle  = hasCover ? 'text-white'                    : clrTitle
@@ -774,9 +778,9 @@ function TripsContent() {
                         <button
                           onClick={e => openCardEdit(e, trip)}
                           title="여행 수정"
-                          className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
+                          className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
                         >
-                          <Edit2 className="w-3.5 h-3.5" />
+                          <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
                         </button>
                         <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
                       </div>
@@ -848,9 +852,9 @@ function TripsContent() {
                 const clrSub   = isDark ? 'text-gray-600' : 'text-white/85'
                 const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
                 const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
-                const roleBadge = trip.myRole === 'treasurer'
-                  ? { label: '총무', cls: isDark ? 'text-amber-700 bg-amber-100/80' : 'text-amber-200 bg-amber-500/30' }
-                  : { label: '게스트', cls: isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20' }
+                const isTreasurer = trip.myRole === 'treasurer'
+                const visibleMembers = (trip.members ?? []).slice(0, 4)
+                const extraCount = Math.max(0, (trip.members?.length ?? 0) - 4)
 
                 return (
                   <Link key={trip.id} href={`/share/${trip.viewCode}`} className="group relative">
@@ -867,9 +871,17 @@ function TripsContent() {
                                 <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
                               </span>
                             )}
-                            <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${roleBadge.cls}`}>
-                              {roleBadge.label}
-                            </span>
+                            {/* 총무 뱃지 — 솔리드 골드로 식별력 강화 */}
+                            {isTreasurer && (
+                              <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full bg-amber-400 text-white shadow-sm">
+                                <Crown className="w-2.5 h-2.5" />총무
+                              </span>
+                            )}
+                            {!isTreasurer && (
+                              <span className={`text-[11px] font-bold px-2 py-1 rounded-full backdrop-blur-sm ${isDark ? 'text-indigo-700 bg-indigo-100/80' : 'text-white bg-white/20'}`}>
+                                게스트
+                              </span>
+                            )}
                             <button
                               onClick={e => handleLeaveInvited(e, trip)}
                               className={`sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all ${isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'}`}
@@ -890,7 +902,34 @@ function TripsContent() {
                       </div>
                       <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
                         <span className="text-sm font-semibold text-gray-700">{trip.nights}박 {trip.days}일</span>
-                        <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
+                        {/* 멤버 아바타 스택 — 클릭 시 멤버 목록 팝업 */}
+                        {visibleMembers.length > 0 ? (
+                          <button
+                            onClick={e => { e.preventDefault(); setMemberPopupTrip(trip) }}
+                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+                          >
+                            <div className="flex -space-x-1.5">
+                              {visibleMembers.map(m => (
+                                <PersonAvatar
+                                  key={m.id}
+                                  name={m.name ?? '?'}
+                                  photoURL={m.photoURL}
+                                  size={22}
+                                  stacked
+                                  ringColor="white"
+                                />
+                              ))}
+                              {extraCount > 0 && (
+                                <div className="w-[22px] h-[22px] rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-500">
+                                  +{extraCount}
+                                </div>
+                              )}
+                            </div>
+                            <span className="text-xs text-gray-400 font-medium">{trip.members?.length ?? 0}명</span>
+                          </button>
+                        ) : (
+                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -920,6 +959,7 @@ function TripsContent() {
           currency={editTarget.currency}
           budgetKRW={editTarget.budget}
           coverPhotoURL={editTarget.coverPhotoURL}
+          coverPhotoPosition={editTarget.coverPhotoPosition}
           uid={user.uid}
           tripId={editTarget.id}
           onClose={() => setEditTarget(null)}
@@ -933,19 +973,21 @@ function TripsContent() {
               people:        data.people,
               currency:      data.currency || null,
               budget:        data.budgetKRW,
-              coverPhotoURL: data.coverPhotoURL ?? null,
+              coverPhotoURL:      data.coverPhotoURL ?? null,
+              coverPhotoPosition: data.coverPhotoPosition ?? 50,
             })
             setTrips(prev => prev.map(t => t.id === editTarget.id
               ? { ...t,
-                  title:         data.title || undefined,
-                  startDate:     data.startDate,
-                  endDate:       data.endDate,
-                  nights:        data.nights,
-                  days:          data.days,
-                  people:        data.people,
-                  currency:      data.currency,
-                  budget:        data.budgetKRW,
-                  coverPhotoURL: data.coverPhotoURL,
+                  title:              data.title || undefined,
+                  startDate:          data.startDate,
+                  endDate:            data.endDate,
+                  nights:             data.nights,
+                  days:               data.days,
+                  people:             data.people,
+                  currency:           data.currency,
+                  budget:             data.budgetKRW,
+                  coverPhotoURL:      data.coverPhotoURL,
+                  coverPhotoPosition: data.coverPhotoPosition,
                 }
               : t
             ))
@@ -955,6 +997,57 @@ function TripsContent() {
 
       {showReport && user && (
         <ReportModal user={user} onClose={() => setShowReport(false)} />
+      )}
+
+      {/* 초대받은 여행 멤버 목록 팝업 */}
+      {memberPopupTrip && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[100]"
+          onClick={() => setMemberPopupTrip(null)}
+        >
+          <div
+            className="bg-white rounded-t-2xl sm:rounded-2xl w-full sm:w-[360px] mx-0 sm:mx-4 shadow-xl overflow-hidden"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-bold text-gray-900">{memberPopupTrip.title || memberPopupTrip.city}</p>
+                <p className="text-xs text-gray-400 mt-0.5">여행 멤버 {memberPopupTrip.members?.length ?? 0}명</p>
+              </div>
+              <button
+                onClick={() => setMemberPopupTrip(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
+              {(memberPopupTrip.members ?? []).map(m => {
+                const roleLabel = m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '멤버'
+                const roleCls   = m.role === 'owner'
+                  ? 'bg-indigo-100 text-indigo-700'
+                  : m.role === 'treasurer'
+                  ? 'bg-amber-100 text-amber-700'
+                  : 'bg-gray-100 text-gray-500'
+                return (
+                  <div key={m.id} className="flex items-center gap-3 py-3">
+                    <PersonAvatar name={m.name ?? '?'} photoURL={m.photoURL} size={36} />
+                    <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{m.name ?? '알 수 없음'}</span>
+                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="px-5 pb-5 pt-2">
+              <button
+                onClick={() => setMemberPopupTrip(null)}
+                className="w-full py-2.5 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* 운영자 메시지 팝업 */}

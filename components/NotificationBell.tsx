@@ -36,13 +36,18 @@ export function NotificationBell() {
     return unsub
   }, [user?.uid])
 
-  /* 바깥 클릭 닫기 */
+  /* 바깥 클릭 + 스크롤 시 닫기 */
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
+    const onMouse = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const onScroll = () => setOpen(false)
+    document.addEventListener('mousedown', onMouse)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', onMouse)
+      window.removeEventListener('scroll', onScroll)
+    }
   }, [])
 
   const unread = messages.filter(m => !m.read).length
