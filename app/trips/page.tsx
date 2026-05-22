@@ -18,6 +18,7 @@ import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar } from '@/components/PersonAvatar'
 import { OnboardingModal } from '@/components/OnboardingModal'
+import { ServiceRatingModal } from '@/components/ServiceRatingModal'
 import { useOnboarding } from '@/hooks/useOnboarding'
 
 /* ── 타입 ── */
@@ -258,6 +259,7 @@ function TripsContent() {
   const [showReport,  setShowReport]  = useState(false)
   const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
   const [copyingId,   setCopyingId]   = useState<string | null>(null)
+  const [showReview,  setShowReview]  = useState(false)
   const { tourStep, skipTour } = useOnboarding()
 
   useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
@@ -330,6 +332,16 @@ function TripsContent() {
     return () => document.removeEventListener('visibilitychange', onVisible)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
+
+  /* 새 일정 등록 직후 서비스 후기 팝업 */
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('showServiceReview')) {
+        localStorage.removeItem('showServiceReview')
+        setShowReview(true)
+      }
+    } catch {}
+  }, [])
 
   /* 마운트 시 미읽음 메시지 중 최신 1개 팝업 */
   useEffect(() => {
@@ -568,6 +580,7 @@ function TripsContent() {
       <AnnouncementModal />
 
       {tourStep > 0 && <OnboardingModal onClose={skipTour} />}
+      {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">
 

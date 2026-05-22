@@ -5,7 +5,7 @@ import Link from 'next/link'
 import {
   ChevronLeft, MapPin, Plus, X,
   GripVertical, Star, CheckSquare, Wallet, ChevronRight,
-  Edit2, Trash2, MoreHorizontal, Users, Map, Loader2,
+  Edit2, Trash2, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera,
   Plane, BedDouble, Pencil, Headset,
 } from 'lucide-react'
@@ -310,11 +310,12 @@ function StarRow({
 }
 
 /* ── 아이템 행 ── */
-function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, dragHandleProps }: {
+function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, dragHandleProps }: {
   item:              PlanItem
   myUid:             string
   onDelete:          (id: string) => void
   onEdit:            (item: PlanItem) => void
+  onQuickEdit:       (item: PlanItem) => void
   onChangeCat:       (id: string, cat: Category) => void
   onRate:            (id: string, v: number) => void
   onFocusMap:        (id: string) => void
@@ -326,22 +327,19 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
   memberIds?:        string[]
   dragHandleProps?:  Record<string, unknown>
 }) {
-  const [menu,         setMenu]         = useState(false)
   const [showCatPick,  setShowCatPick]  = useState(false)
   const [showPP,       setShowPP]       = useState(false)
-  const catRef      = useRef<HTMLDivElement>(null)
-  const menuRef     = useRef<HTMLDivElement>(null)
-  const cameraRef   = useRef<HTMLInputElement>(null)
+  const catRef    = useRef<HTMLDivElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!menu && !showCatPick) return
+    if (!showCatPick) return
     const handler = (e: MouseEvent) => {
-      if (catRef.current  && !catRef.current.contains(e.target as Node))  setShowCatPick(false)
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
+      if (catRef.current && !catRef.current.contains(e.target as Node)) setShowCatPick(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [menu, showCatPick])
+  }, [showCatPick])
 
   /* ÷N 툴팁 2.5초 후 자동 닫기 */
   useEffect(() => {
@@ -361,7 +359,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
   return (
     <div
       className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
-      onClick={() => { if (item.lat && item.lng) onFocusMap(item.id) }}
+      onClick={() => { if (item.lat && item.lng) onFocusMap(item.id); onQuickEdit(item) }}
     >
       {/* 드래그 핸들 */}
       <span
@@ -388,7 +386,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
           <div className="relative flex-shrink-0" ref={catRef}>
             <button
               onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setShowCatPick(v => !v); setMenu(false) }}
+              onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
             >
               {CAT_DISPLAY[item.cat] ?? item.cat}
@@ -513,41 +511,25 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
         </div>
       </div>
 
-      {/* 더보기 메뉴 */}
-      <div className="relative flex-shrink-0" ref={menuRef}>
-        <button
-          onClick={e => { e.stopPropagation(); setMenu(v => !v); setShowCatPick(false) }}
-          className="w-8 h-8 flex items-center justify-center rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-all sm:opacity-0 sm:group-hover:opacity-100"
-        >
-          <MoreHorizontal className="w-4 h-4" />
-        </button>
-        {menu && (
-          <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28">
-            <button
-              className="w-full px-3 py-2 flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-              onClick={e => { e.stopPropagation(); onEdit(item); setMenu(false) }}
-            >
-              <Edit2 className="w-3.5 h-3.5" /> 수정
-            </button>
-            <button
-              className="w-full px-3 py-2 flex items-center gap-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-              onClick={e => { e.stopPropagation(); onDelete(item.id); setMenu(false) }}
-            >
-              <Trash2 className="w-3.5 h-3.5" /> 삭제
-            </button>
-          </div>
-        )}
-      </div>
+      {/* 수정 버튼 */}
+      <button
+        onClick={e => { e.stopPropagation(); onEdit(item) }}
+        className="flex-shrink-0 px-2 py-1.5 flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+      >
+        <Edit2 className="w-3 h-3" />
+        <span>수정</span>
+      </button>
     </div>
   )
 }
 
 /* ── Sortable 아이템 행 ── */
-function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds }: {
+function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds }: {
   item:             PlanItem
   myUid:            string
   onDelete:         (id: string) => void
   onEdit:           (item: PlanItem) => void
+  onQuickEdit:      (item: PlanItem) => void
   onChangeCat:      (id: string, cat: Category) => void
   onRate:           (id: string, v: number) => void
   onFocusMap:       (id: string) => void
@@ -575,6 +557,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, o
         myUid={myUid}
         onDelete={onDelete}
         onEdit={onEdit}
+        onQuickEdit={onQuickEdit}
         onChangeCat={onChangeCat}
         onRate={onRate}
         onFocusMap={onFocusMap}
@@ -1295,10 +1278,187 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   )
 }
 
+/* ── 빠른 입력 시트 (카드 클릭 → 비용·메모·사진만) ── */
+function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId }: {
+  item:       PlanItem
+  onUpdate:   (id: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => Promise<void>
+  onClose:    () => void
+  currencies: string[]
+  uid:        string
+  tripId:     string
+}) {
+  const [price,       setPrice]       = useState(item.price > 0 ? String(item.price) : '')
+  const [currency,    setCurrency]    = useState(item.currency)
+  const [comment,     setComment]     = useState(item.comment)
+  const [receipts,    setReceipts]    = useState<string[]>(item.receipts ?? [])
+  const [newFiles,    setNewFiles]    = useState<File[]>([])
+  const [newPreviews, setNewPreviews] = useState<string[]>([])
+  const [saving,      setSaving]      = useState(false)
+
+  const handleReceiptAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    const remaining = 3 - receipts.length - newFiles.length
+    const toAdd = files.slice(0, remaining)
+    setNewFiles(prev => [...prev, ...toAdd])
+    setNewPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
+    e.target.value = ''
+  }
+
+  const removeExisting = (i: number) => setReceipts(prev => prev.filter((_, j) => j !== i))
+  const removeNew = (i: number) => {
+    URL.revokeObjectURL(newPreviews[i])
+    setNewFiles(prev => prev.filter((_, j) => j !== i))
+    setNewPreviews(prev => prev.filter((_, j) => j !== i))
+  }
+
+  const submit = async () => {
+    setSaving(true)
+    try {
+      const uploadedURLs: string[] = []
+      if (newFiles.length > 0) {
+        const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+          import('@/lib/firebase'),
+          import('firebase/storage'),
+        ])
+        const ts = Date.now()
+        await Promise.all(newFiles.map(async (file, i) => {
+          const blob = await compressImage(file)
+          const r = sRef(storage, `users/${uid}/trips/${tripId}/receipts/${ts}_${i}.jpg`)
+          await uploadBytes(r, blob)
+          uploadedURLs.push(await getDownloadURL(r))
+        }))
+      }
+      newPreviews.forEach(u => URL.revokeObjectURL(u))
+      await onUpdate(item.id, {
+        price:    Number(price) || 0,
+        currency,
+        comment,
+        receipts: [...receipts, ...uploadedURLs],
+      })
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
+      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-50 w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh]">
+
+        {/* 핸들 바 (모바일) */}
+        <div className="flex justify-center pt-3 pb-1 sm:hidden">
+          <div className="w-10 h-1 rounded-full bg-gray-200" />
+        </div>
+
+        {/* 헤더 */}
+        <div className="flex items-start justify-between px-5 pt-4 pb-3 sm:pt-5">
+          <div className="flex-1 min-w-0 mr-3">
+            <p className="text-xs font-semibold text-gray-400 mb-0.5">비용 · 메모 · 사진 입력</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{item.name}</p>
+          </div>
+          <button onClick={onClose}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+          {/* 비용 */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-semibold text-gray-600">비용</label>
+            <div className="flex gap-2">
+              {currencies.length > 1 ? (
+                <select value={currency} onChange={e => setCurrency(e.target.value)}
+                  className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white flex-shrink-0">
+                  {currencies.map(c => <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c}</option>)}
+                  <option value="KRW">₩ KRW</option>
+                </select>
+              ) : (
+                <div className="flex items-center px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 whitespace-nowrap flex-shrink-0">
+                  {CURRENCY_SYMBOLS[currency] ?? currency} {currency}
+                </div>
+              )}
+              <input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={price}
+                onChange={e => setPrice(e.target.value)}
+                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* 메모 */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-semibold text-gray-600">메모</label>
+            <input
+              type="text"
+              placeholder="영업시간, 예약 여부, 입장료 등"
+              value={comment}
+              onChange={e => setComment(e.target.value)}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm italic text-slate-600 placeholder:not-italic placeholder:text-gray-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+            />
+          </div>
+
+          {/* 사진 */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-semibold text-gray-600">
+              사진 <span className="font-normal text-gray-400">(최대 3장)</span>
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {receipts.map((url, i) => (
+                <div key={`ex-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeExisting(i)}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </button>
+                </div>
+              ))}
+              {newPreviews.map((url, i) => (
+                <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <button type="button" onClick={() => removeNew(i)}
+                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                    <X className="w-2.5 h-2.5 text-white" />
+                  </button>
+                </div>
+              ))}
+              {receipts.length + newFiles.length < 3 && (
+                <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                  <Camera className="w-4 h-4 text-gray-400" />
+                  <span className="text-[9px] text-gray-400">추가</span>
+                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleReceiptAdd} />
+                </label>
+              )}
+            </div>
+          </div>
+
+          {/* 저장 */}
+          <button
+            onClick={submit}
+            disabled={saving}
+            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+          >
+            {saving
+              ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장 중…</>
+              : '저장'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ── 아이템 수정 패널 ── */
-function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, uid, tripId }: {
+function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, members, uid, tripId }: {
   item:      PlanItem
   onUpdate:  (id: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => Promise<void>
+  onDelete:  (id: string) => void
   onClose:   () => void
   currencies: string[]
   people:    number
@@ -1567,12 +1727,22 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
             </div>
           </div>
 
-          <button type="submit" disabled={!ok || saving}
-            className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-            {saving
-              ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장 중…</>
-              : '저장'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => { onDelete(item.id); onClose() }}
+              className="flex items-center justify-center gap-1.5 px-4 py-3.5 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 text-sm font-semibold transition-colors flex-shrink-0"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+            <button type="submit" disabled={!ok || saving}
+              className="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              {saving
+                ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장 중…</>
+                : '저장'}
+            </button>
+          </div>
         </form>
       </div>
     </div>
@@ -1598,6 +1768,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [activeDayIdx,  setActiveDayIdx]  = useState(0)
   const [showAdd,       setShowAdd]       = useState(false)
   const [editItem,      setEditItem]      = useState<PlanItem | null>(null)
+  const [quickItem,     setQuickItem]     = useState<PlanItem | null>(null)
   const [showChecklist, setChecklist]     = useState(false)
   const [mobileTab,     setMobileTab]     = useState<'schedule' | 'map'>('schedule')
   const [mapMounted,    setMapMounted]    = useState(false)  // lazy mount — 처음 지도 탭 열릴 때 true
@@ -1630,7 +1801,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const editAccInputRef    = useRef<HTMLInputElement>(null)
 
   /* 모달 열릴 때 배경 스크롤 잠금 */
-  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
+  const anyModalOpen = showAdd || !!editItem || !!quickItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
   useScrollLock(anyModalOpen)
 
 
@@ -2780,6 +2951,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             myUid={uid}
                             onDelete={handleDelete}
                             onEdit={setEditItem}
+                            onQuickEdit={setQuickItem}
                             onChangeCat={handleChangeCat}
                             onRate={handleRate}
                             onFocusMap={handleFocusMap}
@@ -3014,10 +3186,22 @@ function PlannerContent({ tripId }: { tripId: string }) {
         />
       )}
 
+      {quickItem && (
+        <QuickItemSheet
+          item={quickItem}
+          onUpdate={handleUpdate}
+          onClose={() => setQuickItem(null)}
+          currencies={tripCurrencies}
+          uid={uid}
+          tripId={tripId}
+        />
+      )}
+
       {editItem && (
         <EditItemPanel
           item={editItem}
           onUpdate={handleUpdate}
+          onDelete={(id) => { handleDelete(id); setEditItem(null) }}
           onClose={() => setEditItem(null)}
           currencies={tripCurrencies}
           people={meta.people || 1}

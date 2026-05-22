@@ -2,11 +2,13 @@
 
 import Link from 'next/link'
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { motion } from 'motion/react'
 import { ArrowRight, Globe, Menu, X, Star } from 'lucide-react'
 import { useAuthStore } from '@/features/auth/store'
 import { AdUnit } from '@/components/AdUnit'
+import { ServiceRatingModal } from '@/components/ServiceRatingModal'
+import { getDocs, collection, query, where, orderBy, limit } from 'firebase/firestore'
+import { db } from '@/lib/firebase'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -104,15 +106,30 @@ function Stars({ count }: { count: number }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
+type LiveReview = { id: string; name: string; text: string; stars: number }
+
 export default function LandingPage() {
-  const [scrolled, setScrolled] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
-  const { user, loading } = useAuthStore()
-  const router = useRouter()
+  const [scrolled,      setScrolled]      = useState(false)
+  const [mobileOpen,    setMobileOpen]    = useState(false)
+  const [showRating,    setShowRating]    = useState(false)
+  const [liveReviews,   setLiveReviews]   = useState<LiveReview[] | null>(null)
+  const { user } = useAuthStore()
 
   useEffect(() => {
-    if (!loading && user) router.replace('/trips')
-  }, [user, loading, router])
+    getDocs(query(
+      collection(db, 'serviceReviews'),
+      where('featured', '==', true),
+      orderBy('createdAt', 'desc'),
+      limit(6),
+    )).then(snap => {
+      if (snap.size > 0) {
+        setLiveReviews(snap.docs.map(d => {
+          const data = d.data()
+          return { id: d.id, name: data.displayName ?? '익명', text: data.text ?? '', stars: data.rating ?? 5 }
+        }))
+      }
+    }).catch(() => {})
+  }, [])
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 10)
@@ -125,8 +142,12 @@ export default function LandingPage() {
     setMobileOpen(false)
   }
 
+  const displayedReviews = liveReviews ?? REVIEWS
+
   return (
     <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
+
+      {showRating && <ServiceRatingModal onClose={() => setShowRating(false)} />}
 
       {/* ── Navbar ────────────────────────────────────────────────────────── */}
       <header className={`fixed top-0 inset-x-0 z-50 h-[72px] flex items-center transition-all duration-200 ${scrolled ? 'bg-white/95 backdrop-blur shadow-sm border-b border-gray-100' : 'bg-white border-b border-gray-100'}`}>
@@ -151,15 +172,38 @@ export default function LandingPage() {
             ))}
           </nav>
 
-          <div className="hidden md:flex items-center gap-4">
-            <Link href="/auth" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-              로그인
-            </Link>
-            <Link href="/auth"
-              className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-[18px] transition-colors">
-              무료로 시작하기
-            </Link>
-          </div>
+          {user ? (
+            <div className="hidden md:flex items-center gap-3">
+              <button
+                onClick={() => setShowRating(true)}
+                className="text-sm text-gray-500 hover:text-gray-900 transition-colors"
+              >
+                후기 남기기
+              </button>
+              <Link href="/trips"
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-[18px] transition-colors">
+                {user.photoURL ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={user.photoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">
+                    {(user.displayName ?? user.email ?? '?').charAt(0).toUpperCase()}
+                  </div>
+                )}
+                여행 시작하기
+              </Link>
+            </div>
+          ) : (
+            <div className="hidden md:flex items-center gap-4">
+              <Link href="/auth" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
+                로그인
+              </Link>
+              <Link href="/auth"
+                className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-[18px] transition-colors">
+                무료로 시작하기
+              </Link>
+            </div>
+          )}
 
           <button className="md:hidden p-2 text-gray-600" onClick={() => setMobileOpen(v => !v)}>
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -172,9 +216,15 @@ export default function LandingPage() {
               <button key={l.href} onClick={() => scrollTo(l.href.slice(1))}
                 className="text-sm text-gray-700 text-left">{l.label}</button>
             ))}
-            <Link href="/auth" className="py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl text-center">
-              시작하기
-            </Link>
+            {user ? (
+              <Link href="/trips" className="py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl text-center">
+                여행 시작하기
+              </Link>
+            ) : (
+              <Link href="/auth" className="py-2.5 bg-blue-600 text-white text-sm font-semibold rounded-xl text-center">
+                시작하기
+              </Link>
+            )}
           </div>
         )}
       </header>
@@ -214,10 +264,17 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
-              <Link href="/auth"
-                className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
-                새 일정 만들기 &nbsp;→
-              </Link>
+              {user ? (
+                <Link href="/trips"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
+                  내 여행 시작하기 &nbsp;→
+                </Link>
+              ) : (
+                <Link href="/auth"
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
+                  새 일정 만들기 &nbsp;→
+                </Link>
+              )}
               <button onClick={() => scrollTo('demo')}
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-gray-300 text-gray-700 font-medium rounded-[26px] text-[15px] hover:bg-gray-50 transition-colors">
                 ▶&nbsp;&nbsp;데모 보기
@@ -403,11 +460,13 @@ export default function LandingPage() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {REVIEWS.map(r => (
-              <div key={r.name} className="bg-[#F9FAFB] rounded-2xl p-7 border border-gray-200 flex flex-col gap-5">
+            {displayedReviews.map((r, i) => (
+              <div key={'id' in r ? r.id : r.name + i} className="bg-[#F9FAFB] rounded-2xl p-7 border border-gray-200 flex flex-col gap-5">
                 <Stars count={r.stars} />
                 <p className="text-sm text-gray-700 leading-relaxed flex-1">"{r.text}"</p>
-                <p className="text-xs font-semibold text-gray-400">{r.name} · {r.trip}</p>
+                <p className="text-xs font-semibold text-gray-400">
+                  {r.name}{'trip' in r ? ` · ${r.trip}` : ''}
+                </p>
               </div>
             ))}
           </div>
@@ -430,10 +489,17 @@ export default function LandingPage() {
           <p className="text-base text-slate-400">
             가입 후 30초, 첫 번째 여행 일정을 바로 만들 수 있습니다.
           </p>
-          <Link href="/auth"
-            className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">
-            무료로 시작하기 <ArrowRight className="w-4 h-4" />
-          </Link>
+          {user ? (
+            <Link href="/trips"
+              className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">
+              내 여행 보러가기 <ArrowRight className="w-4 h-4" />
+            </Link>
+          ) : (
+            <Link href="/auth"
+              className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">
+              무료로 시작하기 <ArrowRight className="w-4 h-4" />
+            </Link>
+          )}
         </div>
       </section>
 

@@ -254,17 +254,17 @@ export default function AdminUsersPage() {
 
           <div className="flex items-center gap-2 mb-3">
             <span className="text-sm text-gray-600">현재 가입자</span>
-            <span className="text-2xl font-extrabold text-gray-900">{beta.userCount}</span>
+            <span className="text-2xl font-extrabold text-gray-900">{users.length}</span>
             <span className="text-sm text-gray-400">/ {beta.maxUsers}명</span>
           </div>
 
           <div className="w-full bg-gray-100 rounded-full h-2 mb-4">
             <div
               className={`h-2 rounded-full transition-all ${
-                beta.userCount / beta.maxUsers > 0.9 ? 'bg-red-500' :
-                beta.userCount / beta.maxUsers > 0.7 ? 'bg-amber-500' : 'bg-blue-500'
+                users.length / beta.maxUsers > 0.9 ? 'bg-red-500' :
+                users.length / beta.maxUsers > 0.7 ? 'bg-amber-500' : 'bg-blue-500'
               }`}
-              style={{ width: `${Math.min(100, (beta.userCount / beta.maxUsers) * 100).toFixed(1)}%` }}
+              style={{ width: `${Math.min(100, (users.length / beta.maxUsers) * 100).toFixed(1)}%` }}
             />
           </div>
 

@@ -328,6 +328,7 @@ function NewTripContent() {
         } catch { /* silent */ }
       }
 
+      localStorage.setItem('showServiceReview', '1')
       router.push(`/trips/${ref.id}`)
     } catch {
       setLoading(false)

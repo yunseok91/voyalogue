@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy, limit, where, collectionGroup } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { Timestamp } from 'firebase/firestore'
-import { Users, MapPin, Flag, Megaphone } from 'lucide-react'
+import { Users, MapPin, Flag, Megaphone, Star } from 'lucide-react'
+import Link from 'next/link'
 
 type RecentUser = {
   uid: string
@@ -189,6 +190,24 @@ export default function AdminDashboard() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* 빠른 링크 */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6">
+        {[
+          { label: '사용자 관리',  href: '/admin/users',         icon: Users,     color: 'text-blue-600',   bg: 'bg-blue-50'  },
+          { label: '신고 관리',    href: '/admin/reports',       icon: Flag,      color: 'text-red-600',    bg: 'bg-red-50'   },
+          { label: '공지 관리',    href: '/admin/announcements', icon: Megaphone, color: 'text-orange-600', bg: 'bg-orange-50'},
+          { label: '서비스 후기',  href: '/admin/reviews',       icon: Star,      color: 'text-amber-600',  bg: 'bg-amber-50' },
+        ].map(({ label, href, icon: Icon, color, bg }) => (
+          <Link key={href} href={href}
+            className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-3 hover:border-blue-300 hover:shadow-sm transition-all">
+            <div className={`w-8 h-8 ${bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
+              <Icon className={`w-4 h-4 ${color}`} />
+            </div>
+            <span className="text-sm font-semibold text-gray-700">{label}</span>
+          </Link>
+        ))}
       </div>
     </div>
   )
