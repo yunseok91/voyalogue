@@ -154,6 +154,14 @@ const CAT_DOTS: Record<Category, string> = {
   기타: 'bg-gray-400',
 }
 
+const CAT_DISPLAY: Record<Category, string> = {
+  식사: '식사',
+  장소: '관광',
+  쇼핑: '쇼핑',
+  교통: '교통',
+  기타: '기타',
+}
+
 const SLOT_STYLES: Record<TimeSlot, string> = {
   아침: 'border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100',
   점심: 'border-green-300 text-green-700 bg-green-50 hover:bg-green-100',
@@ -383,7 +391,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
               onClick={e => { e.stopPropagation(); setShowCatPick(v => !v); setMenu(false) }}
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
             >
-              {item.cat}
+              {CAT_DISPLAY[item.cat] ?? item.cat}
             </button>
 
             {showCatPick && (
@@ -404,7 +412,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onChangeCat, onRate, onFocusMa
                       }`}
                     >
                       <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c === item.cat ? 'bg-white' : CAT_DOTS[c]}`} />
-                      {c}
+                      {CAT_DISPLAY[c]}
                     </button>
                   ))}
                 </div>
@@ -1166,7 +1174,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     <button key={c} type="button" onClick={() => setCat(c)}
                       className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
                         cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'
-                      }`}>{c}</button>
+                      }`}>{CAT_DISPLAY[c]}</button>
                   ))}
                 </div>
               </div>
@@ -1450,7 +1458,7 @@ function EditItemPanel({ item, onUpdate, onClose, currencies, people, members, u
                       : 'border-gray-200 text-gray-600 hover:border-gray-400'
                   }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOTS[c]}`} />
-                  {c}
+                  {CAT_DISPLAY[c]}
                 </button>
               ))}
             </div>
@@ -2708,6 +2716,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 onDeleteFlight={handleDeleteFlight}
                 onEditAcc={setEditingAcc}
                 onDeleteAcc={handleDeleteAccommodation}
+                onFocusMap={handleFocusMap}
               />
             )}
 

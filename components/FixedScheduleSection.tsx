@@ -9,6 +9,8 @@ export type FlightItem = {
   dayId:      string
   departTime: string
   arriveTime: string
+  lat?:       number
+  lng?:       number
   price?:            number
   currency?:         string
   includeInSettlement?:  boolean
@@ -39,11 +41,12 @@ type Props = {
   onDeleteFlight?:     (id: string) => void
   onEditAcc?:          (a: AccommodationItem) => void
   onDeleteAcc?:        (id: string) => void
+  onFocusMap?:         (itemId: string) => void
 }
 
 export function FixedScheduleSection({
   flights, accommodations, activeDay, days,
-  onEditFlight, onDeleteFlight, onEditAcc, onDeleteAcc,
+  onEditFlight, onDeleteFlight, onEditAcc, onDeleteAcc, onFocusMap,
 }: Props) {
   const activeDayIdx = days.findIndex(d => d.dayId === activeDay.dayId)
 
@@ -65,7 +68,10 @@ export function FixedScheduleSection({
       <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">고정 일정</span>
 
       {dayFlights.map(f => (
-        <div key={f.id} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-sky-200 rounded-xl overflow-hidden shadow-sm">
+        <div key={f.id}
+          className={`flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-sky-200 rounded-xl overflow-hidden shadow-sm ${f.lat && f.lng && onFocusMap ? 'cursor-pointer hover:border-sky-400 transition-colors' : ''}`}
+          onClick={() => f.lat && f.lng && onFocusMap?.(f.id)}
+        >
           <div className="w-10 h-full min-h-[52px] bg-sky-500 flex items-center justify-center flex-shrink-0">
             <Plane className="text-white" style={{ width: 18, height: 18 }} />
           </div>
@@ -95,13 +101,13 @@ export function FixedScheduleSection({
           {(onEditFlight || onDeleteFlight) && (
             <div className="flex items-center gap-1 flex-shrink-0">
               {onEditFlight && (
-                <button onClick={() => onEditFlight(f)}
+                <button onClick={e => { e.stopPropagation(); onEditFlight(f) }}
                   className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-sky-50 text-gray-400 hover:text-sky-600 transition-colors">
                   <Pencil className="w-3 h-3" />
                 </button>
               )}
               {onDeleteFlight && (
-                <button onClick={() => onDeleteFlight(f.id)}
+                <button onClick={e => { e.stopPropagation(); onDeleteFlight(f.id) }}
                   className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors">
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -112,7 +118,10 @@ export function FixedScheduleSection({
       ))}
 
       {dayAccs.map(({ acc, role }) => (
-        <div key={`${acc.id}-${role}`} className="flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm">
+        <div key={`${acc.id}-${role}`}
+          className={`flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm ${acc.lat && acc.lng && onFocusMap ? 'cursor-pointer hover:border-amber-400 transition-colors' : ''}`}
+          onClick={() => acc.lat && acc.lng && onFocusMap?.(`${acc.id}_${role === 'checkout' ? 'out' : 'in'}`)}
+        >
           <div className={`w-10 h-full min-h-[52px] flex items-center justify-center flex-shrink-0 ${
             role === 'stay' ? 'bg-amber-300' : 'bg-amber-500'
           }`}>
@@ -142,7 +151,7 @@ export function FixedScheduleSection({
               </p>
             )}
           </div>
-          <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
             {acc.lat && acc.lng && (
               <a
                 href={`https://maps.google.com/?q=${acc.lat},${acc.lng}`}

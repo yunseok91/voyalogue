@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut } from 'lucide-react'
-import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp } from 'firebase/firestore'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut, Copy, Loader2 } from 'lucide-react'
+import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -14,6 +14,7 @@ import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal
 import { ReportModal } from '@/components/ReportModal'
 import { AppNavbar } from '@/components/AppNavbar'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
+import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar } from '@/components/PersonAvatar'
 import { OnboardingModal } from '@/components/OnboardingModal'
@@ -256,6 +257,7 @@ function TripsContent() {
   const [editTarget,  setEditTarget]  = useState<Trip | null>(null)
   const [showReport,  setShowReport]  = useState(false)
   const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
+  const [copyingId,   setCopyingId]   = useState<string | null>(null)
   const { tourStep, skipTour } = useOnboarding()
 
   useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
@@ -501,6 +503,52 @@ function TripsContent() {
     e.preventDefault()
     e.stopPropagation()
     setEditTarget(trip)
+  }
+
+  const handleCopyTrip = async (e: React.MouseEvent, trip: Trip) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!user || copyingId) return
+    setCopyingId(trip.id)
+    try {
+      const origSnap = await getDoc(doc(db, 'users', user.uid, 'trips', trip.id))
+      if (!origSnap.exists()) return
+      const origData = origSnap.data()
+
+      const newViewCode = generateCode()
+      const newEditCode = generateCode()
+      const newTripRef = await addDoc(collection(db, 'users', user.uid, 'trips'), {
+        ...origData,
+        title:         `${origData.title || origData.city} (복사)`,
+        viewCode:      newViewCode,
+        editCode:      newEditCode,
+        pendingDelete: false,
+        deletedAt:     null,
+        createdAt:     serverTimestamp(),
+        updatedAt:     serverTimestamp(),
+      })
+
+      await Promise.all([
+        setDoc(doc(db, 'shareIndex', newViewCode), { uid: user.uid, tripId: newTripRef.id, canEdit: false }),
+        setDoc(doc(db, 'shareIndex', newEditCode), { uid: user.uid, tripId: newTripRef.id, canEdit: true }),
+      ])
+
+      const totalDays = (origData.days as number) || (origData.nights as number) + 1
+      const batch = writeBatch(db)
+      for (let d = 1; d <= totalDays; d++) {
+        const dayId = `d${d}`
+        const itemsSnap = await getDocs(collection(db, 'users', user.uid, 'trips', trip.id, 'days', dayId, 'items'))
+        for (const itemDoc of itemsSnap.docs) {
+          const newRef = doc(collection(db, 'users', user.uid, 'trips', newTripRef.id, 'days', dayId, 'items'))
+          batch.set(newRef, itemDoc.data())
+        }
+      }
+      await batch.commit()
+
+      router.push(`/trips/${newTripRef.id}`)
+    } catch { /* silent */ } finally {
+      setCopyingId(null)
+    }
   }
 
   const FILTERS: { key: Filter; label: string }[] = [
@@ -798,13 +846,26 @@ function TripsContent() {
                       <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2">
                         <span className={`text-sm font-semibold flex-1 ${isPending ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
                         {!isPending && (
-                          <button
-                            onClick={e => openCardEdit(e, trip)}
-                            title="여행 수정"
-                            className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
-                          >
-                            <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                          </button>
+                          <>
+                            <button
+                              onClick={e => openCardEdit(e, trip)}
+                              title="여행 수정"
+                              className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
+                            >
+                              <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
+                            </button>
+                            <button
+                              onClick={e => handleCopyTrip(e, trip)}
+                              title="여행 복사"
+                              className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex-shrink-0"
+                              disabled={copyingId === trip.id}
+                            >
+                              {copyingId === trip.id
+                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                : <Copy className="w-3.5 h-3.5" />
+                              }
+                            </button>
+                          </>
                         )}
                         {isPending
                           ? <span className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 bg-red-100 text-red-500">삭제 예정</span>

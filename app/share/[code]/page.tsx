@@ -98,6 +98,9 @@ const CAT_COLORS: Record<Category, string> = {
   쇼핑: 'bg-pink-100 text-pink-700',     교통: 'bg-teal-100 text-teal-700',
   기타: 'bg-gray-100 text-gray-600',
 }
+const CAT_DISPLAY: Record<Category, string> = {
+  식사: '식사', 장소: '관광', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
+}
 
 function formatDate(d: string) {
   const dt = new Date(d)
@@ -192,7 +195,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
             </span>
           )}
           <span className="text-sm font-semibold text-gray-900 leading-snug flex-1 min-w-0 break-words">{item.name}</span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{item.cat}</span>
+          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
         </div>
 
         {/* 메모 */}
@@ -494,7 +497,7 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
             <div className="flex gap-1.5 flex-wrap">
               {CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setCat(c)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600'}`}>{c}</button>
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600'}`}>{CAT_DISPLAY[c]}</button>
               ))}
             </div>
           </div>
@@ -693,7 +696,7 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
             <div className="flex gap-1.5 flex-wrap">
               {CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setCat(c)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600'}`}>{c}</button>
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600'}`}>{CAT_DISPLAY[c]}</button>
               ))}
             </div>
           </div>

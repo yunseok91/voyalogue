@@ -99,6 +99,7 @@ const CAT_COLORS: Record<string, string> = {
   교통: 'bg-teal-100 text-teal-700',
   기타: 'bg-gray-100 text-gray-500',
 }
+const CAT_DISPLAY: Record<string, string> = { 장소: '관광' }
 
 const ROLE_LABEL: Record<string, string> = {
   owner: '방장', treasurer: '총무', member: '멤버',
@@ -451,7 +452,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
                           <SmallStars rating={p.avg} />
                         </div>
                         <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[p.cat] ?? 'bg-gray-100 text-gray-500'}`}>
-                          {p.cat}
+                          {CAT_DISPLAY[p.cat] ?? p.cat}
                         </span>
                       </div>
                     ))}
