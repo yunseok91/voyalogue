@@ -7,7 +7,7 @@ import {
   GripVertical, Star, CheckSquare, Wallet, ChevronRight,
   Edit2, Trash2, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera,
-  Plane, BedDouble, Pencil, Headset,
+  Plane, BedDouble, Pencil, Headset, Receipt,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -310,7 +310,7 @@ function StarRow({
 }
 
 /* ── 아이템 행 ── */
-function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, dragHandleProps }: {
+function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit, dragHandleProps }: {
   item:              PlanItem
   myUid:             string
   onDelete:          (id: string) => void
@@ -325,6 +325,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   rates:             Record<string, number>
   totalPeople:       number
   memberIds?:        string[]
+  canEdit:           boolean
   dragHandleProps?:  Record<string, unknown>
 }) {
   const [showCatPick,  setShowCatPick]  = useState(false)
@@ -359,7 +360,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   return (
     <div
       className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
-      onClick={() => { if (item.lat && item.lng) onFocusMap(item.id); onQuickEdit(item) }}
+      onClick={() => { if (item.lat && item.lng) onFocusMap(item.id) }}
     >
       {/* 드래그 핸들 */}
       <span
@@ -511,20 +512,33 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         </div>
       </div>
 
-      {/* 수정 버튼 */}
-      <button
-        onClick={e => { e.stopPropagation(); onEdit(item) }}
-        className="flex-shrink-0 px-2 py-1.5 flex items-center gap-1 text-xs font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
-      >
-        <Edit2 className="w-3 h-3" />
-        <span>수정</span>
-      </button>
+      {/* 권한별 버튼 */}
+      {canEdit && (
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); onQuickEdit(item) }}
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+            title="내역 작성"
+          >
+            <Receipt className="w-3 h-3" />
+            <span>내역</span>
+          </button>
+          <button
+            onClick={e => { e.stopPropagation(); onEdit(item) }}
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+            title="수정"
+          >
+            <Edit2 className="w-3 h-3" />
+            <span>수정</span>
+          </button>
+        </div>
+      )}
     </div>
   )
 }
 
 /* ── Sortable 아이템 행 ── */
-function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds }: {
+function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit }: {
   item:             PlanItem
   myUid:            string
   onDelete:         (id: string) => void
@@ -539,6 +553,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
   rates:            Record<string, number>
   totalPeople:      number
   memberIds?:       string[]
+  canEdit:          boolean
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   return (
@@ -567,6 +582,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
         rates={rates}
         totalPeople={totalPeople}
         memberIds={memberIds}
+        canEdit={canEdit}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
     </div>
@@ -1279,13 +1295,16 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
 }
 
 /* ── 빠른 입력 시트 (카드 클릭 → 비용·메모·사진만) ── */
-function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId }: {
+function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, leftWidth, isDesktop, tabsBottom }: {
   item:       PlanItem
   onUpdate:   (id: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => Promise<void>
   onClose:    () => void
   currencies: string[]
   uid:        string
   tripId:     string
+  leftWidth:  number
+  isDesktop:  boolean
+  tabsBottom: number
 }) {
   const [price,       setPrice]       = useState(item.price > 0 ? String(item.price) : '')
   const [currency,    setCurrency]    = useState(item.currency)
@@ -1341,114 +1360,128 @@ function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId }: {
     }
   }
 
-  return (
-    <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
-      <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 w-full sm:max-w-sm bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[85dvh]">
-
-        {/* 핸들 바 (모바일) */}
-        <div className="flex justify-center pt-3 pb-1 sm:hidden">
-          <div className="w-10 h-1 rounded-full bg-gray-200" />
+  const panelContent = (
+    <>
+      {/* 핸들 바 — 모바일만 */}
+      {!isDesktop && (
+        <div className="flex justify-center pt-2.5 pb-1">
+          <div className="w-8 h-1 rounded-full bg-gray-200" />
         </div>
+      )}
 
-        {/* 헤더 */}
-        <div className="flex items-start justify-between px-5 pt-4 pb-3 sm:pt-5">
-          <div className="flex-1 min-w-0 mr-3">
-            <p className="text-xs font-semibold text-gray-400 mb-0.5">비용 · 메모 · 사진 입력</p>
-            <p className="text-sm font-bold text-gray-900 truncate">{item.name}</p>
-          </div>
-          <button onClick={onClose}
-            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 flex-shrink-0">
-            <X className="w-4 h-4" />
-          </button>
+      {/* 헤더 */}
+      <div className={`flex items-center justify-between px-4 pb-3 ${isDesktop ? 'pt-4' : 'pt-2'}`}>
+        <div className="flex-1 min-w-0 mr-2">
+          <p className="text-[11px] font-semibold text-gray-400 mb-0.5">비용 · 메모 · 사진</p>
+          <p className="text-sm font-bold text-gray-900 truncate">{item.name}</p>
         </div>
+        <button onClick={onClose}
+          className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 flex-shrink-0">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
-        <div className="overflow-y-auto px-5 pb-5 flex flex-col gap-4">
-          {/* 비용 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold text-gray-600">비용</label>
-            <div className="flex gap-2">
-              {currencies.length > 1 ? (
-                <select value={currency} onChange={e => setCurrency(e.target.value)}
-                  className="px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white flex-shrink-0">
-                  {currencies.map(c => <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c}</option>)}
-                  <option value="KRW">₩ KRW</option>
-                </select>
-              ) : (
-                <div className="flex items-center px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 whitespace-nowrap flex-shrink-0">
-                  {CURRENCY_SYMBOLS[currency] ?? currency} {currency}
-                </div>
-              )}
-              <input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={price}
-                onChange={e => setPrice(e.target.value)}
-                className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-              />
+      <div className="overflow-y-auto px-4 pb-4 flex flex-col gap-3 max-h-[55dvh]">
+        {/* 비용 */}
+        <div className="flex gap-2">
+          {currencies.length > 1 ? (
+            <select value={currency} onChange={e => setCurrency(e.target.value)}
+              className="px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white flex-shrink-0">
+              {currencies.map(c => <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c}</option>)}
+              <option value="KRW">₩ KRW</option>
+            </select>
+          ) : (
+            <div className="flex items-center px-3 py-2 rounded-xl border border-gray-200 bg-gray-50 text-sm font-semibold text-gray-600 whitespace-nowrap flex-shrink-0">
+              {CURRENCY_SYMBOLS[currency] ?? currency} {currency}
             </div>
-          </div>
+          )}
+          <input
+            type="number"
+            inputMode="decimal"
+            placeholder="비용 입력"
+            value={price}
+            onChange={e => setPrice(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all"
+          />
+        </div>
 
-          {/* 메모 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold text-gray-600">메모</label>
-            <input
-              type="text"
-              placeholder="영업시간, 예약 여부, 입장료 등"
-              value={comment}
-              onChange={e => setComment(e.target.value)}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm italic text-slate-600 placeholder:not-italic placeholder:text-gray-400 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-            />
-          </div>
+        {/* 메모 */}
+        <input
+          type="text"
+          placeholder="메모 (영업시간, 예약 여부 등)"
+          value={comment}
+          onChange={e => setComment(e.target.value)}
+          className="w-full px-3 py-2 rounded-xl border border-gray-200 text-sm italic text-slate-600 placeholder:not-italic placeholder:text-gray-400 outline-none focus:border-blue-500 transition-all"
+        />
 
-          {/* 사진 */}
-          <div className="flex flex-col gap-1.5">
-            <label className="text-[12px] font-semibold text-gray-600">
-              사진 <span className="font-normal text-gray-400">(최대 3장)</span>
+        {/* 사진 */}
+        <div className="flex gap-2 flex-wrap">
+          {receipts.map((url, i) => (
+            <div key={`ex-${i}`} className="relative w-14 h-14 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="w-full h-full object-cover" />
+              <button type="button" onClick={() => removeExisting(i)}
+                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                <X className="w-2.5 h-2.5 text-white" />
+              </button>
+            </div>
+          ))}
+          {newPreviews.map((url, i) => (
+            <div key={`new-${i}`} className="relative w-14 h-14 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={url} alt="" className="w-full h-full object-cover" />
+              <button type="button" onClick={() => removeNew(i)}
+                className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                <X className="w-2.5 h-2.5 text-white" />
+              </button>
+            </div>
+          ))}
+          {receipts.length + newFiles.length < 3 && (
+            <label className="w-14 h-14 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+              <Camera className="w-4 h-4 text-gray-400" />
+              <span className="text-[9px] text-gray-400">추가</span>
+              <input type="file" accept="image/*" multiple className="hidden" onChange={handleReceiptAdd} />
             </label>
-            <div className="flex gap-2 flex-wrap">
-              {receipts.map((url, i) => (
-                <div key={`ex-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => removeExisting(i)}
-                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
-                    <X className="w-2.5 h-2.5 text-white" />
-                  </button>
-                </div>
-              ))}
-              {newPreviews.map((url, i) => (
-                <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={url} alt="" className="w-full h-full object-cover" />
-                  <button type="button" onClick={() => removeNew(i)}
-                    className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
-                    <X className="w-2.5 h-2.5 text-white" />
-                  </button>
-                </div>
-              ))}
-              {receipts.length + newFiles.length < 3 && (
-                <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
-                  <Camera className="w-4 h-4 text-gray-400" />
-                  <span className="text-[9px] text-gray-400">추가</span>
-                  <input type="file" accept="image/*" multiple className="hidden" onChange={handleReceiptAdd} />
-                </label>
-              )}
-            </div>
-          </div>
-
-          {/* 저장 */}
-          <button
-            onClick={submit}
-            disabled={saving}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
-          >
-            {saving
-              ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장 중…</>
-              : '저장'}
-          </button>
+          )}
         </div>
+
+        {/* 저장 */}
+        <button
+          onClick={submit}
+          disabled={saving}
+          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+        >
+          {saving
+            ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />저장 중…</>
+            : '저장'}
+        </button>
+      </div>
+    </>
+  )
+
+  /* 데스크탑: 지도 영역 좌상단 플로팅 카드 (딤드 없음) */
+  if (isDesktop) {
+    return (
+      <div
+        className="fixed z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 flex flex-col overflow-hidden"
+        style={{
+          left: leftWidth + 12,
+          top: tabsBottom + 12,
+          width: 340,
+          maxHeight: `calc(100dvh - ${tabsBottom + 28}px)`,
+        }}
+      >
+        {panelContent}
+      </div>
+    )
+  }
+
+  /* 모바일: 딤드 + 바텀 시트 (일정 탭 유지) */
+  return (
+    <div className="fixed inset-0 z-30 flex flex-col justify-end lg:hidden">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative bg-white rounded-t-2xl shadow-2xl flex flex-col">
+        {panelContent}
       </div>
     </div>
   )
@@ -1801,7 +1834,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const editAccInputRef    = useRef<HTMLInputElement>(null)
 
   /* 모달 열릴 때 배경 스크롤 잠금 */
-  const anyModalOpen = showAdd || !!editItem || !!quickItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
+  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
   useScrollLock(anyModalOpen)
 
 
@@ -1814,6 +1847,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showMapHint,   setShowMapHint]   = useState(true)
   const mapSearchRef    = useRef<HTMLInputElement>(null)
   const mapSearchAcRef  = useRef<google.maps.places.Autocomplete | null>(null)
+  const dayTabsRef      = useRef<HTMLDivElement>(null)
 
   const handleMapDblClick = useCallback((lat: number, lng: number, name?: string) => {
     setPendingPlace({ name: name ?? '', lat, lng })
@@ -2741,7 +2775,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       />
 
       {/* ── Day 탭 + 모바일 지도/일정 토글 ── */}
-      <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 shadow-sm">
+      <div ref={dayTabsRef} className="bg-white border-b border-gray-200 flex-shrink-0 z-10 shadow-sm">
         <div className="px-4 sm:px-6 overflow-x-auto scrollbar-hide">
           <div className="flex items-end" style={{ minWidth: days.length * 80 }}>
             {days.map((d, i) => {
@@ -2944,7 +2978,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           </div>
                           <div className="flex-1 h-px bg-gray-200" />
                         </div>
-                        {slotItems.map(item => (
+                        {slotItems.map(item => {
+                          const myMember = (meta.members ?? []).find(m => m.id === uid)
+                          const canEditItems = !myMember || myMember.role === 'owner' || myMember.role === 'treasurer'
+                          return (
                           <SortableItemRow
                             key={item.id}
                             item={item}
@@ -2961,8 +2998,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             rates={effectiveRates}
                             totalPeople={(meta.members ?? []).filter(m => !m.left).length || meta.people || 1}
                             memberIds={(meta.members ?? []).filter(m => !m.left).map(m => m.id)}
+                            canEdit={canEditItems}
                           />
-                        ))}
+                          )
+                        })}
                       </div>
                     )
                   })}
@@ -3194,6 +3233,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
           currencies={tripCurrencies}
           uid={uid}
           tripId={tripId}
+          leftWidth={leftWidth}
+          isDesktop={isDesktop}
+          tabsBottom={dayTabsRef.current?.getBoundingClientRect().bottom ?? 152}
         />
       )}
 
