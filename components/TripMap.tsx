@@ -23,6 +23,19 @@ export type AvatarMember = {
   photoURL?: string
 }
 
+export type DayGroup = {
+  dayId: string
+  label: string
+  color: string
+  items: MapItem[]
+}
+
+export const DAY_COLORS = [
+  '#3B82F6', '#F97316', '#10B981', '#8B5CF6',
+  '#EC4899', '#EAB308', '#14B8A6', '#F43F5E',
+  '#6366F1', '#84CC16',
+]
+
 const SLOT_COLORS: Record<string, string> = {
   아침: '#F59E0B',
   점심: '#10B981',
@@ -30,9 +43,10 @@ const SLOT_COLORS: Record<string, string> = {
   미정: '#94A3B8',
 }
 
+// 비행기·숙소 전용 색상 — DAY_COLORS 팔레트에 절대 추가 금지
 const SPECIAL_COLORS: Record<string, string> = {
-  '비행기': '#0EA5E9',
-  '숙소':   '#8B5CF6',
+  '비행기': '#0EA5E9',  // sky-500: 스카이블루 (비행기 전용)
+  '숙소':   '#92400E',  // amber-800: 짙은 브라운 (숙소 전용)
 }
 
 interface Props {
@@ -43,6 +57,8 @@ interface Props {
   members?:      AvatarMember[]
   previewPlace?: { name: string; lat: number; lng: number }
   onDblClick?:   (lat: number, lng: number, name?: string) => void
+  dayGroups?:    DayGroup[]
+  activeDayId?:  string
 }
 
 type MarkerEntry = {
@@ -50,11 +66,12 @@ type MarkerEntry = {
   iw:     google.maps.InfoWindow
 }
 
-export function TripMap({ city, items, focusId, focusTrigger, members, previewPlace, onDblClick }: Props) {
+export function TripMap({ city, items, focusId, focusTrigger, members, previewPlace, onDblClick, dayGroups, activeDayId }: Props) {
   const containerRef      = useRef<HTMLDivElement>(null)
   const mapRef            = useRef<google.maps.Map | null>(null)
   const markerMapRef      = useRef<Map<string, MarkerEntry>>(new Map())
   const polylineRef       = useRef<google.maps.Polyline | null>(null)
+  const dayPolylinesRef   = useRef<Map<string, google.maps.Polyline>>(new Map())
   const distOverlaysRef   = useRef<google.maps.OverlayView[]>([])
   const distFetchTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
   const myLocOverlay      = useRef<google.maps.OverlayView | null>(null)
@@ -139,9 +156,10 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* ── 마커 & 경로선 업데이트 ── */
+  /* ── 마커 & 경로선 업데이트 (단일 Day 모드) ── */
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
+    if (dayGroups?.length) return   // multi-day 모드에서는 아래 effect가 처리
     const render = () => {
       if (!mapRef.current) return
 
@@ -191,7 +209,7 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
             clickable: true,
           })
 
-          const typeLabel = isFlightType ? '✈&nbsp;비행기' : '🏨&nbsp;숙소'
+          const typeLabel = isFlightType ? '✈&nbsp;비행기' : '&nbsp;숙소'
           const iw = new google.maps.InfoWindow({
             content: `<div style="padding:10px 14px 10px 12px;">
               <div style="margin-bottom:5px;">
@@ -442,6 +460,216 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
     render()
   }, [items])
 
+  /* ── 마커 & 경로선 업데이트 (멀티 Day 모드) ── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!dayGroups?.length) return
+
+    const render = () => {
+      if (!mapRef.current) return
+
+      /* 기존 단일 day 마커/폴리라인 초기화 */
+      markerMapRef.current.forEach(({ marker }) => marker.setMap(null))
+      markerMapRef.current.clear()
+      polylineRef.current?.setMap(null)
+      polylineRef.current = null
+      distOverlaysRef.current.forEach(o => o.setMap(null))
+      distOverlaysRef.current = []
+      dayPolylinesRef.current.forEach(p => p.setMap(null))
+      dayPolylinesRef.current.clear()
+      openIwRef.current?.close()
+      openIwRef.current = null
+
+      const allBounds  = new google.maps.LatLngBounds()
+      const activeBounds = new google.maps.LatLngBounds()
+      let totalPinned  = 0
+      let activePinned = 0
+
+      const showAll = !activeDayId   // 전체 일정 모드
+
+      /* ── special 아이템 사전 수집 (중복 제거 + active 판정) ──
+         숙소처럼 여러 Day 그룹에 같은 id로 등록된 경우,
+         한 그룹이라도 active면 opacity 1.0 으로 렌더링 */
+      const specialMap = new Map<string, { item: MapItem; active: boolean }>()
+      dayGroups.forEach(group => {
+        const isActive = showAll || group.dayId === activeDayId
+        group.items
+          .filter(i => i.markerType === 'special')
+          .map(i => ({ ...i, lat: Number(i.lat), lng: Number(i.lng) }))
+          .filter(i => isFinite(i.lat) && isFinite(i.lng) && (i.lat !== 0 || i.lng !== 0))
+          .forEach(item => {
+            const prev = specialMap.get(item.id)
+            if (!prev) {
+              specialMap.set(item.id, { item, active: isActive })
+            } else if (isActive && !prev.active) {
+              specialMap.set(item.id, { item, active: true })
+            }
+          })
+      })
+
+      specialMap.forEach(({ item, active }) => {
+        const isFlightType = item.timeSlot === '비행기'
+        const sColor = SPECIAL_COLORS[item.timeSlot] ?? '#94A3B8'
+        const opacity = active ? 1.0 : 0.3
+        const flightSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="d"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs><path d="M22 4C14.268 4 8 10.268 8 18c0 10.5 14 32 14 32S36 28.5 36 18C36 10.268 29.732 4 22 4Z" fill="${sColor}" filter="url(#d)"/><circle cx="22" cy="18" r="10" fill="rgba(255,255,255,0.18)"/><text x="22" y="18" font-family="Arial,sans-serif" font-size="15" text-anchor="middle" dominant-baseline="central" fill="white">&#x2708;</text></svg>`
+        const hotelSvg  = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="d"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.25)"/></filter></defs><path d="M22 4C14.268 4 8 10.268 8 18c0 10.5 14 32 14 32S36 28.5 36 18C36 10.268 29.732 4 22 4Z" fill="${sColor}" filter="url(#d)"/><circle cx="22" cy="18" r="10" fill="rgba(255,255,255,0.18)"/><polygon points="22,9 13,16 31,16" fill="white"/><rect x="14" y="15" width="16" height="11" fill="white" rx="0.5"/><rect x="20" y="20" width="4" height="6" fill="${sColor}" rx="0.5"/><rect x="15.5" y="16.5" width="3.5" height="2.5" fill="${sColor}" rx="0.3"/><rect x="25" y="16.5" width="3.5" height="2.5" fill="${sColor}" rx="0.3"/></svg>`
+        const marker = new google.maps.Marker({
+          position:  { lat: item.lat, lng: item.lng },
+          map:       mapRef.current!,
+          icon: {
+            url:        `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(isFlightType ? flightSvg : hotelSvg)}`,
+            scaledSize: new google.maps.Size(44, 54),
+            anchor:     new google.maps.Point(22, 54),
+          },
+          opacity,
+          zIndex: active ? 15 : 2,
+          title:  item.name,
+        })
+        const typeLabel = isFlightType ? '✈&nbsp;비행기' : '&nbsp;숙소'
+        const iw = new google.maps.InfoWindow({
+          content: `<div style="padding:10px 14px 10px 12px;"><div style="margin-bottom:5px;"><span style="font-size:11px;font-weight:700;color:${sColor};background:${sColor}22;padding:2px 8px 2px 7px;border-radius:20px;">${typeLabel}</span></div><div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;">${item.name}</div></div>`,
+          pixelOffset: new google.maps.Size(0, -6),
+        })
+        marker.addListener('click', () => {
+          openIwRef.current?.close()
+          iw.open(mapRef.current!, marker)
+          openIwRef.current = iw
+        })
+        markerMapRef.current.set(item.id, { marker, iw })
+      })
+
+      dayGroups.forEach(group => {
+        const isActive = showAll || group.dayId === activeDayId
+        const polylineColor  = isActive ? group.color : '#CBD5E1'
+        const polylineAlpha  = isActive ? 0.85 : 0.2
+        const polylineWeight = isActive ? 3   : 1.5
+
+        const pinned = group.items
+          .filter(i => i.markerType !== 'special')
+          .map(i => ({ ...i, lat: Number(i.lat), lng: Number(i.lng) }))
+          .filter(i => isFinite(i.lat) && isFinite(i.lng) && (i.lat !== 0 || i.lng !== 0))
+
+        pinned.forEach((item, idx) => {
+          let iconUrl: string
+          let iconSize: google.maps.Size
+          let anchor: google.maps.Point
+          let opacity: number
+
+          if (showAll) {
+            /* 전체 모드: 작은 원형 번호 뱃지 (색상으로 Day 구분, 숫자로 당일 순서 표시) */
+            const num = idx + 1
+            const c   = group.color
+            const badgeSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="26" height="26"><circle cx="13" cy="13" r="11" fill="${c}" stroke="white" stroke-width="2"/><text x="13" y="13" font-family="Arial,sans-serif" font-size="${num >= 10 ? '9' : '11'}" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="white">${num}</text></svg>`
+            iconUrl  = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(badgeSvg)}`
+            iconSize = new google.maps.Size(26, 26)
+            anchor   = new google.maps.Point(13, 13)
+            opacity  = 1.0
+          } else if (isActive) {
+            /* 개별 Day 활성: 슬롯 컬러 번호 핀 (아침/점심/저녁/미정) */
+            const slotColor = SLOT_COLORS[item.timeSlot] ?? '#94A3B8'
+            const num       = idx + 1
+            const catLabel  = item.cat ?? ''
+            const pinSvg    = `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="54"><defs><filter id="s"><feDropShadow dx="0" dy="1.5" stdDeviation="2" flood-color="rgba(0,0,0,0.22)"/></filter></defs><path d="M22 3C13.716 3 7 9.716 7 18c0 11 15 33 15 33S37 29 37 18C37 9.716 30.284 3 22 3Z" fill="${slotColor}" filter="url(#s)"/><text x="22" y="${catLabel ? '16' : '20'}" font-family="Arial,sans-serif" font-size="${catLabel ? '12' : '13'}" font-weight="bold" text-anchor="middle" dominant-baseline="central" fill="white">${num}</text>${catLabel ? `<rect x="9" y="22" width="26" height="10" rx="5" fill="rgba(255,255,255,0.28)"/><text x="22" y="27" font-family="Arial,sans-serif" font-size="8" font-weight="700" text-anchor="middle" dominant-baseline="central" fill="white">${catLabel}</text>` : ''}</svg>`
+            iconUrl  = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(pinSvg)}`
+            iconSize = new google.maps.Size(44, 54)
+            anchor   = new google.maps.Point(22, 51)
+            opacity  = 1.0
+          } else {
+            /* 개별 Day 비활성: 아주 작은 회색 점 */
+            const dimSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14"><circle cx="7" cy="7" r="5" fill="#CBD5E1" stroke="white" stroke-width="1.5"/></svg>`
+            iconUrl  = `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(dimSvg)}`
+            iconSize = new google.maps.Size(14, 14)
+            anchor   = new google.maps.Point(7, 7)
+            opacity  = 0.5
+          }
+
+          const marker = new google.maps.Marker({
+            position: { lat: item.lat, lng: item.lng },
+            map:      mapRef.current!,
+            icon:     { url: iconUrl, scaledSize: iconSize, anchor },
+            opacity,
+            zIndex:   isActive ? idx + 20 : idx + 1,
+            title:    item.name,
+          })
+
+          /* 클릭 InfoWindow */
+          const iwColor = showAll ? group.color : (SLOT_COLORS[item.timeSlot] ?? '#94A3B8')
+          const iwLabel = showAll ? `<div style="font-size:11px;font-weight:700;color:${iwColor};margin-bottom:2px;">${group.label}</div>` : ''
+          const iw = new google.maps.InfoWindow({
+            content: `<div style="padding:9px 14px 9px 10px;">${iwLabel}<div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;">${item.name}</div></div>`,
+            pixelOffset: new google.maps.Size(0, showAll ? -6 : -4),
+          })
+          marker.addListener('click', () => {
+            openIwRef.current?.close()
+            iw.open(mapRef.current!, marker)
+            openIwRef.current = iw
+          })
+          markerMapRef.current.set(item.id, { marker, iw })
+
+          const ll = new google.maps.LatLng(item.lat, item.lng)
+          allBounds.extend(ll)
+          if (isActive) { activeBounds.extend(ll); activePinned++ }
+          totalPinned++
+        })
+
+        if (pinned.length > 1) {
+          const poly = new google.maps.Polyline({
+            path:          pinned.map(i => ({ lat: i.lat, lng: i.lng })),
+            geodesic:      true,
+            strokeColor:   polylineColor,
+            strokeOpacity: polylineAlpha,
+            strokeWeight:  polylineWeight,
+            map:           mapRef.current!,
+            zIndex:        isActive ? 10 : 1,
+          })
+          if (isActive) {
+            poly.set('icons', [{
+              icon: {
+                path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                fillColor:   polylineColor,
+                fillOpacity: 1,
+                strokeColor: polylineColor,
+                scale:       3,
+              },
+              offset: '100%',
+            }])
+          }
+          dayPolylinesRef.current.set(group.dayId, poly)
+        }
+      })
+
+      /* fitBounds: 전체 모드 or 초기 → 전체 bounds, 특정 Day → 해당 Day bounds */
+      if (!centeredOnMarkersRef.current) {
+        if (totalPinned > 0) {
+          centeredOnMarkersRef.current = true
+          mapRef.current.fitBounds(allBounds, 60)
+        }
+      } else if (showAll) {
+        if (totalPinned > 0) mapRef.current.fitBounds(allBounds, 60)
+      } else if (activePinned > 0) {
+        mapRef.current.fitBounds(activeBounds, 80)
+      }
+
+      /* 기존 focusId 복원 */
+      const fid = focusIdRef.current
+      if (fid) {
+        const entry = markerMapRef.current.get(fid)
+        if (entry) {
+          const pos = entry.marker.getPosition()
+          if (pos) {
+            mapRef.current.panTo(pos)
+            mapRef.current.setZoom(16)
+            entry.iw.open(mapRef.current, entry.marker)
+            openIwRef.current = entry.iw
+          }
+        }
+      }
+    }
+
+    syncMarkersRef.current = render
+    render()
+  }, [dayGroups, activeDayId])
+
   /* ── 미리보기 마커 (검색 / 더블클릭) ── */
   useEffect(() => {
     previewMarkerRef.current?.setMap(null)
@@ -569,14 +797,27 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
       <div ref={containerRef} className="w-full h-full" />
 
       {/* 범례 */}
-      <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm border border-gray-100 flex items-center gap-3">
-        {Object.entries(SLOT_COLORS).map(([slot, color]) => (
-          <span key={slot} className="flex items-center gap-1 text-[11px] font-semibold text-gray-600">
-            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
-            {slot}
-          </span>
-        ))}
-      </div>
+      {dayGroups?.length && !activeDayId ? (
+        /* 전체 일정 모드 — Day별 색상 범례 */
+        <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm border border-gray-100 flex items-center gap-2 flex-wrap max-w-[calc(100%-24px)]">
+          {dayGroups.map(g => (
+            <span key={g.dayId} className="flex items-center gap-1 text-[11px] font-semibold text-gray-700">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: g.color }} />
+              {g.label}
+            </span>
+          ))}
+        </div>
+      ) : (
+        /* 단일 Day 모드 또는 기본 — 아침/점심/저녁/미정 범례 */
+        <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm border border-gray-100 flex items-center gap-3">
+          {Object.entries(SLOT_COLORS).map(([slot, color]) => (
+            <span key={slot} className="flex items-center gap-1 text-[11px] font-semibold text-gray-600">
+              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+              {slot}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* 현재 위치 버튼 */}
       <button

@@ -16,14 +16,18 @@ export async function notifyTripMembers({
   body,
   tripPath,
   viewCode,
+  memberPathOverride,
+  msgType = 'trip',
 }: {
   ownerUid:  string
   members:   Member[]
   actorUid:  string | null
   title:     string
   body:      string
-  tripPath?: string   // 오너용 경로 (e.g. /trips/{tripId})
-  viewCode?: string   // 초대 멤버용 공유 코드
+  tripPath?:       string
+  viewCode?:       string
+  memberPathOverride?: string   // 멤버 전용 경로 오버라이드 (없으면 /share/${viewCode} 자동 생성)
+  msgType?:            'trip' | 'notice'
 }) {
   const batch = writeBatch(db)
   let count = 0
@@ -34,7 +38,7 @@ export async function notifyTripMembers({
     batch.set(ref, {
       title,
       body,
-      type: 'trip',
+      type: msgType,
       tripPath: tripPath ?? null,
       read: false,
       createdAt: serverTimestamp(),
@@ -43,7 +47,7 @@ export async function notifyTripMembers({
   }
 
   // 초대 수락한 멤버 알림 (Firebase UID = 28자 이상, 6자 코드 제외)
-  const memberPath = viewCode ? `/share/${viewCode}` : (tripPath ?? null)
+  const memberPath = memberPathOverride ?? (viewCode ? `/share/${viewCode}` : (tripPath ?? null))
   for (const m of members) {
     if (m.role === 'owner') continue
     if (!m.id || m.id === actorUid || m.id.length < 15) continue
@@ -51,7 +55,7 @@ export async function notifyTripMembers({
     batch.set(ref, {
       title,
       body,
-      type: 'trip',
+      type: msgType,
       tripPath: memberPath,
       read: false,
       createdAt: serverTimestamp(),

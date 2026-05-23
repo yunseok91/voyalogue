@@ -13,6 +13,13 @@ import { getRatesInKRW, toKRW, formatKRW, formatLocal } from '@/lib/exchangeRate
 import { detectCurrencies, CURRENCY_SYMBOLS } from '@/lib/currencyMap'
 
 /* ── 타입 ── */
+type FixedItem = {
+  price?:           number
+  currency?:        string
+  includeInSettlement?: boolean
+  participantIds?:  string[]
+}
+
 type TripMeta = {
   city:               string
   title?:             string
@@ -34,6 +41,8 @@ type TripMeta = {
     hexColor?:   string
     left?:       boolean
   }>
+  flights?:        FixedItem[]
+  accommodations?: FixedItem[]
 }
 
 type PlanItem = {
@@ -182,10 +191,14 @@ function SummaryContent({ tripId }: { tripId: string }) {
   }, [!!meta])
 
   /* ── 파생 데이터 (rates 포함) ── */
-  const totalSpent = useMemo(
-    () => allItems.reduce((s, i) => s + toKRW(i.price ?? 0, i.currency || 'KRW', rates), 0),
-    [allItems, rates]
-  )
+  const totalSpent = useMemo(() => {
+    const items = allItems.reduce((s, i) => s + toKRW(i.price ?? 0, i.currency || 'KRW', rates), 0)
+    const flights = (meta?.flights ?? []).filter(f => f.price && f.includeInSettlement)
+      .reduce((s, f) => s + toKRW(f.price!, f.currency ?? 'KRW', rates), 0)
+    const accs = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement)
+      .reduce((s, a) => s + toKRW(a.price!, a.currency ?? 'KRW', rates), 0)
+    return items + flights + accs
+  }, [allItems, rates, meta])
 
   const budgetPct = meta ? Math.min(100, Math.round((totalSpent / (meta.budget || 1)) * 100)) : 0
 
@@ -214,13 +227,20 @@ function SummaryContent({ tripId }: { tripId: string }) {
   const totalSpentLocal = useMemo(() => {
     if (!isOverseas) return 0
     const rate = rates[primaryCurrency] ?? 1
-    return allItems.reduce((s, i) => {
+    const items = allItems.reduce((s, i) => {
       if (!i.price || i.price <= 0) return s
       return s + (i.currency === primaryCurrency
         ? i.price
         : toKRW(i.price, i.currency || 'KRW', rates) / rate)
     }, 0)
-  }, [allItems, rates, primaryCurrency, isOverseas])
+    const toLocal = (price: number, currency: string) =>
+      currency === primaryCurrency ? price : toKRW(price, currency, rates) / rate
+    const flights = (meta?.flights ?? []).filter(f => f.price && f.includeInSettlement)
+      .reduce((s, f) => s + toLocal(f.price!, f.currency ?? 'KRW'), 0)
+    const accs = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement)
+      .reduce((s, a) => s + toLocal(a.price!, a.currency ?? 'KRW'), 0)
+    return items + flights + accs
+  }, [allItems, rates, primaryCurrency, isOverseas, meta])
 
   const daySummaries = useMemo(() =>
     dayMetas.map(dm => {
@@ -242,12 +262,29 @@ function SummaryContent({ tripId }: { tripId: string }) {
     [dayMetas, allItems, rates, primaryCurrency]
   )
 
-  /* 멤버별 지출 (KRW) */
+  /* 멤버별 지출 (KRW) — 일정 + 비행기 + 숙소 포함 */
   const memberSpent = useMemo(() => {
     const members = (meta?.members ?? []).filter(m => !m.left)
     if (!members.length) return {} as Record<string, number>
     const result: Record<string, number> = {}
     members.forEach(m => { result[m.id] = 0 })
+
+    const addFixed = (items: FixedItem[]) => {
+      items.forEach(item => {
+        if (!item.price || !item.includeInSettlement) return
+        const krw = toKRW(item.price, item.currency ?? 'KRW', rates)
+        if (!krw || krw <= 0) return
+        const validIds = (item.participantIds ?? []).filter(id => id in result)
+        if (validIds.length > 0) {
+          const share = krw / validIds.length
+          validIds.forEach(id => { result[id] += share })
+        } else {
+          const share = krw / members.length
+          members.forEach(m => { result[m.id] += share })
+        }
+      })
+    }
+
     allItems.forEach(item => {
       const krw = toKRW(item.price ?? 0, item.currency || 'KRW', rates)
       if (!krw || krw <= 0) return
@@ -261,10 +298,12 @@ function SummaryContent({ tripId }: { tripId: string }) {
         members.forEach(m => { result[m.id] += share })
       }
     })
+    addFixed(meta?.flights ?? [])
+    addFixed(meta?.accommodations ?? [])
     return result
   }, [allItems, rates, meta])
 
-  /* 멤버별 지출 (현지 통화) — 해외 여행 전용 */
+  /* 멤버별 지출 (현지 통화) — 해외 여행 전용, 비행기·숙소 포함 */
   const memberSpentLocal = useMemo(() => {
     if (!isOverseas) return {} as Record<string, number>
     const members = (meta?.members ?? []).filter(m => !m.left)
@@ -272,9 +311,27 @@ function SummaryContent({ tripId }: { tripId: string }) {
     const result: Record<string, number> = {}
     members.forEach(m => { result[m.id] = 0 })
     const rate = rates[primaryCurrency] ?? 1
+
+    const addLocalFixed = (items: FixedItem[]) => {
+      items.forEach(item => {
+        if (!item.price || !item.includeInSettlement) return
+        const local = (item.currency ?? 'KRW') === primaryCurrency
+          ? item.price
+          : toKRW(item.price, item.currency ?? 'KRW', rates) / rate
+        if (!local || local <= 0) return
+        const validIds = (item.participantIds ?? []).filter(id => id in result)
+        if (validIds.length > 0) {
+          const share = local / validIds.length
+          validIds.forEach(id => { result[id] += share })
+        } else {
+          const share = local / members.length
+          members.forEach(m => { result[m.id] += share })
+        }
+      })
+    }
+
     allItems.forEach(item => {
       if (!item.price || item.price <= 0) return
-      /* 모든 금액을 primaryCurrency로 환산 */
       const local = item.currency === primaryCurrency
         ? item.price
         : toKRW(item.price, item.currency || 'KRW', rates) / rate
@@ -288,6 +345,8 @@ function SummaryContent({ tripId }: { tripId: string }) {
         members.forEach(m => { result[m.id] += share })
       }
     })
+    addLocalFixed(meta?.flights ?? [])
+    addLocalFixed(meta?.accommodations ?? [])
     return result
   }, [allItems, rates, meta, isOverseas, primaryCurrency])
 
@@ -320,13 +379,17 @@ function SummaryContent({ tripId }: { tripId: string }) {
     )
   }
 
+  const tripEnded = meta.endDate ? new Date(meta.endDate) < new Date() : false
   const reviewList = Object.entries(memberReviews).sort((a, b) => b[1].createdAt - a[1].createdAt)
   const activeMembers = (meta.members ?? []).filter(m => !m.left)
+  const reviewAvg = reviewList.length > 0
+    ? reviewList.reduce((s, [, r]) => s + r.rating, 0) / reviewList.length
+    : 0
 
-  /* 히어로 카드 배경 */
-  const heroStyle: React.CSSProperties = meta.coverPhotoURL
+  /* 히어로 카드 — 사진/그라디언트 배경 스타일 */
+  const heroBgStyle: React.CSSProperties = meta.coverPhotoURL
     ? {
-        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.25) 0%, rgba(0,0,0,0.65) 100%), url(${meta.coverPhotoURL})`,
+        backgroundImage: `url(${meta.coverPhotoURL})`,
         backgroundSize: 'cover',
         backgroundPosition: `center ${meta.coverPhotoPosition ?? 50}%`,
       }
@@ -338,7 +401,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
     <div className="min-h-screen bg-[#F8FAFC]" style={{ fontFamily: 'Inter, sans-serif' }}>
 
       {/* ── Navbar ── */}
-      <nav className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-4 sticky top-0 z-10">
+      <nav className="h-14 bg-white border-b border-gray-200 flex items-center px-4 sm:px-6 gap-4 sticky top-0 z-30">
         <Link
           href={isOwner ? `/trips/${tripId}` : '#'}
           onClick={!isOwner ? (e) => { e.preventDefault(); window.history.back() } : undefined}
@@ -348,40 +411,64 @@ function SummaryContent({ tripId }: { tripId: string }) {
           {isOwner ? '플래너' : '일정'}
         </Link>
         <div className="h-4 w-px bg-gray-200" />
-        <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>여행 요약</span>
+        <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>대시보드</span>
       </nav>
 
       <main className="max-w-[860px] mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-6 sm:gap-8">
 
         {/* ── 히어로 카드 ── */}
-        <div className="rounded-3xl p-6 sm:p-8 relative overflow-hidden" style={heroStyle}>
+        <div className="rounded-3xl overflow-hidden relative" style={{ minHeight: 220, ...heroBgStyle }}>
+          {/* 그라데이션: 하단 진하게 → 상단 투명 */}
+          <div className="absolute inset-0" style={{
+            background: meta.coverPhotoURL
+              ? 'linear-gradient(to top, rgba(0,0,0,0.82) 0%, rgba(0,0,0,0.40) 50%, rgba(0,0,0,0.15) 100%)'
+              : 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.10) 60%, transparent 100%)',
+          }} />
+
+          {/* 그라디언트 배경일 때 데코 원형 */}
           {!meta.coverPhotoURL && (
-            <div className="absolute right-0 top-0 w-64 h-64 rounded-full bg-white/5 -translate-y-1/4 translate-x-1/4" />
+            <>
+              <div className="absolute right-0 top-0 w-72 h-72 rounded-full bg-white/10 -translate-y-1/3 translate-x-1/3" />
+              <div className="absolute left-0 bottom-0 w-48 h-48 rounded-full bg-black/10 translate-y-1/3 -translate-x-1/4" />
+            </>
           )}
-          <div className="relative z-10">
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin className="w-4 h-4 text-white/80" />
-              <span className="text-sm font-semibold text-white/80">여행 완료</span>
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-extrabold mb-2 text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+
+          {/* 여행 완료 뱃지 — 우상단 */}
+          <div className="absolute top-4 left-4 flex items-center gap-1.5">
+            <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white">
+              <MapPin className="w-3 h-3" /> {tripEnded ? '여행 완료' : '여행 중'}
+            </span>
+          </div>
+
+          {/* 텍스트 — 하단 고정 */}
+          <div className="relative px-5 sm:px-7 pt-16 pb-5 sm:pb-6 flex flex-col justify-end">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-white leading-tight mb-1"
+              style={{ fontFamily: 'Space Grotesk, sans-serif', textShadow: '0 2px 12px rgba(0,0,0,0.5)' }}>
               {meta.title || meta.city}
             </h1>
-            <p className="text-white/75 text-sm">
-              {meta.startDate?.slice(5).replace('-','/')} – {meta.endDate?.slice(5).replace('-','/')} · {meta.nights}박 {meta.days}일 · {meta.people || 2}명
+            {meta.title && (
+              <p className="text-white/70 text-sm font-medium mb-0.5">{meta.city}</p>
+            )}
+            <p className="text-white/75 text-sm font-medium">
+              {meta.startDate?.slice(5).replace('-','/')} – {meta.endDate?.slice(5).replace('-','/')}
+              {' · '}{meta.nights}박 {meta.days}일{' · '}{meta.people || 2}명
             </p>
-            {!itemsLoading && allItems.length > 0 && (
-              <div className="flex items-center gap-4 sm:gap-6 mt-5 flex-wrap">
+
+            {/* 핵심 통계 */}
+            {!itemsLoading && totalSpent > 0 && (
+              <div className="flex items-end gap-5 sm:gap-8 mt-4 pt-4 border-t border-white/20 flex-wrap">
                 {([
                   { val: `${meta.nights}박`, label: '총 박수', sub: null },
                   { val: formatKRW(totalSpent) || '0원', label: '총 지출', sub: isOverseas && totalSpentLocal > 0 ? `${CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}${Math.round(totalSpentLocal).toLocaleString()}` : null },
                   { val: `${fiveStarCount}곳`, label: '별점 5점', sub: null },
                 ] as Array<{ val: string; label: string; sub: string | null }>).map(({ val, label, sub }, i) => (
                   <React.Fragment key={label}>
-                    {i > 0 && <div className="w-px h-8 bg-white/20" />}
+                    {i > 0 && <div className="w-px h-7 bg-white/25 self-center" />}
                     <div>
-                      {sub && <p className="text-xs text-white/60 leading-none mb-0.5">{sub}</p>}
-                      <p className="text-xl sm:text-2xl font-extrabold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{val}</p>
-                      <p className="text-white/60 text-xs mt-0.5">{label}</p>
+                      <p className="text-[11px] text-white/60 leading-none mb-0.5 min-h-[14px]">{sub ?? ''}</p>
+                      <p className="text-xl sm:text-2xl font-extrabold text-white leading-none"
+                        style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{val}</p>
+                      <p className="text-white/55 text-[11px] mt-0.5">{label}</p>
                     </div>
                   </React.Fragment>
                 ))}
@@ -390,12 +477,18 @@ function SummaryContent({ tripId }: { tripId: string }) {
           </div>
         </div>
 
-        {/* ── 공통: 예산 + 베스트 장소 ── */}
-        {!itemsLoading && allItems.length > 0 && (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-              {/* 예산 요약 */}
-              {(meta.budget || 0) > 0 && (
+        {/* ── 로딩 중 ── */}
+        {itemsLoading && (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-6 h-6 text-blue-500 animate-spin" />
+          </div>
+        )}
+
+        {/* ── 예산 + 베스트 장소 ── */}
+        {!itemsLoading && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+            {/* 예산 요약 */}
+            {(meta.budget || 0) > 0 && (
                 <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 flex flex-col gap-4">
                   <div className="flex items-center gap-2">
                     <Wallet className="w-4 h-4 text-blue-600" />
@@ -460,22 +553,26 @@ function SummaryContent({ tripId }: { tripId: string }) {
                 )}
               </div>
             </div>
+          )}
 
-            {/* 멤버별 지출 */}
-            {activeMembers.length > 1 && Object.keys(memberSpent).length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-                <div className="flex items-center gap-2 mb-4">
-                  <Users className="w-4 h-4 text-indigo-600" />
-                  <h2 className="text-sm font-bold text-gray-900">멤버별 지출</h2>
-                  <span className="text-xs text-gray-400 ml-1">균등 분배 기준</span>
-                </div>
+          {/* 멤버별 지출 */}
+          {!itemsLoading && activeMembers.length > 1 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Users className="w-4 h-4 text-indigo-600" />
+                <h2 className="text-sm font-bold text-gray-900">멤버별 지출</h2>
+                <span className="text-xs text-gray-400 ml-1">참여 기준 분담액</span>
+              </div>
+              {totalSpent === 0 ? (
+                <p className="text-sm text-gray-400">아직 지출 내역이 없어요.</p>
+              ) : (
                 <div className="flex flex-col gap-3">
                   {activeMembers
                     .sort((a, b) => (memberSpent[b.id] ?? 0) - (memberSpent[a.id] ?? 0))
                     .map(m => {
-                      const spent  = memberSpent[m.id] ?? 0
-                      const pct    = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0
-                      const isMe   = m.id === user!.uid
+                      const spent = memberSpent[m.id] ?? 0
+                      const pct   = totalSpent > 0 ? Math.round((spent / totalSpent) * 100) : 0
+                      const isMe  = m.id === user!.uid
                       return (
                         <div key={m.id}>
                           <div className="flex items-center justify-between mb-1">
@@ -504,73 +601,77 @@ function SummaryContent({ tripId }: { tripId: string }) {
                             </div>
                           </div>
                           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-indigo-400 rounded-full transition-all"
-                              style={{ width: `${pct}%` }}
-                            />
+                            <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
                           </div>
                         </div>
                       )
                     })}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
+          )}
 
-            {/* 일별 하이라이트 */}
-            {daySummaries.length > 0 && (
-              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-                <div className="flex items-center gap-2 mb-5">
-                  <Camera className="w-4 h-4 text-violet-600" />
-                  <h2 className="text-sm font-bold text-gray-900">일별 하이라이트</h2>
-                </div>
-                <div className="flex flex-col gap-0">
-                  {daySummaries.map((d, i) => (
-                    <div key={i} className="flex gap-4 pb-5 last:pb-0">
-                      <div className="flex flex-col items-center flex-shrink-0 w-8">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[11px] font-bold text-white">
-                          {fmtDate(d.date) || d.label.replace('Day ','')}
-                        </div>
-                        {i < daySummaries.length - 1 && (
-                          <div className="w-0.5 bg-gray-100 flex-1 mt-1" style={{ minHeight: 20 }} />
-                        )}
+          {/* 일별 하이라이트 */}
+          {!itemsLoading && daySummaries.length > 0 && (
+            <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <Camera className="w-4 h-4 text-violet-600" />
+                <h2 className="text-sm font-bold text-gray-900">일별 하이라이트</h2>
+              </div>
+              <div className="flex flex-col gap-0">
+                {daySummaries.map((d, i) => (
+                  <div key={i} className="flex gap-4 pb-5 last:pb-0">
+                    <div className="flex flex-col items-center flex-shrink-0 w-8">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-[11px] font-bold text-white">
+                        {fmtDate(d.date) || d.label.replace('Day ','')}
                       </div>
-                      <div className="flex-1 pt-1">
-                        <p className="text-sm font-bold text-gray-900 mb-1">{d.label}</p>
-                        <div className="flex flex-wrap gap-1.5 mb-1">
-                          {d.highlights.length > 0
-                            ? d.highlights.map((h, j) => (
-                                <span key={j} className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{h}</span>
-                              ))
-                            : <span className="text-xs text-gray-400">일정 없음</span>
-                          }
-                        </div>
-                        {d.spent > 0 && (
-                          <p className="text-xs text-gray-400">
-                            {isOverseas && d.spentLocal > 0 && (
-                              <span className="mr-1">
-                                {CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}{Math.round(d.spentLocal).toLocaleString()}
-                              </span>
-                            )}
-                            {isOverseas && d.spentLocal > 0 && <span className="mr-1">·</span>}
-                            {formatKRW(d.spent)} 지출
-                          </p>
-                        )}
-                      </div>
+                      {i < daySummaries.length - 1 && (
+                        <div className="w-0.5 bg-gray-100 flex-1 mt-1" style={{ minHeight: 20 }} />
+                      )}
                     </div>
-                  ))}
-                </div>
+                    <div className="flex-1 pt-1">
+                      <p className="text-sm font-bold text-gray-900 mb-1">{d.label}</p>
+                      <div className="flex flex-wrap gap-1.5 mb-1">
+                        {d.highlights.length > 0
+                          ? d.highlights.map((h, j) => (
+                              <span key={j} className="text-xs bg-gray-100 text-gray-600 px-2.5 py-1 rounded-full">{h}</span>
+                            ))
+                          : <span className="text-xs text-gray-400">일정 없음</span>
+                        }
+                      </div>
+                      {d.spent > 0 && (
+                        <p className="text-xs text-gray-400">
+                          {isOverseas && d.spentLocal > 0 && (
+                            <span className="mr-1">
+                              {CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}{Math.round(d.spentLocal).toLocaleString()}
+                            </span>
+                          )}
+                          {isOverseas && d.spentLocal > 0 && <span className="mr-1">·</span>}
+                          {formatKRW(d.spent)} 지출
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
-            )}
-          </>
-        )}
+            </div>
+          )}
 
-        {/* 멤버 리뷰 목록 — 모든 멤버 공개 */}
-        {reviewList.length > 0 && (
+        {/* 멤버 리뷰 목록 — 여행 종료 후 공개 */}
+        {tripEnded && reviewList.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <Users className="w-4 h-4 text-blue-600" />
-              <h2 className="text-sm font-bold text-gray-900">멤버 리뷰</h2>
-              <span className="text-xs text-gray-400 ml-1">{reviewList.length}명 작성</span>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-blue-600" />
+                <h2 className="text-sm font-bold text-gray-900">멤버 리뷰</h2>
+                <span className="text-xs text-gray-400 ml-1">{reviewList.length}명 작성</span>
+              </div>
+              {reviewAvg > 0 && (
+                <div className="flex items-center gap-1.5">
+                  <SmallStars rating={reviewAvg} />
+                  <span className="text-sm font-bold text-gray-900">{reviewAvg.toFixed(1)}</span>
+                </div>
+              )}
             </div>
             <div className="flex flex-col gap-4">
               {reviewList.map(([reviewUid, r]) => {
@@ -604,8 +705,14 @@ function SummaryContent({ tripId }: { tripId: string }) {
           </div>
         )}
 
-        {/* ── 내 리뷰 입력 ── */}
-        {submitted ? (
+        {/* ── 내 리뷰 입력 — 방장 제외, 여행 종료 후에만 ── */}
+        {isOwner ? null : !tripEnded ? (
+          <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6 flex flex-col items-center gap-3 text-center">
+            <Star className="w-8 h-8 text-gray-200" />
+            <p className="text-sm text-gray-500 font-semibold">여행이 끝나면 리뷰를 남길 수 있어요</p>
+            <p className="text-xs text-gray-400">{meta.endDate?.slice(5).replace('-','/')} 이후 활성화됩니다</p>
+          </div>
+        ) : submitted ? (
           <div className="bg-white rounded-2xl border border-gray-200 p-8 flex flex-col items-center gap-4 text-center">
             <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center">
               <CheckCircle className="w-7 h-7 text-emerald-600" />
@@ -615,13 +722,12 @@ function SummaryContent({ tripId }: { tripId: string }) {
             </h3>
             <SmallStars rating={overallRating} />
             {review && <p className="text-sm text-gray-600 max-w-sm">"{review}"</p>}
-            <Link
-              href={isOwner ? '/trips' : '#'}
-              onClick={!isOwner ? (e) => { e.preventDefault(); window.history.back() } : undefined}
+            <button
+              onClick={() => window.history.back()}
               className="mt-2 flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-bold transition-colors"
             >
-              {isOwner ? '내 여행 목록으로' : '일정으로 돌아가기'} <ChevronRight className="w-4 h-4" />
-            </Link>
+              일정으로 돌아가기 <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         ) : (
           <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -656,10 +762,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    if (isOwner) window.location.href = '/trips'
-                    else window.history.back()
-                  }}
+                  onClick={() => window.history.back()}
                   className="px-5 py-3.5 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-colors whitespace-nowrap"
                 >
                   건너뛰기

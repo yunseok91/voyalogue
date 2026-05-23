@@ -11,9 +11,11 @@ export type FlightItem = {
   arriveTime: string
   lat?:       number
   lng?:       number
-  price?:            number
-  currency?:         string
-  includeInSettlement?:  boolean
+  price?:               number
+  currency?:            string
+  includeInSettlement?: boolean
+  payerId?:             string
+  participantIds?:      string[]
 }
 
 export type AccommodationItem = {
@@ -25,9 +27,11 @@ export type AccommodationItem = {
   checkOutTime:     string
   lat?:             number
   lng?:             number
-  price?:           number
-  currency?:        string
+  price?:               number
+  currency?:            string
   includeInSettlement?: boolean
+  payerId?:             string
+  participantIds?:      string[]
 }
 
 type DayEntry = { dayId: string }
@@ -120,7 +124,7 @@ export function FixedScheduleSection({
       {dayAccs.map(({ acc, role }) => (
         <div key={`${acc.id}-${role}`}
           className={`flex items-center gap-3 pl-0 pr-3 py-0 bg-white border border-amber-200 rounded-xl overflow-hidden shadow-sm ${acc.lat && acc.lng && onFocusMap ? 'cursor-pointer hover:border-amber-400 transition-colors' : ''}`}
-          onClick={() => acc.lat && acc.lng && onFocusMap?.(`${acc.id}_${role === 'checkout' ? 'out' : 'in'}`)}
+          onClick={() => acc.lat && acc.lng && onFocusMap?.(`${acc.id}_in`)}
         >
           <div className={`w-10 h-full min-h-[52px] flex items-center justify-center flex-shrink-0 ${
             role === 'stay' ? 'bg-amber-300' : 'bg-amber-500'

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter, useParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset } from 'lucide-react'
+import { useRouter, useParams, useSearchParams } from 'next/navigation'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone } from 'lucide-react'
 import {
   collection, getDoc, getDocs,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -76,6 +76,7 @@ type TripMeta = {
   textDark?:            boolean
   coverPhotoURL?:       string
   coverPhotoPosition?:  number
+  notice?:              string
 }
 
 type PlanItem = {
@@ -789,6 +790,7 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
 export default function SharePage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading: authLoading } = useAuthStore()
 
   const [trip,         setTrip]        = useState<TripMeta | null>(null)
@@ -814,6 +816,7 @@ export default function SharePage() {
     useRef<HTMLInputElement>(null),
   ]
   const [showChecklist, setShowChecklist] = useState(false)
+  const [showNotice,    setShowNotice]    = useState(false)
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
@@ -870,6 +873,7 @@ export default function SharePage() {
       if (!tripSnap.exists()) { setNotFound(true); return }
 
       setTrip({ uid, id: tripId, ...(tripSnap.data() as Omit<TripMeta, 'uid' | 'id'>) })
+      if (searchParams.get('notice') === '1') setShowNotice(true)
       if (pin) {
         setPinRequired(true)
         setStoredPin(pin)
@@ -1347,6 +1351,7 @@ export default function SharePage() {
         onMemberClick={() => setShowMemberPopup(true)}
         onChecklistToggle={() => setShowChecklist(v => !v)}
         onReportClick={() => setShowReport(true)}
+        onNoticeClick={() => setShowNotice(true)}
         onLeaveTrip={trip.uid !== user?.uid ? handleLeaveTrip : undefined}
       />
 
@@ -1715,7 +1720,7 @@ export default function SharePage() {
           <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" onClick={() => setShowChecklist(false)} />
           <div className="relative z-50 w-80 bg-white h-full shadow-2xl flex flex-col">
             <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-              <h3 className="font-bold text-gray-900">여행 체크리스트</h3>
+              <h3 className="font-bold text-gray-900">여행 준비물</h3>
               <button onClick={() => setShowChecklist(false)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
                 <X className="w-4 h-4" />
               </button>
@@ -1782,6 +1787,34 @@ export default function SharePage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* ── 공지사항 팝업 (멤버 read-only) ── */}
+      {showNotice && trip && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowNotice(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <div className="flex items-center gap-2">
+                <Megaphone className="w-4 h-4 text-amber-500" />
+                <span className="font-bold text-gray-900 text-sm">공지사항</span>
+              </div>
+              <button
+                onClick={() => setShowNotice(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="px-5 py-5">
+              {trip.notice ? (
+                <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">{trip.notice}</p>
+              ) : (
+                <p className="text-sm text-gray-400">아직 공지사항이 없어요.</p>
+              )}
+            </div>
           </div>
         </div>
       )}

@@ -328,8 +328,8 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     ],
   },
   {
-    id: 'vibe', label: '여행 바이브는?', sub: '스타일·관심사를 한 번에',
-    type: 'select', enabled: true, order: 5, required: true,
+    id: 'vibe', label: '여행 바이브는?', sub: '복수 선택 가능',
+    type: 'multiselect', enabled: true, order: 5, required: true,
     options: [
       { label: '🍜 먹방 중심',       value: '먹방중심' },
       { label: '🏯 핫플 + 관광',     value: '핫플관광' },
@@ -362,6 +362,9 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     options: [
       { label: '🚇 대중교통',  value: '대중교통' },
       { label: '🚗 렌터카',    value: '렌터카'   },
+      { label: '🛵 오토바이',  value: '오토바이' },
+      { label: '🚶 도보',      value: '도보'     },
+      { label: '🚲 자전거',    value: '자전거'   },
       { label: '🤷 아직 모름', value: '미정'     },
     ],
   },
@@ -449,7 +452,7 @@ interface Props {
   onClose: () => void
 }
 
-const DAILY_LIMIT = 10
+const DAILY_LIMIT = 3
 
 export function AiTripPlanner({ onClose }: Props) {
   const router       = useRouter()
@@ -570,7 +573,7 @@ export function AiTripPlanner({ onClose }: Props) {
           nights:                Number(answers['nights']),
           companion:             answers['companion']             ?? '커플',
           people:                answers['people']               ?? '3',
-          vibe:                  answers['vibe']                  ?? '핫플관광',
+          vibe:                  answers['vibe']                  ?? ['핫플관광'],
           pace:                  answers['pace']                  ?? '적당히',
           foodPref:              answers['foodPref']              ?? [],
           accommodation:         answers['accommodation']         ?? 'recommend',
@@ -695,7 +698,7 @@ export function AiTripPlanner({ onClose }: Props) {
       await batch.commit()
 
       localStorage.setItem('showServiceReview', '1')
-      router.push(`/trips/${tripRef.id}`)
+      router.push(`/trips/${tripRef.id}/overview`)
     } catch (e) {
       setError('저장 중 오류가 발생했습니다. 다시 시도해주세요.')
       setPhase('preview')

@@ -2,27 +2,31 @@ import * as XLSX from 'xlsx'
 
 /* ── 타입 ── */
 export type TripRow = {
-  id:        string
-  city:      string
-  startDate: string
-  endDate:   string
-  nights:    number
-  days:      number
-  status:    string
-  gradient?: string
+  title:      string   // 여행 제목 (title || city)
+  city:       string
+  ownerName:  string
+  startDate:  string
+  endDate:    string
+  nights:     number
+  days:       number
+  memberList: string   // 쉼표 구분 | "혼자"
 }
 
 export type ItemRow = {
-  tripId:   string
-  city:     string
-  day:      string   // 'Day 1'
-  date:     string   // 'YYYY-MM-DD'
-  timeSlot: string
-  name:     string
-  category: string
-  price:    number
-  comment:  string
-  rating:   number
+  tripTitle:    string
+  city:         string
+  day:          string   // 'Day 1'
+  date:         string   // 'YYYY-MM-DD'
+  timeSlot:     string
+  name:         string
+  category:     string
+  priceLocal:   string   // '¥980' | '₩5,000'
+  priceKRW:     number
+  comment:      string
+  participants: string   // 이름 쉼표 구분 | '전체'
+  /* 정렬용 내부 키 (엑셀 출력 제외) */
+  _dayNum?:     number
+  _order?:      number
 }
 
 export type ExcelData = {
@@ -30,95 +34,61 @@ export type ExcelData = {
   items: ItemRow[]
 }
 
+/* ── 상수 ── */
+const TIME_ORDER: Record<string, number> = {
+  아침: 0, 점심: 1, 저녁: 2, 미정: 3,
+}
+
+const CAT_KO: Record<string, string> = {
+  식사: '식사', 장소: '관광', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
+}
+
 /* ── 내보내기 ── */
 export function exportToExcel(data: ExcelData, filename = '내_여행_일정') {
   const wb = XLSX.utils.book_new()
 
-  /* Sheet 1: 여행 목록 */
-  const tripHeaders = ['여행ID', '도시', '시작일', '종료일', '박수', '일수', '상태']
-  const tripRows = data.trips.map(t => [
-    t.id, t.city, t.startDate, t.endDate, t.nights, t.days, t.status,
+  /* ── Sheet 1 : 여행 목록 ── */
+  const tripHeaders = ['여행 제목', '도시', '방장', '시작일', '종료일', '박수', '일수', '멤버']
+  const tripRows    = data.trips.map(t => [
+    t.title, t.city, t.ownerName,
+    t.startDate, t.endDate,
+    t.nights, t.days,
+    t.memberList,
   ])
   const ws1 = XLSX.utils.aoa_to_sheet([tripHeaders, ...tripRows])
   ws1['!cols'] = [
-    { wch: 8 }, { wch: 20 }, { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 8 },
+    { wch: 26 }, { wch: 16 }, { wch: 12 },
+    { wch: 12 }, { wch: 12 }, { wch: 6 }, { wch: 6 }, { wch: 36 },
   ]
   XLSX.utils.book_append_sheet(wb, ws1, '여행 목록')
 
-  /* Sheet 2: 일정 */
-  const itemHeaders = ['여행ID', '도시', '날', '날짜', '시간대', '장소명', '카테고리', '비용(원)', '메모', '별점']
-  const itemRows = data.items.map(i => [
-    i.tripId, i.city, i.day, i.date, i.timeSlot, i.name,
-    i.category, i.price, i.comment, i.rating,
+  /* ── Sheet 2 : 일정 (시간대 아침→점심→저녁→미정 순 정렬) ── */
+  const sorted = [...data.items].sort((a, b) => {
+    if (a.tripTitle !== b.tripTitle) return a.tripTitle.localeCompare(b.tripTitle)
+    const da = a._dayNum ?? 0, db = b._dayNum ?? 0
+    if (da !== db) return da - db
+    const ta = TIME_ORDER[a.timeSlot] ?? 3, tb = TIME_ORDER[b.timeSlot] ?? 3
+    if (ta !== tb) return ta - tb
+    return (a._order ?? 0) - (b._order ?? 0)
+  })
+
+  const itemHeaders = [
+    '여행', '도시', '날', '날짜', '시간대', '장소', '카테고리',
+    '비용(통화)', '비용(원화)', '메모', '참여 멤버',
+  ]
+  const itemRows = sorted.map(i => [
+    i.tripTitle, i.city, i.day, i.date, i.timeSlot, i.name,
+    CAT_KO[i.category] ?? i.category,
+    i.priceLocal, i.priceKRW,
+    i.comment, i.participants,
   ])
   const ws2 = XLSX.utils.aoa_to_sheet([itemHeaders, ...itemRows])
   ws2['!cols'] = [
-    { wch: 8 }, { wch: 16 }, { wch: 8 }, { wch: 12 },
-    { wch: 8 }, { wch: 24 }, { wch: 8 }, { wch: 10 }, { wch: 28 }, { wch: 6 },
+    { wch: 22 }, { wch: 14 }, { wch: 7 }, { wch: 12 },
+    { wch: 7 }, { wch: 26 }, { wch: 7 },
+    { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 24 },
   ]
   XLSX.utils.book_append_sheet(wb, ws2, '일정')
 
   XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`)
-}
-
-/* ── 가져오기 ── */
-export type ImportResult =
-  | { ok: true;  data: ExcelData }
-  | { ok: false; error: string }
-
-export function importFromExcel(file: File): Promise<ImportResult> {
-  return new Promise(resolve => {
-    const reader = new FileReader()
-    reader.onload = e => {
-      try {
-        const ab  = e.target?.result as ArrayBuffer
-        const wb  = XLSX.read(ab, { type: 'array' })
-
-        /* 시트 존재 확인 */
-        const sheet1 = wb.Sheets['여행 목록']
-        const sheet2 = wb.Sheets['일정']
-        if (!sheet1 || !sheet2) {
-          resolve({ ok: false, error: '"여행 목록"과 "일정" 시트가 모두 필요합니다.' })
-          return
-        }
-
-        const tripRaw  = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet1)
-        const itemRaw  = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet2)
-
-        const trips: TripRow[] = tripRaw.map((r, i) => ({
-          id:        String(r['여행ID']   ?? `imported_${i}`),
-          city:      String(r['도시']     ?? ''),
-          startDate: String(r['시작일']   ?? ''),
-          endDate:   String(r['종료일']   ?? ''),
-          nights:    Number(r['박수']     ?? 0),
-          days:      Number(r['일수']     ?? 0),
-          status:    String(r['상태']     ?? ''),
-        })).filter(t => t.city)
-
-        const items: ItemRow[] = itemRaw.map((r, i) => ({
-          tripId:   String(r['여행ID']   ?? ''),
-          city:     String(r['도시']     ?? ''),
-          day:      String(r['날']       ?? ''),
-          date:     String(r['날짜']     ?? ''),
-          timeSlot: String(r['시간대']   ?? '미정'),
-          name:     String(r['장소명']   ?? ''),
-          category: String(r['카테고리'] ?? '기타'),
-          price:    Number(r['비용(원)'] ?? 0),
-          comment:  String(r['메모']     ?? ''),
-          rating:   Number(r['별점']     ?? 0),
-        })).filter(i => i.name)
-
-        if (trips.length === 0) {
-          resolve({ ok: false, error: '유효한 여행 데이터가 없습니다.' })
-          return
-        }
-
-        resolve({ ok: true, data: { trips, items } })
-      } catch {
-        resolve({ ok: false, error: '파일을 읽는 중 오류가 발생했습니다.' })
-      }
-    }
-    reader.onerror = () => resolve({ ok: false, error: '파일 읽기에 실패했습니다.' })
-    reader.readAsArrayBuffer(file)
-  })
 }

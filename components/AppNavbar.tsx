@@ -62,7 +62,7 @@ export function AppNavbar({
 
   return (
     <>
-      <nav className="nav-bar justify-between flex-shrink-0">
+      <nav className="nav-bar justify-between flex-shrink-0 relative">
         {/* 로고 */}
         <Link href="/" className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity">
           <div className="w-5 h-5 rounded-full bg-blue-600" />
@@ -73,7 +73,7 @@ export function AppNavbar({
         </Link>
 
         {/* 가운데 탭 */}
-        <div className="hidden sm:flex items-center gap-6 text-sm">
+        <div className="hidden sm:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-sm">
           {active === 'trips'
             ? <span className="text-blue-600 font-semibold">내 여행</span>
             : <Link href="/trips" className="text-gray-500 hover:text-gray-900 transition-colors">내 여행</Link>

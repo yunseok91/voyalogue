@@ -9,7 +9,7 @@ import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
-import { ExcelModal } from '@/components/organisms/ExcelModal'
+import { ExcelModal, type LiveTrip } from '@/components/organisms/ExcelModal'
 import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
 import { ReportModal } from '@/components/ReportModal'
 import { AppNavbar } from '@/components/AppNavbar'
@@ -402,7 +402,10 @@ function TripsContent() {
 
   const sortedInvited = useMemo(() => {
     const withStatus = invitedTrips.map(t => ({ ...t, status: getStatus(t) }))
-    const filtered = filter === 'all' ? withStatus : withStatus.filter(t => t.status === filter)
+    let filtered = filter === 'all' ? withStatus : withStatus.filter(t => t.status === filter)
+    if (countryFilter) {
+      filtered = filtered.filter(t => parseTripCountry(t.city) === countryFilter)
+    }
     return filtered.sort((a, b) => {
       const od = STATUS_ORDER[a.status] - STATUS_ORDER[b.status]
       if (od !== 0) return od
@@ -410,7 +413,7 @@ function TripsContent() {
         ? new Date(b.startDate).getTime() - new Date(a.startDate).getTime()
         : new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
     })
-  }, [invitedTrips, filter])
+  }, [invitedTrips, filter, countryFilter])
 
   const totalPages   = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE))
   const currentTrips = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -1092,7 +1095,14 @@ function TripsContent() {
       {showExcel && user && (
         <ExcelModal
           onClose={() => setShowExcel(false)}
-          trips={tripsWithStatus}
+          trips={[
+            ...tripsWithStatus as LiveTrip[],
+            ...invitedTrips.map(t => ({
+              ...t,
+              status:    getStatus(t),
+              isInvited: true  as const,
+            })) as LiveTrip[],
+          ]}
           uid={user.uid}
         />
       )}

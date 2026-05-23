@@ -1,9 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import {
-  ChevronLeft, ChevronRight, CheckSquare, Headset, LogOut,
-  Users, Wallet, Crown, Edit2,
+  ChevronLeft, CheckSquare, Headset, LogOut,
+  Users, Wallet, Crown, Edit2, Menu, X, LayoutDashboard, Megaphone,
 } from 'lucide-react'
 import { NotificationBell } from '@/components/NotificationBell'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
@@ -35,7 +36,6 @@ type Props = {
   isTreasurer?: boolean
   user:         { uid: string; displayName?: string | null; photoURL?: string | null } | null
 
-  /* 탈퇴 제외, photoURL 오버라이드 완료 */
   members:       NavMember[]
   currentMember?: NavMember | null
 
@@ -44,6 +44,7 @@ type Props = {
   onMemberClick:     () => void
   onChecklistToggle: () => void
   onReportClick:     () => void
+  onNoticeClick:     () => void
   onLeaveTrip?:      () => void
   onEditTrip?:       () => void
 }
@@ -54,9 +55,11 @@ export function TripNavbar({
   isOwner, isTreasurer, user,
   members, currentMember,
   summaryHref,
-  onMemberClick, onChecklistToggle, onReportClick,
+  onMemberClick, onChecklistToggle, onReportClick, onNoticeClick,
   onLeaveTrip, onEditTrip,
 }: Props) {
+  const [showMenu, setShowMenu] = useState(false)
+
   const roleBadgeCls = isOwner
     ? 'bg-blue-600 text-white'
     : isTreasurer
@@ -68,6 +71,8 @@ export function TripNavbar({
     : { background: gradientStyle(gradient) }
 
   const showSummary = !!(user && (isOwner || currentMember))
+
+  const closeMenu = () => setShowMenu(false)
 
   return (
     <nav className="bg-white border-b border-gray-200 flex-shrink-0 z-20">
@@ -85,7 +90,7 @@ export function TripNavbar({
         </Link>
         <div className="h-4 w-px bg-gray-200 hidden sm:block flex-shrink-0" />
 
-        {/* 여행 정보 — flex-1 로 남은 공간 차지 */}
+        {/* 여행 정보 */}
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           <div className="w-6 h-6 rounded-md flex-shrink-0 overflow-hidden" style={swatchStyle} />
           <div className="flex flex-col min-w-0">
@@ -94,11 +99,9 @@ export function TripNavbar({
             </span>
             {title && <span className="text-[11px] text-gray-400 leading-tight truncate">{city}</span>}
           </div>
-          {/* 날짜 — xl 이상에서만 표시 */}
           <span className="text-xs text-gray-400 flex-shrink-0 hidden xl:block">
             {startDate.slice(5).replace('-', '/')} – {endDate.slice(5).replace('-', '/')} · {nights}박
           </span>
-          {/* 역할 뱃지 */}
           {user && (
             <span className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${roleBadgeCls}`}>
               {isOwner
@@ -109,7 +112,6 @@ export function TripNavbar({
               }
             </span>
           )}
-          {/* 편집 버튼 (방장 전용) */}
           {onEditTrip && (
             <button
               onClick={onEditTrip}
@@ -121,10 +123,10 @@ export function TripNavbar({
           )}
         </div>
 
-        {/* ── 데스크톱 액션 (sm 이상) ── */}
+        {/* ── 데스크탑 액션 (sm 이상) ── */}
         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
 
-          {/* 멤버 버튼: sm~lg 아이콘, lg+ 텍스트 포함 */}
+          {/* 멤버 버튼 */}
           <button
             onClick={onMemberClick}
             data-tour="member-btn"
@@ -163,31 +165,7 @@ export function TripNavbar({
             <Headset className="w-4 h-4" />
           </button>
 
-          {/* 체크리스트: sm~lg 아이콘, lg+ 텍스트 포함 */}
-          <button
-            onClick={onChecklistToggle}
-            data-tour="checklist-btn"
-            title="체크리스트"
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors flex-shrink-0"
-          >
-            <CheckSquare className="w-4 h-4" />
-            <span className="hidden lg:inline text-xs font-semibold">체크리스트</span>
-          </button>
-
-          {/* 여행 요약 */}
-          {showSummary && (
-            <Link
-              href={summaryHref}
-              data-tour="summary-btn"
-              className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-gray-900 text-white hover:bg-gray-700 active:bg-gray-700 transition-colors flex-shrink-0"
-            >
-              <span className="hidden lg:inline text-xs font-semibold">여행 </span>
-              <span className="text-xs font-semibold">요약</span>
-              <ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
-
-          {/* 탈퇴 (share 비방장) */}
+          {/* 탈퇴 */}
           {onLeaveTrip && user && currentMember && !currentMember.left && (
             <button
               onClick={onLeaveTrip}
@@ -197,6 +175,16 @@ export function TripNavbar({
               <LogOut className="w-4 h-4" />
             </button>
           )}
+
+          {/* 메뉴 버튼 */}
+          <button
+            onClick={() => setShowMenu(true)}
+            data-tour="menu-btn"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors flex-shrink-0"
+          >
+            <Menu className="w-4 h-4" />
+            <span className="hidden lg:inline text-xs font-semibold">메뉴</span>
+          </button>
         </div>
       </div>
 
@@ -235,23 +223,6 @@ export function TripNavbar({
           >
             <Headset className="w-4 h-4" />
           </button>
-          <button
-            onClick={onChecklistToggle}
-            data-tour="checklist-btn"
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors"
-            title="체크리스트"
-          >
-            <CheckSquare className="w-4 h-4" />
-          </button>
-          {showSummary && (
-            <Link
-              href={summaryHref}
-              data-tour="summary-btn"
-              className="h-9 px-3.5 flex items-center gap-1 rounded-full bg-gray-900 text-white text-xs font-semibold hover:bg-gray-700 active:bg-gray-700 transition-colors"
-            >
-              요약<ChevronRight className="w-3.5 h-3.5" />
-            </Link>
-          )}
           {onLeaveTrip && user && currentMember && !currentMember.left && (
             <button
               onClick={onLeaveTrip}
@@ -261,8 +232,82 @@ export function TripNavbar({
               <LogOut className="w-4 h-4" />
             </button>
           )}
+          <button
+            onClick={() => setShowMenu(true)}
+            className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors"
+            title="메뉴"
+          >
+            <Menu className="w-4 h-4" />
+          </button>
         </div>
       </div>
+
+      {/* ── 드로어 메뉴 ── */}
+      {showMenu && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={closeMenu} />
+          <div className="fixed right-0 top-0 h-full w-64 bg-white shadow-2xl z-50 flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+              <span className="font-bold text-gray-900 text-sm">메뉴</span>
+              <button
+                onClick={closeMenu}
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-col px-3 py-3">
+              {/* 여행 준비물 */}
+              <button
+                data-tour="checklist-btn"
+                onClick={() => { onChecklistToggle(); closeMenu() }}
+                className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                  <CheckSquare className="w-4.5 h-4.5 text-blue-600" style={{ width: 18, height: 18 }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">여행 준비물</p>
+                  <p className="text-[11px] text-gray-400">체크리스트 관리</p>
+                </div>
+              </button>
+
+              {/* 공지사항 */}
+              <button
+                onClick={() => { onNoticeClick(); closeMenu() }}
+                className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                  <Megaphone style={{ width: 18, height: 18 }} className="text-amber-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-gray-800">공지사항</p>
+                  <p className="text-[11px] text-gray-400">{isOwner ? '공지 작성 및 수정' : '방장 공지 확인'}</p>
+                </div>
+              </button>
+
+              {/* 대시보드 */}
+              {showSummary && (
+                <Link
+                  href={summaryHref}
+                  data-tour="summary-btn"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                    <LayoutDashboard style={{ width: 18, height: 18 }} className="text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">대시보드</p>
+                    <p className="text-[11px] text-gray-400">여행 요약 및 리뷰</p>
+                  </div>
+                </Link>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
     </nav>
   )

@@ -14,7 +14,7 @@ type NotifMessage = {
   body:      string
   createdAt: Timestamp
   read:      boolean
-  type?:     'trip' | 'admin'
+  type?:     'trip' | 'notice' | 'admin'
   tripPath?: string | null
 }
 
@@ -127,9 +127,10 @@ export function NotificationBell() {
           ) : (
             <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
               {messages.map(msg => {
-                const isTrip  = msg.type === 'trip'
-                const Icon    = isTrip ? MapPin : Megaphone
-                const iconCls = isTrip ? 'text-blue-500 bg-blue-50' : 'text-amber-500 bg-amber-50'
+                const isTrip   = msg.type === 'trip'
+                const isNotice = msg.type === 'notice'
+                const Icon     = isTrip ? MapPin : Megaphone
+                const iconCls  = isTrip ? 'text-blue-500 bg-blue-50' : isNotice ? 'text-amber-500 bg-amber-50' : 'text-gray-500 bg-gray-50'
                 return (
                   <div
                     key={msg.id}
