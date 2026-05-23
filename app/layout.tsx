@@ -30,12 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        {/* 계정 소유권 인증용 — 사이트 전체 필요 */}
         <meta name="google-adsense-account" content="ca-pub-6889911728160635" />
-        <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6889911728160635"
-          crossOrigin="anonymous"
-        />
+        {/* 광고 스크립트는 랜딩 페이지(app/page.tsx)에만 개별 로드 */}
       </head>
       <body>
         {/*
