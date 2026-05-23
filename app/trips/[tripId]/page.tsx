@@ -130,6 +130,7 @@ type TripMeta = {
   accommodations?: AccommodationItem[]
   currency?:       string
   dayRates?:       Record<string, number>
+  dayBudgets?:     Record<string, number>   // dayId → KRW
   coverPhotoURL?:       string
   coverPhotoPosition?:  number
   notice?:         string
@@ -475,7 +476,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                   </span>
                   {item.currency !== 'KRW' && rates[item.currency] && (
                     <span className="text-[10px] text-gray-400 leading-none">
-                      ≈ {formatKRW(Math.round(item.price * rates[item.currency]))}
+                      약 {formatKRW(Math.round(item.price * rates[item.currency]))}
                     </span>
                   )}
                 </div>
@@ -1316,7 +1317,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 </div>
                 {currency !== 'KRW' && parseFloat(price) > 0 && panelRates[currency] && (
                   <p className="text-xs font-semibold text-blue-600 mt-1">
-                    ≈ {formatKRW(Math.round(parseFloat(price) * panelRates[currency]))}
+                    약 {formatKRW(Math.round(parseFloat(price) * panelRates[currency]))}
                   </p>
                 )}
                 {currencies.length <= 1 && currency !== 'KRW' && (
@@ -1839,7 +1840,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
             </div>
             {currency !== 'KRW' && parseFloat(price) > 0 && editRates[currency] && (
               <p className="text-xs font-semibold text-blue-600 mt-1">
-                ≈ {formatKRW(Math.round(parseFloat(price) * editRates[currency]))}
+                약 {formatKRW(Math.round(parseFloat(price) * editRates[currency]))}
               </p>
             )}
           </div>
@@ -1956,7 +1957,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* 환율 */
   const [rates,    setRates]    = useState<Record<string, number>>({ KRW: 1 })
-  const [dayRates, setDayRates] = useState<Record<string, number>>({})
+  const [dayRates,   setDayRates]   = useState<Record<string, number>>({})
+  const [dayBudgets, setDayBudgets] = useState<Record<string, number>>({})
 
   /* 비행기 / 숙소 수정 */
   const [editingFlight,    setEditingFlight]    = useState<FlightItem | null>(null)
@@ -2092,6 +2094,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           const data = snap.data() as TripMeta
           setMeta(data)
           setDayRates(data.dayRates ?? {})
+          setDayBudgets(data.dayBudgets ?? {})
           if (data.joinPin) setJoinPinInput(data.joinPin)
           return
         }
@@ -2263,21 +2266,23 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!meta?.members?.length) return {} as Record<string, number>
     const result: Record<string, number> = {}
     meta.members.forEach(m => { result[m.id] = 0 })
-    Object.values(dayItems).flat().forEach(item => {
-      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      const custom = primaryCurrency !== 'KRW' ? dayRates[dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      items.forEach(item => {
+      const krw = toKRW(item.price || 0, item.currency || 'KRW', r)
       if (!krw || krw <= 0) return
       const allIds   = item.participantIds ?? []
       const validIds = allIds.filter(id => result[id] !== undefined)
       if (allIds.length > 0) {
-        // 유효 멤버 수 기준으로 분할 (연동 전 유령 ID는 제외)
         const divisor = validIds.length > 0 ? validIds.length : allIds.length
         const share = krw / divisor
         validIds.forEach(id => { result[id] += share })
       } else {
-        // participantIds 없음 → 현재 전원 균등 분배
         const share = krw / meta.members.length
         meta.members.forEach(m => { result[m.id] += share })
       }
+      })
     })
     // 비행기: participantIds 기반 분배
     const activeIds = new Set(meta.members.filter(m => !m.left).map(m => m.id));
@@ -2322,10 +2327,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const result: Record<string, number> = {}
     meta.members.forEach(m => { result[m.id] = 0 })
     const ownerIdForPaid = (meta.members ?? []).find(m => m.role === 'owner')?.id ?? uid
-    Object.values(dayItems).flat().forEach(item => {
-      const pid = item.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(item.price || 0, item.currency || 'KRW', rates)
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      const custom = primaryCurrency !== 'KRW' ? dayRates[dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      items.forEach(item => {
+        const pid = item.payerId ?? ownerIdForPaid
+        if (result[pid] === undefined) return
+        result[pid] += toKRW(item.price || 0, item.currency || 'KRW', r)
+      })
     });
     (meta.flights ?? []).forEach(f => {
       if (!f.price || !f.includeInSettlement) return
@@ -3291,7 +3300,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </p>
               {/* 전체 일정 + 해외: KRW 환산 표시 */}
               {activeDayIdx === -1 && totalSpent > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                <p className="text-[11px] text-gray-400 mt-0.5">≈ {formatKRW(totalSpent)}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">약 {formatKRW(totalSpent)}</p>
               )}
               {primaryCurrency !== 'KRW' && rates[primaryCurrency] > 0 && activeDay && (
                 <RateWidget
@@ -3302,6 +3311,21 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   onReset={() => handleSetDayRate(activeDay.dayId, null)}
                 />
               )}
+              {/* 일별 예산 상태 뱃지 — 예산 설정 시 표시 */}
+              {activeDayIdx !== -1 && activeDay && dayBudgets[activeDay.dayId] > 0 && (() => {
+                const budget = dayBudgets[activeDay.dayId]
+                const pct    = Math.round(daySpent / budget * 100)
+                const { label, cls } = pct >= 100
+                  ? { label: `+${formatKRW(daySpent - budget)} 초과`, cls: 'bg-red-50 text-red-500' }
+                  : pct >= 85
+                  ? { label: `${formatKRW(budget - daySpent)} 남음`, cls: 'bg-amber-50 text-amber-600' }
+                  : { label: `${formatKRW(budget - daySpent)} 남음`, cls: 'bg-emerald-50 text-emerald-600' }
+                return (
+                  <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full ${cls}`}>
+                    일 예산 {pct}% · {label}
+                  </span>
+                )
+              })()}
             </div>
             {activeDayIdx !== -1 && (
               <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
@@ -3411,7 +3435,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                   {slotLocalStr || slotKRWStr}
                                 </span>
                                 {slotLocalStr && slotKRWStr && (
-                                  <span className="text-[10px] text-gray-400">≈{slotKRWStr}</span>
+                                  <span className="text-[10px] text-gray-400">약 {slotKRWStr}</span>
                                 )}
                               </>
                             )}
@@ -3473,7 +3497,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       {meta.budget > 0 && ` / ${formatLocal(Math.round(meta.budget / rates[primaryCurrency]), primaryCurrency)}`}
                     </span>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      ≈ {formatKRW(totalSpent)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
+                      약 {formatKRW(totalSpent)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
                     </p>
                   </>
                 ) : (
@@ -3505,7 +3529,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </div>
                 {overageKRW > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
                   <p className="text-[10px] text-red-400 text-right mt-0.5">
-                    ≈ +{formatKRW(overageKRW)} 초과
+                    약 +{formatKRW(overageKRW)} 초과
                   </p>
                 )}
               </>
@@ -4153,6 +4177,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
           people={meta.people}
           currency={primaryCurrency}
           budgetKRW={meta.budget}
+          dayMetas={days}
+          initialDayBudgets={dayBudgets}
           coverPhotoURL={meta.coverPhotoURL}
           uid={uid}
           tripId={tripId}
@@ -4169,6 +4195,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               people:        data.people,
               currency:      data.currency || null,
               budget:        data.budgetKRW,
+              dayBudgets:    data.dayBudgets,
               coverPhotoURL: data.coverPhotoURL ?? null,
             })
             for (let i = 0; i < data.days; i++) {
@@ -4181,6 +4208,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               )
             }
             await batch.commit()
+            setDayBudgets(data.dayBudgets)
             setMeta(prev => prev ? {
               ...prev,
               title:         data.title || undefined,
@@ -4190,6 +4218,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               days:          data.days,
               people:        data.people,
               budget:        data.budgetKRW,
+              dayBudgets:    data.dayBudgets,
               coverPhotoURL: data.coverPhotoURL,
             } : prev)
           }}
@@ -4206,6 +4235,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
+                {primaryCurrency !== 'KRW' && (
+                  <p className="text-[11px] text-blue-500 mt-0.5">
+                    {Object.keys(dayRates).length > 0
+                      ? `날짜별 고정 환율 기준 계산 · 미고정 날은 현재 환율 적용`
+                      : `현재 환율 기준 계산 (참고용) · 실제 결제 시 환율과 다를 수 있음`
+                    }
+                  </p>
+                )}
               </div>
               <button onClick={() => setShowSettlement(false)}
                 className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
@@ -4236,7 +4273,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         <div className="ml-auto text-right flex-shrink-0">
                           <span className="text-sm font-bold text-emerald-600 block">{formatKRW(t.amount)}</span>
                           {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                            <span className="text-[10px] text-gray-400">≈ {formatLocal(Math.round(t.amount / rates[primaryCurrency]), primaryCurrency)}</span>
+                            <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(t.amount / rates[primaryCurrency]), primaryCurrency)}</span>
                           )}
                         </div>
                       </div>
@@ -4294,14 +4331,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                   : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>}
                               </span>
                               {primaryCurrency !== 'KRW' && rates[primaryCurrency] && net !== 0 && (
-                                <span className="text-[10px] text-gray-400">≈ {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
+                                <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
                               )}
                             </>
                           ) : (
                             <>
                               <span className="text-sm font-bold text-gray-900 block">{formatKRW(Math.round(spent)) || '0원'}</span>
                               {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                                <span className="text-[10px] text-gray-400">≈ {formatLocal(Math.round(spent / rates[primaryCurrency]), primaryCurrency)}</span>
+                                <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(spent / rates[primaryCurrency]), primaryCurrency)}</span>
                               )}
                             </>
                           )}
@@ -4379,7 +4416,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       <div className="text-right">
                         <span className="text-[12px] font-semibold text-gray-700 block">{formatKRW(totalSpent)}</span>
                         {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                          <p className="text-[10px] text-gray-400">≈ {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
+                          <p className="text-[10px] text-gray-400">약 {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
                         )}
                       </div>
                     </div>
@@ -4439,7 +4476,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     </span>
                     {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
                       <span className="text-[11px] text-gray-400">
-                        ≈ {formatLocal(Math.round((totalSpent + settlementFixedKRW) / rates[primaryCurrency]), primaryCurrency)}
+                        약 {formatLocal(Math.round((totalSpent + settlementFixedKRW) / rates[primaryCurrency]), primaryCurrency)}
                       </span>
                     )}
                   </div>

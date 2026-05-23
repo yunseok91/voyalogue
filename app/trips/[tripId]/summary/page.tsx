@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2, Users } from 'lucide-react'
+import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2, Users, BarChart2 } from 'lucide-react'
 import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -43,6 +43,7 @@ type TripMeta = {
   }>
   flights?:        FixedItem[]
   accommodations?: FixedItem[]
+  dayBudgets?:     Record<string, number>
 }
 
 type PlanItem = {
@@ -109,6 +110,15 @@ const CAT_COLORS: Record<string, string> = {
   기타: 'bg-gray-100 text-gray-500',
 }
 const CAT_DISPLAY: Record<string, string> = { 장소: '관광' }
+
+const CHART_CATS = ['식사', '장소', '쇼핑', '교통', '기타'] as const
+const CHART_HEX: Record<string, string> = {
+  식사: '#fb923c',  // orange-400
+  장소: '#60a5fa',  // blue-400
+  쇼핑: '#f472b6',  // pink-400
+  교통: '#2dd4bf',  // teal-400
+  기타: '#d1d5db',  // gray-300
+}
 
 const ROLE_LABEL: Record<string, string> = {
   owner: '방장', treasurer: '총무', member: '멤버',
@@ -242,11 +252,39 @@ function SummaryContent({ tripId }: { tripId: string }) {
     return items + flights + accs
   }, [allItems, rates, primaryCurrency, isOverseas, meta])
 
+  /* 카테고리별 지출 합계 */
+  const catSummary = useMemo(() => {
+    const result: Record<string, number> = Object.fromEntries(CHART_CATS.map(c => [c, 0]))
+    allItems.forEach(i => {
+      const krw = toKRW(i.price ?? 0, i.currency || 'KRW', rates)
+      const cat = CHART_CATS.includes(i.cat as typeof CHART_CATS[number]) ? i.cat : '기타'
+      result[cat] = (result[cat] ?? 0) + krw
+    })
+    return result
+  }, [allItems, rates])
+
+  /* 날별 × 카테고리 지출 (스택드 바용) */
+  const dayCatSummary = useMemo(() =>
+    dayMetas.map(dm => {
+      const items = allItems.filter(i => i.dayId === dm.dayId)
+      const cats: Record<string, number> = Object.fromEntries(CHART_CATS.map(c => [c, 0]))
+      items.forEach(i => {
+        const krw = toKRW(i.price ?? 0, i.currency || 'KRW', rates)
+        const cat = CHART_CATS.includes(i.cat as typeof CHART_CATS[number]) ? i.cat : '기타'
+        cats[cat] = (cats[cat] ?? 0) + krw
+      })
+      const total = Object.values(cats).reduce((s, v) => s + v, 0)
+      return { dayId: dm.dayId, label: dm.label, date: dm.date, cats, total }
+    }),
+    [dayMetas, allItems, rates]
+  )
+
   const daySummaries = useMemo(() =>
     dayMetas.map(dm => {
       const items = allItems.filter(i => i.dayId === dm.dayId)
       const localRate = rates[primaryCurrency] ?? 1
       return {
+        dayId:      dm.dayId,
         label:      dm.label,
         date:       dm.date,
         highlights: items.filter(i => i.cat !== '교통').map(i => i.name).slice(0, 3),
@@ -257,9 +295,10 @@ function SummaryContent({ tripId }: { tripId: string }) {
             ? i.price
             : toKRW(i.price, i.currency || 'KRW', rates) / localRate)
         }, 0),
+        budget:     meta?.dayBudgets?.[dm.dayId] ?? 0,
       }
     }),
-    [dayMetas, allItems, rates, primaryCurrency]
+    [dayMetas, allItems, rates, primaryCurrency, meta]
   )
 
   /* 멤버별 지출 (KRW) — 일정 + 비행기 + 숙소 포함 */
@@ -610,6 +649,167 @@ function SummaryContent({ tripId }: { tripId: string }) {
               )}
             </div>
           )}
+
+          {/* ── 카테고리별 지출 (도넛 차트) ── */}
+          {!itemsLoading && totalSpent > 0 && (() => {
+            const catTotal = Object.values(catSummary).reduce((s, v) => s + v, 0)
+            if (catTotal <= 0) return null
+
+            /* conic-gradient 계산 */
+            let acc = 0
+            const segments = CHART_CATS
+              .map(cat => ({ cat, val: catSummary[cat] ?? 0 }))
+              .filter(s => s.val > 0)
+              .map(s => {
+                const pct = (s.val / catTotal) * 100
+                const seg = { cat: s.cat, val: s.val, from: acc, to: acc + pct }
+                acc += pct
+                return seg
+              })
+
+            const gradient = segments
+              .map(s => `${CHART_HEX[s.cat]} ${s.from.toFixed(1)}% ${s.to.toFixed(1)}%`)
+              .join(', ')
+
+            return (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-4 h-4 rounded-full bg-gradient-to-br from-orange-400 to-pink-400" />
+                  <h2 className="text-sm font-bold text-gray-900">카테고리별 지출</h2>
+                </div>
+
+                <div className="flex items-center gap-6 sm:gap-8">
+                  {/* 도넛 */}
+                  <div className="relative flex-shrink-0 w-32 h-32 sm:w-36 sm:h-36">
+                    <div
+                      className="w-full h-full rounded-full"
+                      style={{ background: `conic-gradient(${gradient})` }}
+                    />
+                    {/* 안쪽 구멍 */}
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-[56%] h-[56%] rounded-full bg-white flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-[9px] text-gray-400 leading-none">총 지출</span>
+                        <span className="text-[11px] font-extrabold text-gray-900 leading-none">
+                          {formatKRW(catTotal)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 범례 */}
+                  <div className="flex flex-col gap-2 flex-1 min-w-0">
+                    {segments.map(s => {
+                      const pct = Math.round((s.val / catTotal) * 100)
+                      return (
+                        <div key={s.cat} className="flex items-center gap-2">
+                          <div
+                            className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: CHART_HEX[s.cat] }}
+                          />
+                          <span className="text-xs text-gray-600 w-10 flex-shrink-0">
+                            {CAT_DISPLAY[s.cat] ?? s.cat}
+                          </span>
+                          <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full"
+                              style={{ width: `${pct}%`, backgroundColor: CHART_HEX[s.cat] }}
+                            />
+                          </div>
+                          <span className="text-[11px] font-semibold text-gray-700 w-8 text-right flex-shrink-0">
+                            {pct}%
+                          </span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+
+          {/* ── 일별 지출 스택드 바 (2일 이상) ── */}
+          {!itemsLoading && dayCatSummary.length >= 2 && dayCatSummary.some(d => d.total > 0) && (() => {
+            const hasBudget = daySummaries.some(d => d.budget > 0)
+            const maxVal    = Math.max(...dayCatSummary.map(d => d.total), ...daySummaries.map(d => d.budget), 1)
+
+            return (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <BarChart2 className="w-4 h-4 text-indigo-500" />
+                  <h2 className="text-sm font-bold text-gray-900">일별 지출</h2>
+                  {hasBudget && (
+                    <span className="flex items-center gap-1 text-[11px] text-gray-400 ml-1">
+                      <span className="inline-block w-4 border-t-2 border-dashed border-gray-400" />
+                      예산
+                    </span>
+                  )}
+                </div>
+
+                {/* 스택드 바 */}
+                <div className="flex items-end gap-1.5 sm:gap-2 h-28 sm:h-32">
+                  {dayCatSummary.map((d, i) => {
+                    const budget    = daySummaries[i]?.budget ?? 0
+                    const budgetPct = budget > 0 ? (budget / maxVal) * 100 : 0
+                    const barPct    = d.total > 0 ? Math.max(2, (d.total / maxVal) * 100) : 2
+
+                    return (
+                      <div key={i} className="flex-1 h-full flex flex-col justify-end relative">
+                        {/* 예산 점선 */}
+                        {budgetPct > 0 && (
+                          <div
+                            className="absolute left-0 right-0 border-t-2 border-dashed border-gray-400 pointer-events-none z-10"
+                            style={{ bottom: `${budgetPct}%` }}
+                          />
+                        )}
+                        {/* 스택 바 */}
+                        <div
+                          className="w-full rounded-t-lg overflow-hidden"
+                          style={{ height: `${barPct}%` }}
+                        >
+                          <div className="h-full flex flex-col-reverse">
+                            {CHART_CATS.map(cat => {
+                              const val = d.cats[cat] ?? 0
+                              if (val <= 0) return null
+                              return (
+                                <div
+                                  key={cat}
+                                  style={{ flex: `${val} 0 0`, backgroundColor: CHART_HEX[cat] }}
+                                />
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+
+                {/* 라벨 */}
+                <div className="flex gap-1.5 sm:gap-2 mt-2">
+                  {dayCatSummary.map((d, i) => (
+                    <div key={i} className="flex-1 flex flex-col items-center overflow-hidden">
+                      <p className="text-[10px] font-bold text-gray-500 truncate w-full text-center">
+                        {d.label.replace('Day ', 'D')}
+                      </p>
+                      <p className="text-[9px] text-gray-400 truncate w-full text-center">
+                        {d.total > 0 ? formatKRW(d.total) : '–'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 카테고리 범례 */}
+                <div className="flex items-center gap-3 mt-4 pt-4 border-t border-gray-100 flex-wrap">
+                  {CHART_CATS.filter(cat => dayCatSummary.some(d => (d.cats[cat] ?? 0) > 0)).map(cat => (
+                    <div key={cat} className="flex items-center gap-1.5">
+                      <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: CHART_HEX[cat] }} />
+                      <span className="text-[11px] text-gray-500">{CAT_DISPLAY[cat] ?? cat}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )
+          })()}
 
           {/* 일별 하이라이트 */}
           {!itemsLoading && daySummaries.length > 0 && (

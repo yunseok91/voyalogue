@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ImagePlus, X, Loader2, Move } from 'lucide-react'
+import { ImagePlus, X, Loader2, Move, ChevronRight } from 'lucide-react'
 import { CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 
 export type TripEditFormData = {
@@ -13,9 +13,12 @@ export type TripEditFormData = {
   people:              number
   currency:            string
   budgetKRW:           number
+  dayBudgets:          Record<string, number>
   coverPhotoURL?:      string
   coverPhotoPosition?: number
 }
+
+type DayMeta = { dayId: string; label: string; date: string }
 
 type Props = {
   city:           string
@@ -25,6 +28,8 @@ type Props = {
   people?:        number
   currency?:      string
   budgetKRW?:     number
+  dayMetas?:           DayMeta[]
+  initialDayBudgets?:  Record<string, number>
   coverPhotoURL?:      string
   coverPhotoPosition?: number
   uid?:                string
@@ -41,6 +46,8 @@ export function TripEditModal({
   people:              initPeople   = 2,
   currency:            initCurrency = 'KRW',
   budgetKRW:           initBudgetKRW = 0,
+  dayMetas,
+  initialDayBudgets    = {},
   coverPhotoURL:       initCoverURL,
   coverPhotoPosition:  initCoverPos = 50,
   uid,
@@ -55,6 +62,10 @@ export function TripEditModal({
     currency:  initCurrency,
     budget:    Math.round((initBudgetKRW ?? 0) / 10000),
   })
+  const [dayBudgetsLocal, setDayBudgetsLocal] = useState<Record<string, number>>(initialDayBudgets)
+  const [showDayBudgets,  setShowDayBudgets]  = useState(
+    Object.keys(initialDayBudgets).length > 0
+  )
   const [coverPhotoFile,     setCoverPhotoFile]     = useState<File | null>(null)
   const [coverPhotoPreview,  setCoverPhotoPreview]  = useState<string | null>(initCoverURL ?? null)
   const [coverPhotoPosition, setCoverPhotoPosition] = useState(initCoverPos ?? 50)
@@ -114,6 +125,7 @@ export function TripEditModal({
         people:        Math.max(1, form.people),
         currency:      form.currency,
         budgetKRW:     Math.max(0, (form.budget || 0) * 10000),
+        dayBudgets:    dayBudgetsLocal,
         coverPhotoURL:      finalCoverURL,
         coverPhotoPosition: coverPhotoPreview ? coverPhotoPosition : undefined,
       })
@@ -338,6 +350,142 @@ export function TripEditModal({
               ))}
             </div>
           </div>
+
+          {/* 일별 예산 (선택) — dayMetas 있을 때만 표시 */}
+          {dayMetas && dayMetas.length > 0 && (
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setShowDayBudgets(v => !v)}
+                className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-blue-600 transition-colors w-fit"
+              >
+                <ChevronRight className={`w-3.5 h-3.5 transition-transform duration-200 ${showDayBudgets ? 'rotate-90' : ''}`} />
+                일별 예산
+                <span className="font-normal text-gray-400">(선택)</span>
+                {Object.keys(dayBudgetsLocal).length > 0 && !showDayBudgets && (
+                  <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[10px] font-bold">
+                    {Object.keys(dayBudgetsLocal).length}일 설정됨
+                  </span>
+                )}
+              </button>
+
+              {showDayBudgets && (() => {
+                const totalBudgetWon  = form.budget * 10000
+                const hasTotalBudget  = form.budget > 0
+                const allocated       = Object.values(dayBudgetsLocal).reduce((s, v) => s + v, 0)
+                const allocatedMan    = Math.round(allocated / 10000)
+                const remaining       = hasTotalBudget ? totalBudgetWon - allocated : Infinity
+                const remainingMan    = hasTotalBudget ? Math.round(remaining / 10000) : 0
+                const isOver          = hasTotalBudget && remaining < 0
+                const allocPct        = hasTotalBudget && totalBudgetWon > 0
+                  ? Math.min(100, Math.round((allocated / totalBudgetWon) * 100))
+                  : 0
+
+                return (
+                  <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-col gap-3">
+
+                    {/* 배정 현황 바 (총 예산 설정 시) */}
+                    {hasTotalBudget && (
+                      <div className="flex flex-col gap-1.5 pb-3 border-b border-gray-200">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-gray-500 font-semibold">일별 배정</span>
+                          <span className={`font-bold ${isOver ? 'text-red-500' : 'text-gray-700'}`}>
+                            {allocatedMan}만 / {form.budget}만원
+                            {isOver
+                              ? <span className="ml-1 text-red-500">({Math.abs(remainingMan)}만원 초과)</span>
+                              : remainingMan > 0
+                              ? <span className="ml-1 text-gray-400">({remainingMan}만원 남음)</span>
+                              : null
+                            }
+                          </span>
+                        </div>
+                        <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all ${isOver ? 'bg-red-400' : allocPct >= 85 ? 'bg-amber-400' : 'bg-blue-500'}`}
+                            style={{ width: `${Math.min(100, allocPct)}%` }}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const avg = Math.floor(form.budget / dayMetas!.length)
+                            const next: Record<string, number> = {}
+                            dayMetas!.forEach(dm => { next[dm.dayId] = avg * 10000 })
+                            setDayBudgetsLocal(next)
+                          }}
+                          className="text-[11px] font-bold text-blue-600 hover:underline text-right w-full"
+                        >
+                          균등 분배 ({Math.floor(form.budget / dayMetas!.length)}만원/일)
+                        </button>
+                      </div>
+                    )}
+
+                    {/* 날별 입력 */}
+                    {dayMetas!.map(dm => {
+                      const val      = Math.round((dayBudgetsLocal[dm.dayId] ?? 0) / 10000)
+                      const otherSum = allocated - (dayBudgetsLocal[dm.dayId] ?? 0)
+                      const maxMan   = hasTotalBudget
+                        ? Math.max(0, Math.floor((totalBudgetWon - otherSum) / 10000))
+                        : undefined
+                      const isThisOver = hasTotalBudget && maxMan !== undefined && val > maxMan
+
+                      return (
+                        <div key={dm.dayId} className="flex items-center gap-2">
+                          <div className="flex flex-col w-16 flex-shrink-0">
+                            <span className="text-xs font-semibold text-gray-700">{dm.label}</span>
+                            {dm.date && (
+                              <span className="text-[10px] text-gray-400">
+                                {dm.date.slice(5).replace('-', '/')}
+                              </span>
+                            )}
+                          </div>
+                          <input
+                            type="number"
+                            value={val || ''}
+                            onChange={e => {
+                              let n = Math.max(0, parseInt(e.target.value) || 0)
+                              if (maxMan !== undefined) n = Math.min(n, maxMan)
+                              setDayBudgetsLocal(prev => {
+                                const next = { ...prev }
+                                if (n === 0) delete next[dm.dayId]
+                                else next[dm.dayId] = n * 10000
+                                return next
+                              })
+                            }}
+                            placeholder="미설정"
+                            min={0}
+                            max={maxMan}
+                            className={`flex-1 px-3 py-2 rounded-lg border text-sm text-gray-900 outline-none transition-all bg-white ${
+                              isThisOver
+                                ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-400/10'
+                                : 'border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10'
+                            }`}
+                          />
+                          <div className="flex flex-col items-end w-10 flex-shrink-0">
+                            <span className="text-xs text-gray-500">만원</span>
+                            {hasTotalBudget && maxMan !== undefined && val === 0 && remaining > 0 && (
+                              <span className="text-[9px] text-gray-300">최대{maxMan}만</span>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* 전체 초기화 */}
+                    {Object.keys(dayBudgetsLocal).length > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => setDayBudgetsLocal({})}
+                        className="text-[11px] text-gray-400 hover:text-red-500 transition-colors text-right"
+                      >
+                        일별 예산 전체 초기화
+                      </button>
+                    )}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
 
         </div>
 

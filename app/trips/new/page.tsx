@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles, ImagePlus, X } from 'lucide-react'
+import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles, ImagePlus, X, ChevronDown } from 'lucide-react'
 import { collection, addDoc, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -134,6 +134,8 @@ function NewTripContent() {
   const [useCustom, setUseCustom]     = useState(false)
   const [tripTitle, setTitle]         = useState('')
   const [loading, setLoading]         = useState(false)
+  const [dayBudgets, setDayBudgets]   = useState<Record<string, number>>({})
+  const [showDayBudgets, setShowDayBudgets] = useState(false)
   const [showAiPlanner, setShowAiPlanner] = useState(false)
   useScrollLock(showAiPlanner)
   const [coverPhotoFile,    setCoverPhotoFile]    = useState<File | null>(null)
@@ -204,6 +206,25 @@ function NewTripContent() {
 
   /* ── 박수 계산 ── */
   const nightInfo = useMemo(() => calcNights(startDate, endDate), [startDate, endDate])
+
+  /* ── 날별 메타 (dayId 미리 계산) ── */
+  const newTripDayMetas = useMemo(() => {
+    if (!nightInfo || !startDate) return []
+    return Array.from({ length: nightInfo.days }, (_, i) => {
+      const d = new Date(startDate)
+      d.setDate(d.getDate() + i)
+      return {
+        dayId: `d${i + 1}`,
+        label: `Day ${i + 1}`,
+        date:  d.toISOString().slice(0, 10),
+      }
+    })
+  }, [nightInfo, startDate])
+
+  /* 날짜 설정 후 예산이 이미 있으면 일별 예산 섹션 자동 펼치기 */
+  useEffect(() => {
+    if (newTripDayMetas.length > 0 && budget > 0) setShowDayBudgets(true)
+  }, [newTripDayMetas.length > 0])
 
   /* ── 미리보기 ── */
   const previewLabel   = selected?.label   || query || '도시를 선택하세요'
@@ -292,21 +313,22 @@ function NewTripContent() {
       const viewCode = generateCode()
       const editCode = generateCode()
       const ref = await addDoc(collection(db, 'users', user.uid, 'trips'), {
-        city:      query.trim(),
-        country:   selected?.label.split(', ')[1] ?? '',
+        city:       query.trim(),
+        country:    selected?.label.split(', ')[1] ?? '',
         startDate,
         endDate,
         nights,
         days,
         gradient,
         people,
-        budget:    Math.max(0, budget || 0) * 10000,
-        title:     tripTitle.trim() || '',
+        budget:     Math.max(0, budget || 0) * 10000,
+        dayBudgets: Object.keys(dayBudgets).length > 0 ? dayBudgets : {},
+        title:      tripTitle.trim() || '',
         viewCode,
         editCode,
-        members:   [{ id: user.uid, name: user.displayName ?? '나', role: 'owner', ...(user.photoURL ? { photoURL: user.photoURL } : {}) }],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
+        members:    [{ id: user.uid, name: user.displayName ?? '나', role: 'owner', ...(user.photoURL ? { photoURL: user.photoURL } : {}) }],
+        createdAt:  serverTimestamp(),
+        updatedAt:  serverTimestamp(),
       })
       await Promise.all([
         setDoc(doc(db, 'shareIndex', viewCode), { uid: user.uid, tripId: ref.id, canEdit: false }),
@@ -582,7 +604,11 @@ function NewTripContent() {
                   type="number"
                   min={0}
                   value={budget || ''}
-                  onChange={e => setBudget(Math.max(0, parseInt(e.target.value) || 0))}
+                  onChange={e => {
+                    const v = Math.max(0, parseInt(e.target.value) || 0)
+                    setBudget(v)
+                    if (v > 0 && newTripDayMetas.length > 0) setShowDayBudgets(true)
+                  }}
                   placeholder="0"
                   className="flex-1 py-3 px-4 rounded-xl border border-gray-200 bg-white text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
                 />
@@ -595,7 +621,10 @@ function NewTripContent() {
               )}
               <div className="flex gap-2 flex-wrap">
                 {[10, 30, 50, 100, 200].map(v => (
-                  <button key={v} type="button" onClick={() => setBudget(v)}
+                  <button key={v} type="button" onClick={() => {
+                    setBudget(v)
+                    if (newTripDayMetas.length > 0) setShowDayBudgets(true)
+                  }}
                     className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
                       budget === v ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-500 hover:border-blue-400 hover:text-blue-600'
                     }`}>
@@ -603,6 +632,135 @@ function NewTripContent() {
                   </button>
                 ))}
               </div>
+
+              {/* 일별 예산 (날짜 설정 후 표시) */}
+              {newTripDayMetas.length > 0 && (
+                <div className="flex flex-col gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowDayBudgets(v => !v)}
+                    className="flex items-center gap-1.5 text-[13px] font-semibold text-gray-500 hover:text-blue-600 transition-colors w-fit"
+                  >
+                    <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showDayBudgets ? '' : '-rotate-90'}`} />
+                    일별 예산
+                    <span className="font-normal text-gray-400 text-xs">(선택)</span>
+                    {Object.keys(dayBudgets).length > 0 && !showDayBudgets && (
+                      <span className="px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full text-[10px] font-bold">
+                        {Object.keys(dayBudgets).length}일 설정됨
+                      </span>
+                    )}
+                  </button>
+
+                  {showDayBudgets && (() => {
+                    const totalBudgetWon = budget * 10000
+                    const hasTotalBudget = budget > 0
+                    const allocated      = Object.values(dayBudgets).reduce((s, v) => s + v, 0)
+                    const allocatedMan   = Math.round(allocated / 10000)
+                    const remaining      = hasTotalBudget ? totalBudgetWon - allocated : Infinity
+                    const remainingMan   = hasTotalBudget ? Math.round(remaining / 10000) : 0
+                    const isOver         = hasTotalBudget && remaining < 0
+                    const allocPct       = hasTotalBudget && totalBudgetWon > 0
+                      ? Math.min(100, Math.round((allocated / totalBudgetWon) * 100))
+                      : 0
+
+                    return (
+                      <div className="bg-gray-50 rounded-xl px-4 py-3 flex flex-col gap-3">
+
+                        {/* 배정 현황 바 */}
+                        {hasTotalBudget && (
+                          <div className="flex flex-col gap-1.5 pb-3 border-b border-gray-200">
+                            <div className="flex items-center justify-between text-[11px]">
+                              <span className="text-gray-500 font-semibold">일별 배정</span>
+                              <span className={`font-bold ${isOver ? 'text-red-500' : 'text-gray-700'}`}>
+                                {allocatedMan}만 / {budget}만원
+                                {isOver
+                                  ? <span className="ml-1 text-red-500">({Math.abs(remainingMan)}만원 초과)</span>
+                                  : remainingMan > 0
+                                  ? <span className="ml-1 text-gray-400">({remainingMan}만원 남음)</span>
+                                  : null
+                                }
+                              </span>
+                            </div>
+                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full transition-all ${isOver ? 'bg-red-400' : allocPct >= 85 ? 'bg-amber-400' : 'bg-blue-500'}`}
+                                style={{ width: `${Math.min(100, allocPct)}%` }}
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const avg = Math.floor(budget / newTripDayMetas.length)
+                                const next: Record<string, number> = {}
+                                newTripDayMetas.forEach(dm => { next[dm.dayId] = avg * 10000 })
+                                setDayBudgets(next)
+                              }}
+                              className="text-[11px] font-bold text-blue-600 hover:underline text-right w-full"
+                            >
+                              균등 분배 ({Math.floor(budget / newTripDayMetas.length)}만원/일)
+                            </button>
+                          </div>
+                        )}
+
+                        {/* 날별 입력 */}
+                        {newTripDayMetas.map(dm => {
+                          const val      = Math.round((dayBudgets[dm.dayId] ?? 0) / 10000)
+                          const otherSum = allocated - (dayBudgets[dm.dayId] ?? 0)
+                          const maxMan   = hasTotalBudget
+                            ? Math.max(0, Math.floor((totalBudgetWon - otherSum) / 10000))
+                            : undefined
+
+                          return (
+                            <div key={dm.dayId} className="flex items-center gap-2">
+                              <div className="flex flex-col w-16 flex-shrink-0">
+                                <span className="text-xs font-semibold text-gray-700">{dm.label}</span>
+                                <span className="text-[10px] text-gray-400">
+                                  {dm.date.slice(5).replace('-', '/')}
+                                </span>
+                              </div>
+                              <input
+                                type="number"
+                                value={val || ''}
+                                onChange={e => {
+                                  let n = Math.max(0, parseInt(e.target.value) || 0)
+                                  if (maxMan !== undefined) n = Math.min(n, maxMan)
+                                  setDayBudgets(prev => {
+                                    const next = { ...prev }
+                                    if (n === 0) delete next[dm.dayId]
+                                    else next[dm.dayId] = n * 10000
+                                    return next
+                                  })
+                                }}
+                                placeholder="미설정"
+                                min={0}
+                                max={maxMan}
+                                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all bg-white"
+                              />
+                              <div className="flex flex-col items-end w-10 flex-shrink-0">
+                                <span className="text-xs text-gray-500">만원</span>
+                                {hasTotalBudget && maxMan !== undefined && val === 0 && remaining > 0 && (
+                                  <span className="text-[9px] text-gray-300">최대{maxMan}만</span>
+                                )}
+                              </div>
+                            </div>
+                          )
+                        })}
+
+                        {/* 전체 초기화 */}
+                        {Object.keys(dayBudgets).length > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setDayBudgets({})}
+                            className="text-xs text-gray-400 hover:text-red-500 transition-colors text-right"
+                          >
+                            일별 예산 전체 초기화
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })()}
+                </div>
+              )}
             </div>
 
             {/* ── 대표 사진 · 테마 컬러 ── */}
