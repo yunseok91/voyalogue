@@ -94,8 +94,9 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
   const CALLOUT_W = 260
   const GAP = 12
 
-  /* target이 이 페이지에 없으면 하단 중앙 고정 */
+  /* step 1은 target 없어도 하단 중앙에 표시, 2-4는 target 있는 페이지에서만 표시 */
   const isFallback = !rect
+  if (isFallback && step !== 1) return null
 
   let posStyle: React.CSSProperties
   let arrowOnTop = false
