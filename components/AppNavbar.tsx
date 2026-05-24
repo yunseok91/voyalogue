@@ -63,34 +63,35 @@ export function AppNavbar({
   return (
     <>
       <nav className="nav-bar justify-between flex-shrink-0 relative">
-        {/* 로고 */}
-        <Link href="/" className="flex items-center gap-2 flex-shrink-0 hover:opacity-80 transition-opacity">
-          <div className="w-5 h-5 rounded-full bg-blue-600" />
-          <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            Voyalogue
-          </span>
-          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">BETA</span>
-        </Link>
+        {/* 로고 + 탭 (왼쪽 정렬) */}
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition-opacity flex-shrink-0">
+            <div className="w-5 h-5 rounded-full bg-blue-600" />
+            <span className="font-bold text-lg text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              Voyalogue
+            </span>
+            <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-blue-600 rounded-full">BETA</span>
+          </Link>
 
-        {/* 가운데 탭 */}
-        <div className="hidden sm:flex absolute left-1/2 -translate-x-1/2 items-center gap-6 text-sm">
-          {active === 'trips'
-            ? <span className="text-blue-600 font-semibold">내 여행</span>
-            : <Link href="/trips" className="text-gray-500 hover:text-gray-900 transition-colors">내 여행</Link>
-          }
-          {active === 'collection'
-            ? <span className="text-blue-600 font-semibold">컬렉션</span>
-            : <Link href="/collection" className="text-gray-500 hover:text-gray-900 transition-colors">컬렉션</Link>
-          }
+          <div className="hidden lg:flex items-center gap-5 text-sm">
+            {active === 'trips'
+              ? <span className="text-blue-600 font-semibold">내 여행</span>
+              : <Link href="/trips" className="text-gray-500 hover:text-gray-900 transition-colors">내 여행</Link>
+            }
+            {active === 'collection'
+              ? <span className="text-blue-600 font-semibold">컬렉션</span>
+              : <Link href="/collection" className="text-gray-500 hover:text-gray-900 transition-colors">컬렉션</Link>
+            }
+          </div>
         </div>
 
         {/* 오른쪽 액션 */}
-        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+        <div className="flex items-center gap-2 lg:gap-3">
           {/* 엑셀 · 신고 — 데스크톱만 노출, 모바일은 드롭다운으로 */}
           {onExcel && (
             <button
               onClick={onExcel}
-              className="hidden sm:flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-emerald-400 hover:text-emerald-600 text-gray-600 rounded-full text-sm font-semibold transition-colors"
+              className="hidden lg:flex items-center gap-1.5 px-4 py-2 border border-gray-200 hover:border-emerald-400 hover:text-emerald-600 text-gray-600 rounded-full text-sm font-semibold transition-colors"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 flex-shrink-0" />
               엑셀
@@ -103,7 +104,7 @@ export function AppNavbar({
             <button
               onClick={onReport}
               title="문의 / 버그 신고"
-              className="hidden sm:flex w-9 h-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 transition-colors"
+              className="hidden lg:flex w-9 h-9 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-red-300 hover:text-red-500 transition-colors"
             >
               <Headset className="w-4 h-4" />
             </button>
@@ -112,10 +113,10 @@ export function AppNavbar({
           <Link
             href="/trips/new"
             data-tour="create-trip"
-            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors"
+            className="flex items-center gap-1.5 px-2.5 lg:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-sm font-semibold transition-colors"
           >
             <Plus className="w-3.5 h-3.5 flex-shrink-0" />
-            <span className="hidden sm:inline whitespace-nowrap">새 여행 만들기</span>
+            <span className="hidden lg:inline whitespace-nowrap">새 여행 만들기</span>
           </Link>
 
           {/* 아바타 드롭다운 */}
@@ -147,7 +148,7 @@ export function AppNavbar({
                   <p className="text-xs text-gray-400 truncate mt-0.5">{user?.email}</p>
                 </div>
                 {/* 모바일 전용 탭 메뉴 */}
-                <div className="sm:hidden border-b border-gray-100">
+                <div className="lg:hidden border-b border-gray-100">
                   <Link
                     href="/trips"
                     onClick={() => setDropdownOpen(false)}
