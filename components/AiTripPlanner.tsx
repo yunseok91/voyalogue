@@ -7,7 +7,7 @@ import {
   MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus, BedDouble,
 } from 'lucide-react'
 import {
-  collection, addDoc, setDoc, doc, serverTimestamp, getDoc, writeBatch, increment,
+  collection, addDoc, setDoc, doc, serverTimestamp, getDoc, writeBatch,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -588,12 +588,13 @@ export function AiTripPlanner({ onClose }: Props) {
       const data = await res.json()
       if (!res.ok || data.error) throw new Error(data.error ?? '생성 실패')
 
-      /* 성공 시 사용 횟수 기록 */
+      /* 성공 시 사용 횟수 기록 — increment 대신 절댓값으로 저장해 날짜 바뀔 때 리셋 */
       if (user) {
         const today = new Date().toISOString().slice(0, 10)
+        const newCount = DAILY_LIMIT - remainingCount + 1   // 오늘 누적 사용 횟수
         setDoc(doc(db, 'users', user.uid), {
           aiUsageDate:  today,
-          aiUsageCount: increment(1),
+          aiUsageCount: newCount,
         }, { merge: true }).catch(() => {})
         setRemainingCount(prev => {
           const next = Math.max(0, prev - 1)

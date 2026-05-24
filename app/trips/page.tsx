@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut, Copy, Loader2 } from 'lucide-react'
-import { collection, orderBy, query, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore'
+import { collection, orderBy, query, where, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -322,15 +322,18 @@ function TripsContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user])
 
-  /* 새 일정 등록 직후 서비스 후기 팝업 */
+  /* 새 일정 등록 직후 서비스 후기 팝업 — 이미 작성한 사용자는 표시 안 함 */
   useEffect(() => {
+    if (!user) return
     try {
       if (localStorage.getItem('showServiceReview')) {
         localStorage.removeItem('showServiceReview')
-        setShowReview(true)
+        getDocs(query(collection(db, 'serviceReviews'), where('uid', '==', user.uid)))
+          .then(snap => { if (snap.empty) setShowReview(true) })
+          .catch(() => setShowReview(true))
       }
     } catch {}
-  }, [])
+  }, [user])
 
 
   const tripsWithStatus = useMemo(
