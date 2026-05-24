@@ -27,8 +27,8 @@ const STEP_DEFS = [
   {
     step: 4,
     target: 'menu-btn',
-    title: '여행 후 별점',
-    description: '방문한 장소에 별점을 남겨 추억을 기록하세요.',
+    title: '대시보드 & 별점',
+    description: '메뉴에서 대시보드를 열면 별점·지출 요약을 확인할 수 있어요.',
   },
 ]
 

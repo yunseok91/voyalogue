@@ -246,6 +246,7 @@ export function TripNavbar({
           )}
           <button
             onClick={() => setShowMenu(true)}
+            data-tour="menu-btn"
             className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:bg-blue-50 transition-colors"
             title="메뉴"
           >
