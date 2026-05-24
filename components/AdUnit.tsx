@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef } from 'react'
+import { useEffect } from 'react'
 import { useAuthStore } from '@/features/auth/store'
 
 declare global {
@@ -11,6 +11,10 @@ declare global {
 
 type AdFormat = 'auto' | 'rectangle' | 'horizontal'
 
+/* 모듈 레벨 Set: 컴포넌트 재마운트 시에도 중복 push 방지
+   언마운트 시 삭제 → 페이지 이동 후 재방문 시 재초기화 허용 */
+const _pushed = new Set<string>()
+
 export function AdUnit({
   slot,
   format = 'auto',
@@ -20,24 +24,26 @@ export function AdUnit({
   format?:    AdFormat
   className?: string
 }) {
-  const adFree  = useAuthStore(s => s.adFree)
-  const client  = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
-  const pushed  = useRef(false)
+  const adFree = useAuthStore(s => s.adFree)
+  const client = process.env.NEXT_PUBLIC_ADSENSE_CLIENT
 
   useEffect(() => {
     if (adFree) return
     if (!client || client === 'ca-pub-XXXXXXXXXXXXXXXX') return
-    if (pushed.current) return
-    /* 이미 광고가 삽입된 ins 요소면 중복 push 방지 */
+    if (_pushed.has(slot)) return
+
     const ins = document.querySelector(`ins[data-ad-slot="${slot}"]`) as HTMLElement | null
-    if (ins?.getAttribute('data-adsbygoogle-status')) return
-    pushed.current = true
+    if (!ins) return
+    if (ins.getAttribute('data-adsbygoogle-status')) return
+
+    _pushed.add(slot)
     try {
-      (window.adsbygoogle = window.adsbygoogle || []).push({})
+      ;(window.adsbygoogle = window.adsbygoogle || []).push({})
     } catch { /* ignore */ }
+
+    return () => { _pushed.delete(slot) }
   }, [adFree, client, slot])
 
-  // 광고 제거 결제한 유저 or 아직 애드센스 미설정 or 플레이스홀더 슬롯
   if (adFree) return null
   if (!client || client === 'ca-pub-XXXXXXXXXXXXXXXX') return null
   if (!slot || slot.toUpperCase().includes('REPLACE_WITH') || slot === 'XXXXXXXXXX') return null
