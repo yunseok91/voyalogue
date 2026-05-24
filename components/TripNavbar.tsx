@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, CheckSquare, Headset, LogOut,
-  Users, Wallet, Crown, Edit2, Menu, X, LayoutDashboard, Megaphone,
+  Users, Wallet, Crown, Edit2, Menu, X, LayoutDashboard, Megaphone, UserCircle,
 } from 'lucide-react'
 import { NotificationBell } from '@/components/NotificationBell'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
@@ -134,17 +134,21 @@ export function TripNavbar({
             title="멤버 목록"
           >
             <div className="flex -space-x-2">
-              {members.slice(0, 3).map((m, i) => (
-                <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                  <PersonAvatar
-                    name={m.name} photoURL={m.photoURL} size={26} stacked
-                    colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
-                    hexColor={m.hexColor}
-                  />
-                  {m.role === 'owner'     && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500  rounded-full flex items-center justify-center"><Crown  className="w-1.5 h-1.5 text-white" /></span>}
-                  {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-1.5 h-1.5 text-white" /></span>}
-                </div>
-              ))}
+              {members.slice(0, 3).map((m, i) => {
+                const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                return (
+                  <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
+                    <PersonAvatar
+                      name={m.name} photoURL={m.photoURL} size={26} stacked
+                      colorIndex={ci}
+                      hexColor={m.hexColor}
+                      ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined}
+                    />
+                    {m.role === 'owner'     && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500  rounded-full flex items-center justify-center"><Crown  className="w-1.5 h-1.5 text-white" /></span>}
+                    {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-1.5 h-1.5 text-white" /></span>}
+                  </div>
+                )
+              })}
               {members.length > 3 && (
                 <div className="w-[26px] h-[26px] rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
               )}
@@ -197,15 +201,19 @@ export function TripNavbar({
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors"
         >
           <div className="flex -space-x-2">
-            {members.slice(0, 3).map((m, i) => (
-              <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                <PersonAvatar
-                  name={m.name} photoURL={m.photoURL} size={24} stacked
-                  colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
-                  hexColor={m.hexColor}
-                />
-              </div>
-            ))}
+            {members.slice(0, 3).map((m, i) => {
+              const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+              return (
+                <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
+                  <PersonAvatar
+                    name={m.name} photoURL={m.photoURL} size={24} stacked
+                    colorIndex={ci}
+                    hexColor={m.hexColor}
+                    ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined}
+                  />
+                </div>
+              )
+            })}
             {members.length > 3 && (
               <div className="w-6 h-6 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
             )}
@@ -304,6 +312,23 @@ export function TripNavbar({
                   </div>
                 </Link>
               )}
+
+              {/* 마이페이지 */}
+              <div className="border-t border-gray-100 mt-1 pt-1">
+                <Link
+                  href="/profile"
+                  onClick={closeMenu}
+                  className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+                    <UserCircle style={{ width: 18, height: 18 }} className="text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-800">마이페이지</p>
+                    <p className="text-[11px] text-gray-400">프로필 및 설정</p>
+                  </div>
+                </Link>
+              </div>
             </div>
           </div>
         </>

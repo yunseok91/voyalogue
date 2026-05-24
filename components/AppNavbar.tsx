@@ -7,7 +7,7 @@ import { signOut } from 'firebase/auth'
 import { auth, db } from '@/lib/firebase'
 import { doc, getDoc } from 'firebase/firestore'
 import { useAuthStore } from '@/features/auth/store'
-import { PersonAvatar } from '@/components/PersonAvatar'
+import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useRouter } from 'next/navigation'
 import { useScrollLock } from '@/hooks/useScrollLock'
@@ -130,6 +130,9 @@ export function AppNavbar({
                 size={36}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
+                ringColor={(user?.photoURL || firestorePhotoURL)
+                  ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base ?? CLAY[1].base))
+                  : undefined}
               />
             </button>
 

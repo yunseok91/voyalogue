@@ -6179,8 +6179,8 @@
         {
           "type": "frame",
           "id": "H1HqE",
-          "x": 100,
-          "y": 77,
+          "x": 47,
+          "y": 36,
           "name": "🎨 Design System",
           "clip": true,
           "width": 1440,
@@ -9895,7 +9895,8 @@
               "fill": "#D1D5DB",
               "content": "→",
               "fontFamily": "Inter",
-              "fontSize": 28
+              "fontSize": 28,
+              "fontWeight": "normal"
             },
             {
               "type": "rectangle",
@@ -11301,6 +11302,2970 @@
                 "thickness": 1,
                 "fill": "#E5E7EB"
               }
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "UzkYN",
+          "x": 5200,
+          "y": 36,
+          "name": "Collection v2 도시도감",
+          "clip": true,
+          "width": 390,
+          "height": 844,
+          "fill": "#F4F2EE",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "frbfZ",
+              "name": "hdr",
+              "width": "fill_container",
+              "height": 56,
+              "fill": "#FFFFFF",
+              "gap": 8,
+              "padding": [
+                0,
+                20
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "OVOhO",
+                  "name": "hdrL",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "g06bu",
+                      "width": 20,
+                      "height": 20,
+                      "iconFontName": "chevron-left",
+                      "iconFontFamily": "lucide",
+                      "fill": "#374151"
+                    },
+                    {
+                      "type": "text",
+                      "id": "wfv4I",
+                      "fill": "#111827",
+                      "content": "나의 여행 도감",
+                      "fontFamily": "Inter",
+                      "fontSize": 17,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "icon_font",
+                  "id": "RHDCn",
+                  "width": 20,
+                  "height": 20,
+                  "iconFontName": "sliders-horizontal",
+                  "iconFontFamily": "lucide",
+                  "fill": "#9CA3AF"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "iXiUm",
+              "name": "mapArea",
+              "clip": true,
+              "width": "fill_container",
+              "height": 230,
+              "fill": "#1B2B5E",
+              "layout": "none",
+              "children": [
+                {
+                  "type": "line",
+                  "id": "u9Uzsj",
+                  "x": 0,
+                  "y": 57,
+                  "opacity": 0.07,
+                  "width": 390,
+                  "height": 1
+                },
+                {
+                  "type": "line",
+                  "id": "lo2tL",
+                  "x": 0,
+                  "y": 115,
+                  "opacity": 0.07,
+                  "width": 390,
+                  "height": 1
+                },
+                {
+                  "type": "line",
+                  "id": "wO4V1",
+                  "x": 0,
+                  "y": 172,
+                  "opacity": 0.07,
+                  "width": 390,
+                  "height": 1
+                },
+                {
+                  "type": "line",
+                  "id": "EtZAO",
+                  "x": 97,
+                  "y": 0,
+                  "opacity": 0.05,
+                  "width": 1,
+                  "height": 230
+                },
+                {
+                  "type": "line",
+                  "id": "oQnNU",
+                  "x": 195,
+                  "y": 0,
+                  "opacity": 0.05,
+                  "width": 1,
+                  "height": 230
+                },
+                {
+                  "type": "line",
+                  "id": "r7neg",
+                  "x": 292,
+                  "y": 0,
+                  "opacity": 0.05,
+                  "width": 1,
+                  "height": 230
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "Kqmi8",
+                  "x": 18,
+                  "y": 38,
+                  "fill": "#253870",
+                  "width": 72,
+                  "height": 80
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "thCgr",
+                  "x": 46,
+                  "y": 122,
+                  "fill": "#253870",
+                  "width": 44,
+                  "height": 68
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "geXTO",
+                  "x": 148,
+                  "y": 30,
+                  "opacity": 0.9,
+                  "fill": "#3B82F6",
+                  "width": 56,
+                  "height": 60
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "Xvcou",
+                  "x": 151,
+                  "y": 98,
+                  "fill": "#253870",
+                  "width": 52,
+                  "height": 82
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 4,
+                  "id": "qFeEI",
+                  "x": 203,
+                  "y": 60,
+                  "fill": "#253870",
+                  "width": 38,
+                  "height": 46
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "Z6sxq",
+                  "x": 198,
+                  "y": 14,
+                  "fill": "#253870",
+                  "width": 105,
+                  "height": 44
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "r9EqJZ",
+                  "x": 277,
+                  "y": 40,
+                  "opacity": 0.9,
+                  "fill": "#10B981",
+                  "width": 54,
+                  "height": 58
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "dBuRA",
+                  "x": 270,
+                  "y": 102,
+                  "opacity": 0.7,
+                  "fill": "#10B981",
+                  "width": 50,
+                  "height": 52
+                },
+                {
+                  "type": "rectangle",
+                  "cornerRadius": 5,
+                  "id": "p2v8ZG",
+                  "x": 296,
+                  "y": 158,
+                  "fill": "#253870",
+                  "width": 66,
+                  "height": 48
+                },
+                {
+                  "type": "ellipse",
+                  "id": "KmZ7f",
+                  "x": 285,
+                  "y": 62,
+                  "fill": "#FBBF24",
+                  "width": 9,
+                  "height": 9,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#FBBF24",
+                    "blur": 6
+                  }
+                },
+                {
+                  "type": "ellipse",
+                  "id": "m3jgw",
+                  "x": 308,
+                  "y": 57,
+                  "fill": "#FBBF24",
+                  "width": 9,
+                  "height": 9,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#FBBF24",
+                    "blur": 6
+                  }
+                },
+                {
+                  "type": "ellipse",
+                  "id": "T4qAP9",
+                  "x": 284,
+                  "y": 115,
+                  "fill": "#FBBF24",
+                  "width": 9,
+                  "height": 9,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#FBBF24",
+                    "blur": 6
+                  }
+                },
+                {
+                  "type": "ellipse",
+                  "id": "frDnY",
+                  "x": 165,
+                  "y": 46,
+                  "fill": "#FBBF24",
+                  "width": 9,
+                  "height": 9,
+                  "effect": {
+                    "type": "shadow",
+                    "shadowType": "outer",
+                    "color": "#FBBF24",
+                    "blur": 6
+                  }
+                },
+                {
+                  "type": "frame",
+                  "id": "dH2M8",
+                  "x": 14,
+                  "y": 14,
+                  "name": "badge",
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 20,
+                  "gap": 5,
+                  "padding": [
+                    5,
+                    12
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "icon_font",
+                      "id": "LOMu3",
+                      "width": 13,
+                      "height": 13,
+                      "iconFontName": "globe",
+                      "iconFontFamily": "lucide",
+                      "fill": "#6366F1"
+                    },
+                    {
+                      "type": "text",
+                      "id": "CYVSf",
+                      "fill": "#374151",
+                      "content": "17 / 195 국가",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "H5doG",
+                  "x": 14,
+                  "y": 202,
+                  "name": "lgd",
+                  "gap": 14,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "XPbeq",
+                      "name": "lgdA",
+                      "gap": 5,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "lpl5u",
+                          "fill": "#10B981",
+                          "width": 9,
+                          "height": 9
+                        },
+                        {
+                          "type": "text",
+                          "id": "E4KLgK",
+                          "opacity": 0.75,
+                          "fill": "#FFFFFF",
+                          "content": "방문한 국가",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "MTGow",
+                      "name": "lgdB",
+                      "gap": 5,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "ellipse",
+                          "id": "O9NUs6",
+                          "fill": "#253870",
+                          "width": 9,
+                          "height": 9
+                        },
+                        {
+                          "type": "text",
+                          "id": "xUydh",
+                          "opacity": 0.75,
+                          "fill": "#FFFFFF",
+                          "content": "미방문",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "REG8c",
+              "name": "stats",
+              "width": "fill_container",
+              "height": 70,
+              "fill": "#FFFFFF",
+              "padding": [
+                0,
+                28
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "lmm0U",
+                  "name": "s1",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "wLMT6",
+                      "fill": "#111827",
+                      "content": "17",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "XsAEk",
+                      "fill": "#9CA3AF",
+                      "content": "방문 국가",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "u2qRTp",
+                  "fill": "#E5E7EB",
+                  "width": 1,
+                  "height": 30
+                },
+                {
+                  "type": "frame",
+                  "id": "k7jX16",
+                  "name": "s2",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "lxuFy",
+                      "fill": "#111827",
+                      "content": "42",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "aJexZ",
+                      "fill": "#9CA3AF",
+                      "content": "방문 도시",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "Xj3jI",
+                  "fill": "#E5E7EB",
+                  "width": 1,
+                  "height": 30
+                },
+                {
+                  "type": "frame",
+                  "id": "ft0r6",
+                  "name": "s3",
+                  "layout": "vertical",
+                  "gap": 3,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "h2Tmx",
+                      "fill": "#111827",
+                      "content": "28",
+                      "fontFamily": "Inter",
+                      "fontSize": 22,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "Y4W6na",
+                      "fill": "#9CA3AF",
+                      "content": "총 여행",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "XJ5zp",
+              "name": "secHdr",
+              "width": "fill_container",
+              "height": 46,
+              "fill": "#F4F2EE",
+              "padding": [
+                0,
+                20
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "c1ms8A",
+                  "fill": "#111827",
+                  "content": "수집된 도시",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "HOjK1",
+                  "name": "sortB",
+                  "fill": "#E8E6E1",
+                  "cornerRadius": 8,
+                  "gap": 4,
+                  "padding": [
+                    5,
+                    10
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "TI8MO",
+                      "fill": "#6B7280",
+                      "content": "최신순",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "500"
+                    },
+                    {
+                      "type": "icon_font",
+                      "id": "eZPHQ",
+                      "width": 12,
+                      "height": 12,
+                      "iconFontName": "chevron-down",
+                      "iconFontFamily": "lucide",
+                      "fill": "#6B7280"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "FT3DD",
+              "name": "ftabs",
+              "width": "fill_container",
+              "height": 38,
+              "fill": "#F4F2EE",
+              "gap": 8,
+              "padding": [
+                0,
+                16
+              ],
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "l5cUiY",
+                  "name": "ta",
+                  "fill": "#111827",
+                  "cornerRadius": 20,
+                  "padding": [
+                    5,
+                    14
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "PFvDl",
+                      "fill": "#FFFFFF",
+                      "content": "전체",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "600"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PjKT5",
+                  "name": "tb",
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 20,
+                  "padding": [
+                    5,
+                    14
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "M8PyF0",
+                      "fill": "#6B7280",
+                      "content": "아시아",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "CTG9m",
+                  "name": "tc",
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 20,
+                  "padding": [
+                    5,
+                    14
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "pPusB",
+                      "fill": "#6B7280",
+                      "content": "유럽",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "Chne5",
+                  "name": "td",
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 20,
+                  "padding": [
+                    5,
+                    14
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "msmSt",
+                      "fill": "#6B7280",
+                      "content": "아메리카",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "500"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "OoFvb",
+              "name": "grid",
+              "width": "fill_container",
+              "fill": "#F4F2EE",
+              "layout": "vertical",
+              "gap": 10,
+              "padding": [
+                0,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "QTbMt",
+                  "name": "r1",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "o8YrE2",
+                      "name": "c1",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bNJlk",
+                          "name": "ci1",
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#F97316",
+                                "position": 0
+                              },
+                              {
+                                "color": "#FB923C",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "wtgWQ",
+                              "fill": "#000000",
+                              "content": "🇯🇵",
+                              "fontFamily": "Inter",
+                              "fontSize": 22,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "Z7Lxx",
+                          "fill": "#111827",
+                          "content": "도쿄",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "k3cfZ",
+                          "fill": "#9CA3AF",
+                          "content": "일본",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "iklAD",
+                          "name": "st1",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "m20cL",
+                              "fill": "#059669",
+                              "content": "✓ 수집됨",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ge29U",
+                      "name": "c2",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "zpLGz",
+                          "name": "ci2",
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#3B82F6",
+                                "position": 0
+                              },
+                              {
+                                "color": "#6366F1",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "buVel",
+                              "fill": "#000000",
+                              "content": "🇫🇷",
+                              "fontFamily": "Inter",
+                              "fontSize": 22,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "cbPOE",
+                          "fill": "#111827",
+                          "content": "파리",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "d0bUoc",
+                          "fill": "#9CA3AF",
+                          "content": "프랑스",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "MYrHZ",
+                          "name": "st2",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "IZZk1",
+                              "fill": "#059669",
+                              "content": "✓ 수집됨",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SWMMN",
+                      "name": "c3",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "txc3l",
+                          "name": "ci3",
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#10B981",
+                                "position": 0
+                              },
+                              {
+                                "color": "#14B8A6",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Pk0do",
+                              "fill": "#000000",
+                              "content": "🇹🇭",
+                              "fontFamily": "Inter",
+                              "fontSize": 22,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "vJuHR",
+                          "fill": "#111827",
+                          "content": "방콕",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "U8O9z",
+                          "fill": "#9CA3AF",
+                          "content": "태국",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "q1YRp",
+                          "name": "st3",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "Psyz3",
+                              "fill": "#059669",
+                              "content": "✓ 수집됨",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "T1K9u",
+                  "name": "r2",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "W7FT1x",
+                      "name": "c4",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "k14JIO",
+                          "name": "ci4",
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#EC4899",
+                                "position": 0
+                              },
+                              {
+                                "color": "#F43F5E",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jQWCJ",
+                              "fill": "#000000",
+                              "content": "🇯🇵",
+                              "fontFamily": "Inter",
+                              "fontSize": 22,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "E0FjTI",
+                          "fill": "#111827",
+                          "content": "오사카",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "SNTz8",
+                          "fill": "#9CA3AF",
+                          "content": "일본",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "VhfmS",
+                          "name": "st4",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "HRTMX",
+                              "fill": "#059669",
+                              "content": "✓ 수집됨",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "k1iyQ",
+                      "name": "c5",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "AJhz7",
+                          "name": "ci5",
+                          "width": 46,
+                          "height": 46,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#8B5CF6",
+                                "position": 0
+                              },
+                              {
+                                "color": "#7C3AED",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "k93tt",
+                              "fill": "#000000",
+                              "content": "🇹🇼",
+                              "fontFamily": "Inter",
+                              "fontSize": 22,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "w5AT5",
+                          "fill": "#111827",
+                          "content": "타이베이",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ipEcD",
+                          "fill": "#9CA3AF",
+                          "content": "대만",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "n3MF9",
+                          "name": "st5",
+                          "fill": "#ECFDF5",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "jM3aZ",
+                              "fill": "#059669",
+                              "content": "✓ 수집됨",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "qhYIr",
+                      "name": "c6",
+                      "width": "fill_container",
+                      "fill": "#F9FAFB",
+                      "cornerRadius": 16,
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": 14,
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "sN5mU",
+                          "name": "ci6",
+                          "width": 46,
+                          "height": 46,
+                          "fill": "#F3F4F6",
+                          "cornerRadius": 23,
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "rXn50",
+                              "width": 22,
+                              "height": 22,
+                              "iconFontName": "lock",
+                              "iconFontFamily": "lucide",
+                              "fill": "#D1D5DB"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "rKD9u",
+                          "fill": "#9CA3AF",
+                          "content": "뉴욕",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "iam83",
+                          "fill": "#C4C9D4",
+                          "content": "미국",
+                          "fontFamily": "Inter",
+                          "fontSize": 10,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "zZDne",
+                          "name": "st6",
+                          "fill": "#F3F4F6",
+                          "cornerRadius": 10,
+                          "padding": [
+                            3,
+                            8
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "K0URUD",
+                              "fill": "#9CA3AF",
+                              "content": "미수집",
+                              "fontFamily": "Inter",
+                              "fontSize": 9,
+                              "fontWeight": "500"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "frame",
+          "id": "dRDYi",
+          "x": 5650,
+          "y": 36,
+          "name": "Collection PC 1440",
+          "clip": true,
+          "width": 1440,
+          "height": 900,
+          "fill": "#F4F2EE",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "aIH9e",
+              "name": "pcNav",
+              "width": "fill_container",
+              "height": 60,
+              "fill": "#FFFFFF",
+              "stroke": {
+                "align": "outside",
+                "thickness": {
+                  "bottom": 1
+                },
+                "fill": "#EBEBEB"
+              },
+              "padding": [
+                0,
+                32
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "shHwl",
+                  "name": "navL",
+                  "gap": 8,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "ellipse",
+                      "id": "JGVMN",
+                      "fill": "#2563EB",
+                      "width": 18,
+                      "height": 18
+                    },
+                    {
+                      "type": "text",
+                      "id": "d6at2T",
+                      "fill": "#111827",
+                      "content": "Voyalogue",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "jPmya",
+                      "width": "fit_content(0)",
+                      "height": "fit_content(0)",
+                      "fill": "#EFF6FF",
+                      "cornerRadius": 10,
+                      "padding": [
+                        2,
+                        6
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "RkdpO",
+                  "name": "navC",
+                  "gap": 32,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "aOQ0J",
+                      "fill": "#6B7280",
+                      "content": "내 여행",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "d0AhX",
+                      "fill": "#6B7280",
+                      "content": "컬렉션",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "text",
+                      "id": "MGp6N",
+                      "fill": "#2563EB",
+                      "content": "여행 지도",
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "BS3Qu",
+                  "name": "navR",
+                  "gap": 12,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "sgIcE",
+                      "name": "newTripBtn",
+                      "fill": "#2563EB",
+                      "cornerRadius": 20,
+                      "gap": 6,
+                      "padding": [
+                        8,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "icon_font",
+                          "id": "dtxB2",
+                          "width": 14,
+                          "height": 14,
+                          "iconFontName": "plus",
+                          "iconFontFamily": "lucide",
+                          "fill": "#FFFFFF"
+                        },
+                        {
+                          "type": "text",
+                          "id": "MeeR5",
+                          "fill": "#FFFFFF",
+                          "content": "새 여행 만들기",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "ellipse",
+                      "id": "ORF0T",
+                      "fill": "#DBEAFE",
+                      "width": 34,
+                      "height": 34
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "KxNcJ",
+              "name": "body",
+              "width": "fill_container",
+              "height": "fill_container",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "DBhgf",
+                  "name": "leftPanel",
+                  "clip": true,
+                  "width": 820,
+                  "height": "fill_container",
+                  "fill": "#1B2B5E",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "kt7TA",
+                      "name": "mapBg",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "layout": "none",
+                      "children": [
+                        {
+                          "type": "line",
+                          "id": "MT7do",
+                          "x": 0,
+                          "y": 210,
+                          "opacity": 0.06,
+                          "width": 820,
+                          "height": 1
+                        },
+                        {
+                          "type": "line",
+                          "id": "hESbT",
+                          "x": 0,
+                          "y": 420,
+                          "opacity": 0.06,
+                          "width": 820,
+                          "height": 1
+                        },
+                        {
+                          "type": "line",
+                          "id": "RqIuh",
+                          "x": 0,
+                          "y": 630,
+                          "opacity": 0.06,
+                          "width": 820,
+                          "height": 1
+                        },
+                        {
+                          "type": "line",
+                          "id": "Ftaum",
+                          "x": 205,
+                          "y": 0,
+                          "opacity": 0.04,
+                          "width": 1,
+                          "height": 840
+                        },
+                        {
+                          "type": "line",
+                          "id": "s1H7f",
+                          "x": 410,
+                          "y": 0,
+                          "opacity": 0.04,
+                          "width": 1,
+                          "height": 840
+                        },
+                        {
+                          "type": "line",
+                          "id": "g41F3",
+                          "x": 615,
+                          "y": 0,
+                          "opacity": 0.04,
+                          "width": 1,
+                          "height": 840
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "ylg71",
+                          "x": 36,
+                          "y": 100,
+                          "fill": "#253870",
+                          "width": 155,
+                          "height": 175
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "e9VYHj",
+                          "x": 100,
+                          "y": 280,
+                          "fill": "#253870",
+                          "width": 95,
+                          "height": 145
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "jsvfd",
+                          "x": 314,
+                          "y": 65,
+                          "opacity": 0.85,
+                          "fill": "#3B82F6",
+                          "width": 120,
+                          "height": 128
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "ZJqAH",
+                          "x": 320,
+                          "y": 200,
+                          "fill": "#253870",
+                          "width": 110,
+                          "height": 175
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 7,
+                          "id": "zIMUa",
+                          "x": 428,
+                          "y": 130,
+                          "fill": "#253870",
+                          "width": 82,
+                          "height": 98
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "GqtFf",
+                          "x": 418,
+                          "y": 30,
+                          "fill": "#253870",
+                          "width": 225,
+                          "height": 95
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "TPsec",
+                          "x": 590,
+                          "y": 88,
+                          "opacity": 0.9,
+                          "fill": "#10B981",
+                          "width": 115,
+                          "height": 125
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "kylT7",
+                          "x": 572,
+                          "y": 218,
+                          "opacity": 0.7,
+                          "fill": "#10B981",
+                          "width": 108,
+                          "height": 112
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "QaCk5",
+                          "x": 628,
+                          "y": 335,
+                          "fill": "#253870",
+                          "width": 142,
+                          "height": 103
+                        },
+                        {
+                          "type": "rectangle",
+                          "cornerRadius": 8,
+                          "id": "EhhHu",
+                          "x": 36,
+                          "y": 420,
+                          "opacity": 0,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 180,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#1B2B5E",
+                                "position": 0
+                              },
+                              {
+                                "color": "#1B2B5E",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "width": 180,
+                          "height": 300
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "ftZX8",
+                          "x": 608,
+                          "y": 106,
+                          "fill": "#FBBF24",
+                          "width": 14,
+                          "height": 14,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#FBBF24",
+                            "blur": 10
+                          }
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "REJuY",
+                          "x": 645,
+                          "y": 96,
+                          "fill": "#FBBF24",
+                          "width": 14,
+                          "height": 14,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#FBBF24",
+                            "blur": 10
+                          }
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "KagN4",
+                          "x": 598,
+                          "y": 235,
+                          "fill": "#FBBF24",
+                          "width": 14,
+                          "height": 14,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#FBBF24",
+                            "blur": 10
+                          }
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "UwfD3",
+                          "x": 625,
+                          "y": 255,
+                          "fill": "#FBBF24",
+                          "width": 14,
+                          "height": 14,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#FBBF24",
+                            "blur": 10
+                          }
+                        },
+                        {
+                          "type": "ellipse",
+                          "id": "zjDym",
+                          "x": 340,
+                          "y": 85,
+                          "fill": "#FBBF24",
+                          "width": 14,
+                          "height": 14,
+                          "effect": {
+                            "type": "shadow",
+                            "shadowType": "outer",
+                            "color": "#FBBF24",
+                            "blur": 10
+                          }
+                        },
+                        {
+                          "type": "frame",
+                          "id": "JdhBo",
+                          "x": 28,
+                          "y": 28,
+                          "name": "pcBadge",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 24,
+                          "gap": 8,
+                          "padding": [
+                            7,
+                            16
+                          ],
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "icon_font",
+                              "id": "yVyQI",
+                              "width": 16,
+                              "height": 16,
+                              "iconFontName": "globe",
+                              "iconFontFamily": "lucide",
+                              "fill": "#6366F1"
+                            },
+                            {
+                              "type": "text",
+                              "id": "pMVRH",
+                              "fill": "#111827",
+                              "content": "나의 여행 도감",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "700"
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "F9l86I",
+                              "fill": "#E5E7EB",
+                              "width": 1,
+                              "height": 16
+                            },
+                            {
+                              "type": "text",
+                              "id": "RWtNo",
+                              "fill": "#6B7280",
+                              "content": "17 / 195 국가 방문",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "H6RNF",
+                          "x": 28,
+                          "y": 790,
+                          "name": "pcLgd",
+                          "gap": 20,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "lzJJL",
+                              "name": "lgA",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "Hxk42",
+                                  "fill": "#10B981",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "ww1Tt",
+                                  "opacity": 0.7,
+                                  "fill": "#FFFFFF",
+                                  "content": "방문한 국가",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "iHVkl",
+                              "name": "lgB",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "FQrnH",
+                                  "fill": "#3B82F6",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "FsUyu",
+                                  "opacity": 0.7,
+                                  "fill": "#FFFFFF",
+                                  "content": "유럽 방문",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ID0bC",
+                              "name": "lgC",
+                              "gap": 6,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "ellipse",
+                                  "id": "M67WAk",
+                                  "fill": "#253870",
+                                  "width": 10,
+                                  "height": 10
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "JyTps",
+                                  "opacity": 0.7,
+                                  "fill": "#FFFFFF",
+                                  "content": "미방문",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Sm7QG",
+                          "x": 28,
+                          "y": 740,
+                          "name": "pcStats",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "Fm7LV",
+                              "name": "ps1",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "B6bA68",
+                                  "fill": "#FFFFFF",
+                                  "content": "17",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 28,
+                                  "fontWeight": "800"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "zbZH7",
+                                  "opacity": 0.5,
+                                  "fill": "#FFFFFF",
+                                  "content": "방문 국가",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "I0urO",
+                              "opacity": 0.15,
+                              "fill": "#FFFFFF",
+                              "width": 1,
+                              "height": 36
+                            },
+                            {
+                              "type": "frame",
+                              "id": "sTRj3",
+                              "name": "ps2",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "IUhV6",
+                                  "fill": "#FFFFFF",
+                                  "content": "42",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 28,
+                                  "fontWeight": "800"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "wbngk",
+                                  "opacity": 0.5,
+                                  "fill": "#FFFFFF",
+                                  "content": "방문 도시",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "rectangle",
+                              "id": "w2n73Y",
+                              "opacity": 0.15,
+                              "fill": "#FFFFFF",
+                              "width": 1,
+                              "height": 36
+                            },
+                            {
+                              "type": "frame",
+                              "id": "AawEx",
+                              "name": "ps3",
+                              "layout": "vertical",
+                              "gap": 2,
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "J6NmN",
+                                  "fill": "#FFFFFF",
+                                  "content": "28",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 28,
+                                  "fontWeight": "800"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "jk7ZV",
+                                  "opacity": 0.5,
+                                  "fill": "#FFFFFF",
+                                  "content": "총 여행",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 12,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "E8s4Gk",
+                  "name": "rightPanel",
+                  "width": "fill_container",
+                  "height": "fill_container",
+                  "fill": "#F4F2EE",
+                  "layout": "vertical",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "qXy6H",
+                      "name": "rpHdr",
+                      "width": "fill_container",
+                      "height": 64,
+                      "fill": "#F4F2EE",
+                      "padding": [
+                        0,
+                        24
+                      ],
+                      "justifyContent": "space_between",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "FFpiG",
+                          "fill": "#111827",
+                          "content": "수집된 도시",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "rORQp",
+                          "name": "rpHdrR",
+                          "gap": 8,
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "E2BzIx",
+                              "name": "rpSearch",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 24,
+                              "stroke": {
+                                "align": "outside",
+                                "thickness": 1,
+                                "fill": "#E5E7EB"
+                              },
+                              "gap": 8,
+                              "padding": [
+                                8,
+                                14
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "icon_font",
+                                  "id": "ktZQC",
+                                  "width": 15,
+                                  "height": 15,
+                                  "iconFontName": "search",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "#9CA3AF"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Af6T8",
+                                  "fill": "#9CA3AF",
+                                  "content": "도시 검색",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "normal"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "OusUf",
+                              "name": "sortBtn",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 24,
+                              "stroke": {
+                                "align": "outside",
+                                "thickness": 1,
+                                "fill": "#E5E7EB"
+                              },
+                              "gap": 5,
+                              "padding": [
+                                8,
+                                14
+                              ],
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "text",
+                                  "id": "cU704",
+                                  "fill": "#374151",
+                                  "content": "최신순",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 13,
+                                  "fontWeight": "500"
+                                },
+                                {
+                                  "type": "icon_font",
+                                  "id": "j1a147",
+                                  "width": 14,
+                                  "height": 14,
+                                  "iconFontName": "chevron-down",
+                                  "iconFontFamily": "lucide",
+                                  "fill": "#6B7280"
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "J4ePf",
+                      "name": "rpTabs",
+                      "width": "fill_container",
+                      "height": 44,
+                      "fill": "#F4F2EE",
+                      "gap": 8,
+                      "padding": [
+                        0,
+                        24
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "D4TDc",
+                          "name": "rta",
+                          "fill": "#111827",
+                          "cornerRadius": 20,
+                          "padding": [
+                            6,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "IBoN3",
+                              "fill": "#FFFFFF",
+                              "content": "전체",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "k6Gjx",
+                          "name": "rtb",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 20,
+                          "stroke": {
+                            "align": "outside",
+                            "thickness": 1,
+                            "fill": "#E5E7EB"
+                          },
+                          "padding": [
+                            6,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "B7Vdvy",
+                              "fill": "#6B7280",
+                              "content": "아시아",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "ECixc",
+                          "name": "rtc",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 20,
+                          "stroke": {
+                            "align": "outside",
+                            "thickness": 1,
+                            "fill": "#E5E7EB"
+                          },
+                          "padding": [
+                            6,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "GhsLs",
+                              "fill": "#6B7280",
+                              "content": "유럽",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "qPImT",
+                          "name": "rtd",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 20,
+                          "stroke": {
+                            "align": "outside",
+                            "thickness": 1,
+                            "fill": "#E5E7EB"
+                          },
+                          "padding": [
+                            6,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "k5Fw9",
+                              "fill": "#6B7280",
+                              "content": "아메리카",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "xFAil",
+                          "name": "rte",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 20,
+                          "stroke": {
+                            "align": "outside",
+                            "thickness": 1,
+                            "fill": "#E5E7EB"
+                          },
+                          "padding": [
+                            6,
+                            16
+                          ],
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "vmJSQ",
+                              "fill": "#6B7280",
+                              "content": "기타",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "O3vSR",
+                      "name": "rpGrid",
+                      "width": "fill_container",
+                      "fill": "#F4F2EE",
+                      "layout": "vertical",
+                      "gap": 12,
+                      "padding": [
+                        8,
+                        24
+                      ],
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "bllqc",
+                          "name": "gr1",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "H0ozfm",
+                              "name": "gc1",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "R2aI7r",
+                                  "name": "gci1",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#F97316",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#FB923C",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "W9IerU",
+                                      "fill": "#000000",
+                                      "content": "🇯🇵",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "kDHAf",
+                                  "fill": "#111827",
+                                  "content": "도쿄",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "B0HhP5",
+                                  "fill": "#9CA3AF",
+                                  "content": "일본 · 2024.11",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "UXcsk",
+                                  "name": "gst1",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "BcVZ9",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "G935V",
+                              "name": "gc2",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "HBYMl",
+                                  "name": "gci2",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#3B82F6",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#6366F1",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "gcakM",
+                                      "fill": "#000000",
+                                      "content": "🇫🇷",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "w4zSS",
+                                  "fill": "#111827",
+                                  "content": "파리",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "J2zDfM",
+                                  "fill": "#9CA3AF",
+                                  "content": "프랑스 · 2024.08",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "snHeg",
+                                  "name": "gst2",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "DX9bt",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "ml0Uc",
+                              "name": "gc3",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "cilbf",
+                                  "name": "gci3",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#10B981",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#14B8A6",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "l9brHA",
+                                      "fill": "#000000",
+                                      "content": "🇹🇭",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "JgwHc",
+                                  "fill": "#111827",
+                                  "content": "방콕",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "PRpFs",
+                                  "fill": "#9CA3AF",
+                                  "content": "태국 · 2024.06",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "G3Pinn",
+                                  "name": "gst3",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "grs0P",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "Sowo4",
+                              "name": "gc4",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "Q9OtY",
+                                  "name": "gci4",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#EC4899",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#F43F5E",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "IddcD",
+                                      "fill": "#000000",
+                                      "content": "🇯🇵",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "j9NgHG",
+                                  "fill": "#111827",
+                                  "content": "오사카",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "fLSR0",
+                                  "fill": "#9CA3AF",
+                                  "content": "일본 · 2024.04",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "R1WpA",
+                                  "name": "gst4",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "a4pDw",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "Ksc5i",
+                          "name": "gr2",
+                          "width": "fill_container",
+                          "gap": 12,
+                          "children": [
+                            {
+                              "type": "frame",
+                              "id": "iiwup",
+                              "name": "gc5",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "mcFLr",
+                                  "name": "gci5",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#8B5CF6",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#7C3AED",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "mnN8D",
+                                      "fill": "#000000",
+                                      "content": "🇹🇼",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "uRvQX",
+                                  "fill": "#111827",
+                                  "content": "타이베이",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Qtb0A",
+                                  "fill": "#9CA3AF",
+                                  "content": "대만 · 2024.02",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "B0fqA",
+                                  "name": "gst5",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "KYs77",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "nOtYq",
+                              "name": "gc6",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "B6obb",
+                                  "name": "gci6",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#EAB308",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#F97316",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "r9TB3c",
+                                      "fill": "#000000",
+                                      "content": "🇸🇬",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "jmIKc",
+                                  "fill": "#111827",
+                                  "content": "싱가포르",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "xArID",
+                                  "fill": "#9CA3AF",
+                                  "content": "싱가포르 · 2023.12",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "cZyOO",
+                                  "name": "gst6",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "S1N3nC",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "juvIp",
+                              "name": "gc7",
+                              "width": "fill_container",
+                              "fill": "#FFFFFF",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "xgdF7",
+                                  "name": "gci7",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": {
+                                    "type": "gradient",
+                                    "gradientType": "linear",
+                                    "enabled": true,
+                                    "rotation": 135,
+                                    "size": {
+                                      "height": 1
+                                    },
+                                    "colors": [
+                                      {
+                                        "color": "#06B6D4",
+                                        "position": 0
+                                      },
+                                      {
+                                        "color": "#0284C7",
+                                        "position": 1
+                                      }
+                                    ]
+                                  },
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "zFUcK",
+                                      "fill": "#000000",
+                                      "content": "🇻🇳",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 26,
+                                      "fontWeight": "normal"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Q6xTMG",
+                                  "fill": "#111827",
+                                  "content": "다낭",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "Awv6o",
+                                  "fill": "#9CA3AF",
+                                  "content": "베트남 · 2023.09",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "PWbN1",
+                                  "name": "gst7",
+                                  "fill": "#ECFDF5",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "vS4xR",
+                                      "fill": "#059669",
+                                      "content": "✓ 수집됨",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "600"
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            {
+                              "type": "frame",
+                              "id": "lpGKl",
+                              "name": "gc8",
+                              "width": "fill_container",
+                              "fill": "#F9FAFB",
+                              "cornerRadius": 16,
+                              "layout": "vertical",
+                              "gap": 8,
+                              "padding": 16,
+                              "alignItems": "center",
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "qPWIH",
+                                  "name": "gci8",
+                                  "width": 52,
+                                  "height": 52,
+                                  "fill": "#F3F4F6",
+                                  "cornerRadius": 26,
+                                  "justifyContent": "center",
+                                  "alignItems": "center",
+                                  "children": [
+                                    {
+                                      "type": "icon_font",
+                                      "id": "vZ70f",
+                                      "width": 24,
+                                      "height": 24,
+                                      "iconFontName": "lock",
+                                      "iconFontFamily": "lucide",
+                                      "fill": "#D1D5DB"
+                                    }
+                                  ]
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "s5fzf",
+                                  "fill": "#9CA3AF",
+                                  "content": "뉴욕",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 14,
+                                  "fontWeight": "700"
+                                },
+                                {
+                                  "type": "text",
+                                  "id": "p5lzZ",
+                                  "fill": "#C4C9D4",
+                                  "content": "미국",
+                                  "fontFamily": "Inter",
+                                  "fontSize": 11,
+                                  "fontWeight": "normal"
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sRkHb",
+                                  "name": "gst8",
+                                  "fill": "#F3F4F6",
+                                  "cornerRadius": 12,
+                                  "padding": [
+                                    4,
+                                    10
+                                  ],
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "id": "rBK5R",
+                                      "fill": "#9CA3AF",
+                                      "content": "미수집",
+                                      "fontFamily": "Inter",
+                                      "fontSize": 10,
+                                      "fontWeight": "500"
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
             }
           ]
         }

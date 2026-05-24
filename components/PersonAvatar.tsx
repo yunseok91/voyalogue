@@ -44,44 +44,48 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
   const sh      = hexColor ? '#64748B' : clay.sh
   const isWhite = colorIndex === 0 && !hexColor
 
-  let shadow: string
+  let innerShadow: string
   if (photoURL && !imgFailed) {
-    shadow = `0 2px 6px rgba(0,0,0,0.12)`
+    innerShadow = `0 2px 6px rgba(0,0,0,0.12)`
   } else if (isWhite) {
-    shadow = `0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
+    innerShadow = `0 2px 8px rgba(71,85,105,0.22), inset 0 0 0 1.5px #8FA8C0`
   } else {
-    shadow = `0 2px 5px ${sh}55`
+    innerShadow = `0 2px 5px ${sh}55`
   }
 
-  if (ringColor) {
-    shadow = `0 0 0 2.5px white, 0 0 0 5px ${ringColor}, ${shadow}`
-  }
+  const outerShadow = ringColor
+    ? `0 0 0 2.5px white, 0 0 0 5px ${ringColor}`
+    : undefined
 
   const showPhoto = !!photoURL && !imgFailed
 
   return (
     <div className={`flex flex-col items-center gap-1 ${className}`}>
+      {/* Outer: ring only — no overflow:hidden so ring is never clipped */}
       <div
         className="relative flex-shrink-0"
-        style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', boxShadow: shadow }}
+        style={{ width: size, height: size, borderRadius: '50%', boxShadow: outerShadow }}
       >
-        {showPhoto ? (
-          <img
-            src={photoURL!}
-            alt={name}
-            referrerPolicy="no-referrer"
-            onError={() => setImgFailed(true)}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          />
-        ) : (
-          <svg viewBox="0 0 44 44" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M 7 44 Q 7 30 14.5 27 Q 18 25.5 22 25.5 Q 26 25.5 29.5 27 Q 37 30 37 44 Z"
-              fill={base}
+        {/* Inner: clips photo */}
+        <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', boxShadow: innerShadow }}>
+          {showPhoto ? (
+            <img
+              src={photoURL!}
+              alt={name}
+              referrerPolicy="no-referrer"
+              onError={() => setImgFailed(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
-            <circle cx="22" cy="14" r="11" fill={base} />
-          </svg>
-        )}
+          ) : (
+            <svg viewBox="0 0 44 44" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
+              <path
+                d="M 7 44 Q 7 30 14.5 27 Q 18 25.5 22 25.5 Q 26 25.5 29.5 27 Q 37 30 37 44 Z"
+                fill={base}
+              />
+              <circle cx="22" cy="14" r="11" fill={base} />
+            </svg>
+          )}
+        </div>
       </div>
 
       {showName && (

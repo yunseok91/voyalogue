@@ -1239,7 +1239,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                               : 'border-gray-100 bg-gray-50 opacity-35'
                           }`}
                         >
-                          <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} />
+                          <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} ringColor={photoURL ? (hexC ?? CLAY[ci ?? 1]?.base) : undefined} />
                           <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
                         </button>
                       )
@@ -1283,7 +1283,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                               selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 bg-gray-50 opacity-45'
                             }`}
                           >
-                            <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} />
+                            <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} ringColor={photoURL ? (hexC ?? CLAY[ci ?? 1]?.base) : undefined} />
                             <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
                           </button>
                         )
@@ -1767,7 +1767,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                           : 'border-gray-100 bg-gray-50 opacity-35'
                       }`}
                     >
-                      <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} />
+                      <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} ringColor={hexC ?? (ci !== undefined ? CLAY[ci % CLAY.length]?.base : undefined)} />
                       <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
                     </button>
                   )
@@ -1811,7 +1811,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                           selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 bg-gray-50 opacity-45'
                         }`}
                       >
-                        <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} />
+                        <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={hexC} photoURL={photoURL ?? undefined} ringColor={hexC ?? (ci !== undefined ? CLAY[ci % CLAY.length]?.base : undefined)} />
                         <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
                       </button>
                     )
@@ -1913,10 +1913,20 @@ const OVERSEAS_DEFAULTS = ['여권', '항공권 (출력 또는 모바일)', '해
 
 /* ── 플래너 본체 ── */
 function PlannerContent({ tripId }: { tripId: string }) {
-  const { user, avatarColor, avatarHexColor } = useAuthStore()
+  const { user, avatarColor, avatarHexColor, preferredCurrency, setAvatarColor, setAvatarHexColor } = useAuthStore()
   const uid    = user!.uid
   const router = useRouter()
 
+  /* 유저 색상 로드 (AppNavbar 없는 이 페이지에서 직접 접근 시 null 방지) */
+  useEffect(() => {
+    if (!user || (avatarColor !== null || avatarHexColor !== null)) return
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      if (!snap.exists()) return
+      const d = snap.data()
+      if (typeof d.avatarColor    === 'number') setAvatarColor(d.avatarColor)
+      if (typeof d.avatarHexColor === 'string') setAvatarHexColor(d.avatarHexColor)
+    }).catch(() => {})
+  }, [user?.uid])
 
   /* 여행 메타 */
   const [meta,        setMeta]        = useState<TripMeta | null>(null)
@@ -2470,15 +2480,25 @@ function PlannerContent({ tripId }: { tripId: string }) {
   /* 정산 모달이 열릴 때 모든 Day 데이터 최신화 */
   useEffect(() => {
     if (!showSettlement || !days.length) return
+    // 게스트도 방장의 Firestore 경로에서 읽어야 아이템이 있음
+    const fetchUid = ownerId || uid
     Promise.all(
       days.map(day =>
-        getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
-          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+        getDocs(collection(db, 'users', fetchUid, 'trips', tripId, 'days', day.dayId, 'items'))
+          .then(snap => ({
+            dayId:     day.dayId,
+            items:     snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            empty:     snap.empty,
+            fromCache: snap.metadata.fromCache,
+          }))
       )
     ).then(results => {
       setDayItems(prev => {
         const next = { ...prev }
-        results.forEach(r => { next[r.dayId] = r.items })
+        results.forEach(r => {
+          if (r.empty && r.fromCache) return
+          next[r.dayId] = r.items
+        })
         return next
       })
     }).catch(() => {})
@@ -3192,25 +3212,30 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   <div className="flex items-center justify-center mb-2" style={{ height: 22 }}>
                     {isActive && visible.length > 0 && (
                       <>
-                        {visible.map((m, mi) => (
-                          <div
-                            key={m.id}
-                            className="flex-shrink-0 ring-[1.5px] ring-white rounded-full"
-                            style={{ marginLeft: mi === 0 ? 0 : overlap, zIndex: visible.length - mi }}
-                          >
-                            <PersonAvatar
-                              name={m.name}
-                              photoURL={m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL}
-                              colorIndex={
-                                m.role === 'owner'
-                                  ? (avatarHexColor ? undefined : (avatarColor ?? 0))
-                                  : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
-                              }
-                              hexColor={m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor}
-                              size={18}
-                            />
-                          </div>
-                        ))}
+                        {visible.map((m, mi) => {
+                          const mPhoto = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
+                          const mHex   = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
+                          const mCi    = m.role === 'owner'
+                            ? (avatarHexColor ? undefined : (avatarColor ?? 0))
+                            : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
+                          const mRing  = mHex ?? (mCi !== undefined ? CLAY[mCi % CLAY.length]?.base : undefined)
+                          return (
+                            <div
+                              key={m.id}
+                              className="flex-shrink-0 rounded-full"
+                              style={{ marginLeft: mi === 0 ? 0 : overlap, zIndex: visible.length - mi }}
+                            >
+                              <PersonAvatar
+                                name={m.name}
+                                photoURL={mPhoto}
+                                colorIndex={mCi}
+                                hexColor={mHex}
+                                size={18}
+                                ringColor={mRing}
+                              />
+                            </div>
+                          )
+                        })}
                         {overflow > 0 && (
                           <div
                             className="flex-shrink-0 w-[18px] h-[18px] rounded-full bg-gray-100 ring-[1.5px] ring-white flex items-center justify-center text-[8px] font-bold text-gray-500"
@@ -3342,6 +3367,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {/* ── 전체 일정 요약 뷰 ── */}
             {activeDayIdx === -1 && (
               <div className="flex flex-col gap-3">
+                {allDayGroups.every(g => g.items.filter(i => !('markerType' in i && i.markerType === 'special')).length === 0) && (
+                  <div className="flex flex-col items-center justify-center py-14 gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-gray-300" />
+                    </div>
+                    <div className="text-center">
+                      <p className="text-sm font-semibold text-gray-400">아직 일정이 없어요</p>
+                      <p className="text-xs text-gray-300 mt-1">위에서 Day를 선택하고 첫 번째 장소를 추가해보세요</p>
+                    </div>
+                  </div>
+                )}
                 {allDayGroups.map((g, gi) => {
                   const dayItems_ = g.items.filter(i => !('markerType' in i && i.markerType === 'special'))
                   if (dayItems_.length === 0) return null
@@ -3806,6 +3842,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             size={42}
                             colorIndex={effectiveColorIdx}
                             hexColor={effectiveHex}
+                            ringColor={ringC}
                           />
                         )}
                         {!m.left && (
@@ -3831,6 +3868,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           size={42}
                           colorIndex={effectiveColorIdx}
                           hexColor={effectiveHex}
+                          ringColor={(auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) ? ringC : undefined}
                         />
                         <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
                           <Crown className="w-3 h-3 text-white" />
@@ -4265,15 +4303,24 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     const tPhoto = to.role   === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? to.photoURL)   : to.photoURL
                     return (
                       <div key={ti} className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-                        <PersonAvatar name={from.name} size={26} colorIndex={fci} hexColor={from.role === 'owner' ? (avatarHexColor ?? undefined) : from.hexColor} photoURL={fPhoto ?? undefined} />
+                        <PersonAvatar name={from.name} size={26} colorIndex={fci} hexColor={from.role === 'owner' ? (avatarHexColor ?? undefined) : from.hexColor} photoURL={fPhoto ?? undefined} ringColor={fPhoto ? (from.role === 'owner' ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base)) : (from.hexColor ?? (from.colorIndex !== undefined ? CLAY[from.colorIndex % CLAY.length]?.base : undefined))) : undefined} />
                         <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{from.name}</span>
                         <span className="text-gray-400 text-xs flex-shrink-0">→</span>
-                        <PersonAvatar name={to.name} size={26} colorIndex={tci} hexColor={to.role === 'owner' ? (avatarHexColor ?? undefined) : to.hexColor} photoURL={tPhoto ?? undefined} />
+                        <PersonAvatar name={to.name} size={26} colorIndex={tci} hexColor={to.role === 'owner' ? (avatarHexColor ?? undefined) : to.hexColor} photoURL={tPhoto ?? undefined} ringColor={tPhoto ? (to.role === 'owner' ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base)) : (to.hexColor ?? (to.colorIndex !== undefined ? CLAY[to.colorIndex % CLAY.length]?.base : undefined))) : undefined} />
                         <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{to.name}</span>
                         <div className="ml-auto text-right flex-shrink-0">
-                          <span className="text-sm font-bold text-emerald-600 block">{formatKRW(t.amount)}</span>
-                          {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                            <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(t.amount / rates[primaryCurrency]), primaryCurrency)}</span>
+                          {preferredCurrency !== 'KRW' && rates[preferredCurrency] ? (
+                            <>
+                              <span className="text-sm font-bold text-emerald-600 block">{formatLocal(Math.round(t.amount / rates[preferredCurrency]), preferredCurrency)}</span>
+                              <span className="text-[10px] text-gray-400">{formatKRW(t.amount)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold text-emerald-600 block">{formatKRW(t.amount)}</span>
+                              {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                                <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(t.amount / rates[primaryCurrency]), primaryCurrency)}</span>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -4307,7 +4354,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         onClick={() => setExpandedMemberId(isExpanded ? null : m.id)}
                         className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
                       >
-                        <PersonAvatar name={m.name} size={30} colorIndex={ci} hexColor={hexC} photoURL={photoURL} />
+                        <PersonAvatar name={m.name} size={30} colorIndex={ci} hexColor={hexC} photoURL={photoURL} ringColor={photoURL ? (hexC ?? (ci !== undefined ? CLAY[ci % CLAY.length]?.base : undefined)) : undefined} />
                         <div className="flex-1 min-w-0">
                           <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none">
                             {m.name}
@@ -4328,18 +4375,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               <span className={`text-sm font-bold block ${net > 0 ? 'text-emerald-600' : net < 0 ? 'text-red-500' : 'text-gray-400'}`}>
                                 {net === 0
                                   ? <span className="text-xs font-normal text-gray-400">완료</span>
-                                  : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>}
+                                  : preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                    ? <>{net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[preferredCurrency]), preferredCurrency)}</>
+                                    : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>
+                                }
                               </span>
-                              {primaryCurrency !== 'KRW' && rates[primaryCurrency] && net !== 0 && (
-                                <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
+                              {net !== 0 && (preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                ? <span className="text-[10px] text-gray-400">{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</span>
+                                : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
                               )}
                             </>
                           ) : (
                             <>
-                              <span className="text-sm font-bold text-gray-900 block">{formatKRW(Math.round(spent)) || '0원'}</span>
-                              {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
-                                <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(spent / rates[primaryCurrency]), primaryCurrency)}</span>
-                              )}
+                              <span className="text-sm font-bold text-gray-900 block">
+                                {preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                  ? formatLocal(Math.round(spent / rates[preferredCurrency]), preferredCurrency)
+                                  : (formatKRW(Math.round(spent)) || '0원')}
+                              </span>
+                              {preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                ? <span className="text-[10px] text-gray-400">{formatKRW(Math.round(spent))}</span>
+                                : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(spent / rates[primaryCurrency]), primaryCurrency)}</span>
+                              }
                             </>
                           )}
                         </div>
@@ -4630,7 +4686,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                   setEditingFlight({ ...editingFlight, participantIds: newIds.length > 0 ? newIds : undefined })
                                 }}
                                 className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
-                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} />
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
                                 <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
                               </button>
                             )
@@ -4659,7 +4715,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               <button key={m.id} type="button"
                                 onClick={() => setEditingFlight({ ...editingFlight, payerId: selected ? undefined : m.id })}
                                 className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
-                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} />
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
                                 <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
                               </button>
                             )
@@ -4783,7 +4839,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                   setEditingAcc({ ...editingAcc, participantIds: newIds.length > 0 ? newIds : undefined })
                                 }}
                                 className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
-                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} />
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
                                 <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
                               </button>
                             )
@@ -4812,7 +4868,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               <button key={m.id} type="button"
                                 onClick={() => setEditingAcc({ ...editingAcc, payerId: selected ? undefined : m.id })}
                                 className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
-                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} />
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
                                 <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
                               </button>
                             )

@@ -16,7 +16,7 @@ import { AppNavbar } from '@/components/AppNavbar'
 import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
-import { PersonAvatar } from '@/components/PersonAvatar'
+import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { OnboardingModal } from '@/components/OnboardingModal'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
 import { useOnboarding } from '@/hooks/useOnboarding'
@@ -42,7 +42,7 @@ type Trip = {
   budget?:        number
   coverPhotoURL?:      string
   coverPhotoPosition?: number
-  members?:            Array<{ id: string; name: string; role: string; photoURL?: string; left?: boolean }>
+  members?:            Array<{ id: string; name: string; role: string; photoURL?: string; hexColor?: string; colorIndex?: number; left?: boolean }>
   pendingDelete?:      boolean
   deletedAt?:          { toMillis(): number } | null
 }
@@ -532,11 +532,16 @@ function TripsContent() {
 
       const newViewCode = generateCode()
       const newEditCode = generateCode()
+      // 복사 시 멤버는 방장(현재 유저)만 유지, 초대 코드 초기화
+      const ownerMember = (origData.members ?? []).find((m: { role: string }) => m.role === 'owner')
       const newTripRef = await addDoc(collection(db, 'users', user.uid, 'trips'), {
         ...origData,
         title:         `${origData.title || origData.city} (복사)`,
         viewCode:      newViewCode,
         editCode:      newEditCode,
+        members:       ownerMember ? [ownerMember] : [],
+        joinCode:      null,
+        joinPin:       null,
         pendingDelete: false,
         deletedAt:     null,
         createdAt:     serverTimestamp(),
@@ -1181,7 +1186,7 @@ function TripsContent() {
               </button>
             </div>
             <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
-              {(memberPopupTrip.members ?? []).map(m => {
+              {(memberPopupTrip.members ?? []).map((m, i) => {
                 const resolved = m.id === user?.uid
                   ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
                   : m
@@ -1191,9 +1196,18 @@ function TripsContent() {
                   : m.role === 'treasurer'
                   ? 'bg-amber-100 text-amber-700'
                   : 'bg-gray-100 text-gray-500'
+                const ci = resolved.hexColor ? undefined : (resolved.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                const ringC = resolved.hexColor ?? CLAY[ci ?? 1]?.base
                 return (
                   <div key={m.id} className="flex items-center gap-3 py-3">
-                    <PersonAvatar name={resolved.name ?? '?'} photoURL={resolved.photoURL} size={36} />
+                    <PersonAvatar
+                      name={resolved.name ?? '?'}
+                      photoURL={resolved.photoURL}
+                      size={36}
+                      colorIndex={ci}
+                      hexColor={resolved.hexColor}
+                      ringColor={ringC}
+                    />
                     <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{resolved.name ?? '알 수 없음'}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
                   </div>

@@ -149,8 +149,9 @@ export default function LandingPage() {
     <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
       {/* AdSense — 랜딩 페이지에만 로드 */}
       <Script
+        id="google-adsense"
         src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6889911728160635"
-        strategy="afterInteractive"
+        strategy="lazyOnload"
         crossOrigin="anonymous"
       />
 

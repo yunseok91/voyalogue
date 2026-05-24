@@ -33,7 +33,12 @@ export type DayGroup = {
 export const DAY_COLORS = [
   '#3B82F6', '#F97316', '#10B981', '#8B5CF6',
   '#EC4899', '#EAB308', '#14B8A6', '#F43F5E',
-  '#6366F1', '#84CC16',
+  '#6366F1', '#84CC16', '#EF4444', '#06B6D4',
+  '#D946EF', '#22C55E', '#A855F7', '#EA580C',
+  '#F472B6', '#1D4ED8', '#059669', '#7C3AED',
+  '#DC2626', '#0284C7', '#C026D3', '#16A34A',
+  '#9333EA', '#B45309', '#0F766E', '#BE123C',
+  '#4338CA', '#4D7C0F',
 ]
 
 const SLOT_COLORS: Record<string, string> = {

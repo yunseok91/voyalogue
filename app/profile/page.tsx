@@ -23,6 +23,7 @@ import {
   Plane, Moon, MapPin, Trash2, Download,
   Shield, HelpCircle, FileText, Globe, Camera, Loader2,
 } from 'lucide-react'
+import { gradientStyle } from '@/lib/tripGradient'
 
 /* ── 통화 옵션 ── */
 const CURRENCIES = [
@@ -74,10 +75,11 @@ function LinkRow({ icon, label, onClick }: { icon: React.ReactNode; label: strin
   )
 }
 
-type Stats = { total: number; nights: number; cities: number }
+type Stats = { total: number; nights: number; cities: number; countries: number }
+type TripSummary = { tripId: string; city: string; country: string; startDate: string; endDate: string; nights: number; gradient: string }
 
 function ProfileContent() {
-  const { user, setUser, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor } = useAuthStore()
+  const { user, setUser, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor, setPreferredCurrency } = useAuthStore()
   const router            = useRouter()
   const handleResetTour = async () => {
     try { localStorage.setItem('voyalogue_tour_step', '1') } catch {}
@@ -113,7 +115,10 @@ function ProfileContent() {
     setAvatarHexColor(null)
     setColorSaving(true)
     try {
-      await setDoc(doc(db, 'users', user.uid), { avatarColor: idx, avatarHexColor: null }, { merge: true })
+      await Promise.all([
+        setDoc(doc(db, 'users', user.uid), { avatarColor: idx, avatarHexColor: null }, { merge: true }),
+        syncColorToTrips(user.uid, { colorIndex: idx, hexColor: null }),
+      ])
     } finally {
       setColorSaving(false)
     }
@@ -125,7 +130,10 @@ function ProfileContent() {
     setAvatarColor(null)
     setColorSaving(true)
     try {
-      await setDoc(doc(db, 'users', user.uid), { avatarHexColor: hex, avatarColor: null }, { merge: true })
+      await Promise.all([
+        setDoc(doc(db, 'users', user.uid), { avatarHexColor: hex, avatarColor: null }, { merge: true }),
+        syncColorToTrips(user.uid, { hexColor: hex, colorIndex: null }),
+      ])
     } finally {
       setColorSaving(false)
     }
@@ -137,6 +145,36 @@ function ProfileContent() {
   const [photoError,   setPhotoError]   = useState('')
   const [localPhoto,   setLocalPhoto]   = useState<string | null>(null)
   const currentPhoto = localPhoto || user?.photoURL || null
+
+  /* 모든 여행 members 배열의 색상 동기화 */
+  const syncColorToTrips = async (uid: string, colorData: { hexColor?: string | null; colorIndex?: number | null }) => {
+    const [ownSnap, invSnap] = await Promise.all([
+      getDocs(collection(db, 'users', uid, 'trips')),
+      getDocs(collection(db, 'users', uid, 'invitedTrips')),
+    ])
+    const tasks: Promise<void>[] = []
+    ownSnap.docs.forEach(tripDoc => {
+      const members = (tripDoc.data().members ?? []) as Array<{ id: string; hexColor?: string; colorIndex?: number }>
+      if (!members.some(m => m.id === uid)) return
+      tasks.push(updateDoc(tripDoc.ref, {
+        members: members.map(m => m.id === uid ? { ...m, ...colorData } : m),
+      }))
+    })
+    await Promise.all(
+      invSnap.docs.map(async invDoc => {
+        const { ownerUid, tripId } = invDoc.data() as { ownerUid: string; tripId: string }
+        const tripRef  = doc(db, 'users', ownerUid, 'trips', tripId)
+        const tripSnap = await getDoc(tripRef)
+        if (!tripSnap.exists()) return
+        const members = (tripSnap.data().members ?? []) as Array<{ id: string; hexColor?: string; colorIndex?: number }>
+        if (!members.some(m => m.id === uid)) return
+        tasks.push(updateDoc(tripRef, {
+          members: members.map(m => m.id === uid ? { ...m, ...colorData } : m),
+        }))
+      })
+    )
+    await Promise.all(tasks)
+  }
 
   /* 모든 여행 members 배열의 photoURL 동기화 */
   const syncPhotoToTrips = async (uid: string, url: string) => {
@@ -216,17 +254,33 @@ function ProfileContent() {
     : ''
 
   /* ── 여행 통계 (본인 + 초대받은 여행 합산) ── */
-  const [stats, setStats]     = useState<Stats | null>(null)
+  const [stats, setStats]           = useState<Stats | null>(null)
+  const [tripsByYear, setTripsByYear] = useState<{ year: number; trips: TripSummary[] }[]>([])
+
   useEffect(() => {
     if (!user) return
     Promise.all([
       getDocs(collection(db, 'users', user.uid, 'trips')),
       getDocs(collection(db, 'users', user.uid, 'invitedTrips')),
     ]).then(([ownSnap, invSnap]) => {
-      const own = ownSnap.docs.map(d => d.data())
-      const nights = own.reduce((s, t) => s + (t.nights ?? 0), 0)
-      const cities = new Set(own.map(t => (t.city as string).split(',')[0].trim())).size
-      setStats({ total: own.length + invSnap.size, nights, cities })
+      type RawTrip = { tripId: string; nights?: number; city?: string; country?: string; startDate?: string; endDate?: string; gradient?: string }
+      const own = ownSnap.docs.map(d => ({ tripId: d.id, ...d.data() } as RawTrip))
+      const nights    = own.reduce((s, t) => s + (t.nights ?? 0), 0)
+      const cities    = new Set(own.map(t => (t.city ?? '').split(',')[0].trim()).filter(Boolean)).size
+      const countries = new Set(own.filter(t => t.country).map(t => t.country!)).size
+      setStats({ total: own.length + invSnap.size, nights, cities, countries })
+
+      const byYear = new Map<number, TripSummary[]>()
+      own.forEach(t => {
+        const sd   = t.startDate ?? ''
+        const year = sd ? parseInt(sd.slice(0, 4)) : new Date().getFullYear()
+        if (!byYear.has(year)) byYear.set(year, [])
+        byYear.get(year)!.push({ tripId: t.tripId, city: t.city ?? '', country: t.country ?? '', startDate: sd, endDate: t.endDate ?? '', nights: t.nights ?? 0, gradient: t.gradient ?? '#3B82F6,#1D4ED8' })
+      })
+      const sorted = Array.from(byYear.entries())
+        .sort(([a], [b]) => b - a)
+        .map(([year, trips]) => ({ year, trips: trips.sort((a, b) => b.startDate.localeCompare(a.startDate)) }))
+      setTripsByYear(sorted)
     })
   }, [user])
 
@@ -269,6 +323,7 @@ function ProfileContent() {
   const handleCurrency = (v: string) => {
     setCurrency(v)
     localStorage.setItem('voyalogue_currency', v)
+    setPreferredCurrency(v)
   }
 
   /* ── 로그아웃 ── */
@@ -425,20 +480,60 @@ function ProfileContent() {
           </div>
 
           {/* 여행 통계 */}
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-2">
             {[
-              { icon: <Plane className="w-4 h-4" />, value: stats?.total ?? '–', label: '총 여행' },
-              { icon: <Moon className="w-4 h-4" />,  value: stats?.nights ?? '–', label: '총 박수' },
-              { icon: <MapPin className="w-4 h-4" />, value: stats?.cities ?? '–', label: '방문 도시' },
+              { icon: <Plane className="w-4 h-4" />,  value: stats?.total     ?? '–', label: '총 여행' },
+              { icon: <Moon className="w-4 h-4" />,   value: stats?.nights    ?? '–', label: '총 박수' },
+              { icon: <Globe className="w-4 h-4" />,  value: stats?.countries ?? '–', label: '방문 국가' },
+              { icon: <MapPin className="w-4 h-4" />, value: stats?.cities    ?? '–', label: '방문 도시' },
             ].map(s => (
-              <div key={s.label} className="bg-gray-50 rounded-xl py-3 px-2 flex flex-col items-center gap-1">
+              <div key={s.label} className="bg-gray-50 rounded-xl py-3 px-1 flex flex-col items-center gap-1">
                 <span className="text-blue-500">{s.icon}</span>
                 <p className="text-lg font-extrabold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>{s.value}</p>
-                <p className="text-[11px] text-gray-400">{s.label}</p>
+                <p className="text-[11px] text-gray-400 text-center">{s.label}</p>
               </div>
             ))}
           </div>
         </div>
+
+        {/* ── 나의 여행 히스토리 ── */}
+        {tripsByYear.length > 0 && (
+          <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-4">
+            <div className="px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-bold text-gray-700">나의 여행 히스토리</h2>
+              <span className="text-xs text-gray-400">{tripsByYear.reduce((s, y) => s + y.trips.length, 0)}번의 여행</span>
+            </div>
+            <div className="px-5 sm:px-6 py-5 flex flex-col gap-6">
+              {tripsByYear.map(({ year, trips }) => (
+                <div key={year}>
+                  <div className="flex items-center gap-2 mb-3">
+                    <p className="text-xs font-bold text-gray-400">{year}</p>
+                    <div className="flex-1 h-px bg-gray-100" />
+                    <span className="text-[11px] text-gray-300">{trips.length}개</span>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {trips.map(t => {
+                      const mo = t.startDate ? t.startDate.slice(5, 7).replace(/^0/, '') + '월' : ''
+                      return (
+                        <button
+                          key={t.tripId}
+                          onClick={() => router.push(`/trips/${t.tripId}`)}
+                          className="flex flex-col items-start px-3.5 py-2.5 rounded-2xl text-white shadow-sm transition-all hover:opacity-90 hover:scale-[1.03] active:scale-[0.97]"
+                          style={{ background: gradientStyle(t.gradient) }}
+                        >
+                          <span className="text-sm font-extrabold leading-tight">{t.city.split(',')[0]}</span>
+                          <span className="text-[11px] font-medium opacity-80 mt-0.5">
+                            {[mo, t.nights > 0 && `${t.nights}박`].filter(Boolean).join(' · ')}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* ── 계정 설정 ── */}
         <Section title="계정 설정">
@@ -539,12 +634,7 @@ function ProfileContent() {
 
         {/* ── 데이터 관리 ── */}
         <Section title="데이터 관리">
-          <LinkRow
-            icon={<Download className="w-4 h-4" />}
-            label="여행 데이터 내보내기 (Excel)"
-            onClick={() => router.push('/trips')}
-          />
-          <div className="border-t border-gray-100 pt-4">
+          <div>
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-medium text-red-500">계정 탈퇴</p>

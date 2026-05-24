@@ -36,9 +36,11 @@ type FlightItem = {
   dayId:       string
   departTime:  string
   arriveTime:  string
-  price?:            number
-  currency?:         string
+  price?:                number
+  currency?:             string
   includeInSettlement?:  boolean
+  payerId?:              string
+  participantIds?:       string[]
 }
 
 type AccommodationItem = {
@@ -51,6 +53,8 @@ type AccommodationItem = {
   price?:           number
   currency?:        string
   includeInSettlement?: boolean
+  payerId?:         string
+  participantIds?:  string[]
 }
 
 type CheckItem = { id: string; label: string; done: boolean }
@@ -84,6 +88,7 @@ type PlanItem = {
   price: number; currency: string; comment: string; order: number
   lat: number; lng: number; rating: number; ratings?: Record<string, number>; participants: number
   participantIds?: string[]
+  payerId?: string
   receipts?: string[]
 }
 
@@ -512,11 +517,14 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
               <div className="flex gap-2 flex-wrap">
                 {members.map((m, i) => {
                   const selected = participantIds.includes(m.id)
+                  const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
                   return (
                     <button key={m.id} type="button" onClick={() => toggleMember(m.id)}
                       className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
                       <PersonAvatar name={m.name} photoURL={m.photoURL} size={36}
-                        colorIndex={m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)} />
+                        colorIndex={ci}
+                        hexColor={m.hexColor}
+                        ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
                       <span className="text-[10px] font-semibold text-gray-600 max-w-[48px] truncate">{m.name}</span>
                     </button>
                   )
@@ -710,11 +718,14 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
               <div className="flex gap-2 flex-wrap">
                 {members.map((m, i) => {
                   const selected = participantIds.includes(m.id)
+                  const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
                   return (
                     <button key={m.id} type="button" onClick={() => toggleMember(m.id)}
                       className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-500 bg-blue-50' : 'border-gray-100 bg-gray-50'}`}>
                       <PersonAvatar name={m.name} photoURL={m.photoURL} size={36}
-                        colorIndex={m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)} />
+                        colorIndex={ci}
+                        hexColor={m.hexColor}
+                        ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
                       <span className="text-[10px] font-semibold text-gray-600 max-w-[48px] truncate">{m.name}</span>
                     </button>
                   )
@@ -791,7 +802,7 @@ export default function SharePage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading } = useAuthStore()
+  const { user, loading: authLoading, preferredCurrency } = useAuthStore()
 
   const [trip,         setTrip]        = useState<TripMeta | null>(null)
   const [notFound,     setNotFound]    = useState(false)
@@ -820,7 +831,8 @@ export default function SharePage() {
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
-  const [showSettlement, setShowSettlement] = useState(false)
+  const [showSettlement,   setShowSettlement]   = useState(false)
+  const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
   const [showReport,       setShowReport]       = useState(false)
   const [showMemberPopup,  setShowMemberPopup]  = useState(false)
 
@@ -1032,6 +1044,146 @@ export default function SharePage() {
     const first = amounts[0]
     return amounts.some(a => Math.abs(a - first) > 1)
   }, [memberSpent])
+
+  /* 결제자별 실제 결제 금액 */
+  const memberPaid = useMemo(() => {
+    if (!trip?.members?.length) return {} as Record<string, number>
+    const result: Record<string, number> = {}
+    trip.members.forEach(m => { result[m.id] = 0 })
+    const ownerIdForPaid = trip.members.find(m => m.role === 'owner')?.id ?? ''
+    Object.values(dayItems).flat().forEach(item => {
+      const pid = item.payerId ?? ownerIdForPaid
+      if (result[pid] === undefined) return
+      result[pid] += toKRW(item.price || 0, item.currency || 'KRW', rates)
+    });
+    (trip.flights ?? []).forEach(f => {
+      if (!f.price || !f.includeInSettlement) return
+      const pid = f.payerId ?? ownerIdForPaid
+      if (result[pid] === undefined) return
+      result[pid] += toKRW(f.price, f.currency ?? 'KRW', rates)
+    });
+    (trip.accommodations ?? []).forEach(a => {
+      if (!a.price || !a.includeInSettlement) return
+      const pid = a.payerId ?? ownerIdForPaid
+      if (result[pid] === undefined) return
+      result[pid] += toKRW(a.price, a.currency ?? 'KRW', rates)
+    })
+    return result
+  }, [dayItems, rates, trip])
+
+  /* 결제 집계 대상 항목 수 */
+  const paidItemCount = useMemo(() => {
+    const itemCount   = Object.values(dayItems).flat().filter(i => i.price > 0).length
+    const flightCount = (trip?.flights ?? []).filter(f => f.price && f.includeInSettlement).length
+    const accCount    = (trip?.accommodations ?? []).filter(a => a.price && a.includeInSettlement).length
+    return itemCount + flightCount + accCount
+  }, [dayItems, trip?.flights, trip?.accommodations])
+
+  /* 멤버별 결제 항목 목록 */
+  type PaidItemEntry = { type: 'item' | 'flight' | 'acc'; name: string; krw: number; perPersonKrw: number; participantCount: number }
+  const memberPaidItems = useMemo(() => {
+    if (!trip?.members?.length) return {} as Record<string, PaidItemEntry[]>
+    const result: Record<string, PaidItemEntry[]> = {}
+    trip.members.forEach(m => { result[m.id] = [] })
+    const totalActive = trip.members.filter(m => !m.left).length
+    const activeSet   = new Set(trip.members.filter(m => !m.left).map(m => m.id))
+    const ownerIdForItems = trip.members.find(m => m.role === 'owner')?.id ?? ''
+    Object.values(dayItems).flat().forEach(item => {
+      const pid = item.payerId ?? ownerIdForItems
+      if (!result[pid]) return
+      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
+      if (!krw) return
+      const validIds = (item.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantCount = validIds.length > 0 ? validIds.length : (item.participantIds?.length ? item.participantIds.length : totalActive)
+      result[pid].push({ type: 'item', name: item.name, krw, perPersonKrw: krw / participantCount, participantCount })
+    });
+    (trip.flights ?? []).forEach(f => {
+      if (!f.price || !f.includeInSettlement) return
+      const pid = f.payerId ?? ownerIdForItems
+      if (!result[pid]) return
+      const krw = toKRW(f.price, f.currency ?? 'KRW', rates)
+      const pIds = (f.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantCount = pIds.length > 0 ? pIds.length : totalActive
+      result[pid].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
+    });
+    (trip.accommodations ?? []).forEach(a => {
+      if (!a.price || !a.includeInSettlement) return
+      const pid = a.payerId ?? ownerIdForItems
+      if (!result[pid]) return
+      const krw = toKRW(a.price, a.currency ?? 'KRW', rates)
+      const pIds = (a.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantCount = pIds.length > 0 ? pIds.length : totalActive
+      result[pid].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
+    })
+    return result
+  }, [dayItems, rates, trip])
+
+  /* 멤버별 참여 항목 목록 */
+  const memberParticipatedItems = useMemo(() => {
+    if (!trip?.members?.length) return {} as Record<string, PaidItemEntry[]>
+    const result: Record<string, PaidItemEntry[]> = {}
+    trip.members.forEach(m => { result[m.id] = [] })
+    const activeSet = new Set(trip.members.filter(m => !m.left).map(m => m.id))
+    Object.values(dayItems).flat().forEach(item => {
+      if (!item.price) return
+      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
+      if (!krw) return
+      const validIds = (item.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantIds = validIds.length > 0 ? validIds : [...activeSet]
+      const participantCount = participantIds.length
+      participantIds.forEach(id => {
+        if (!result[id]) return
+        result[id].push({ type: 'item', name: item.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      })
+    });
+    (trip.flights ?? []).forEach(f => {
+      if (!f.price || !f.includeInSettlement) return
+      const krw = toKRW(f.price, f.currency ?? 'KRW', rates)
+      const pIds = (f.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantIds = pIds.length > 0 ? pIds : [...activeSet]
+      const participantCount = participantIds.length
+      participantIds.forEach(id => {
+        if (!result[id]) return
+        result[id].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      })
+    });
+    (trip.accommodations ?? []).forEach(a => {
+      if (!a.price || !a.includeInSettlement) return
+      const krw = toKRW(a.price, a.currency ?? 'KRW', rates)
+      const pIds = (a.participantIds ?? []).filter(id => activeSet.has(id))
+      const participantIds = pIds.length > 0 ? pIds : [...activeSet]
+      const participantCount = participantIds.length
+      participantIds.forEach(id => {
+        if (!result[id]) return
+        result[id].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      })
+    })
+    return result
+  }, [dayItems, rates, trip])
+
+  /* 최소 이체 계산 */
+  const settlementTransfers = useMemo(() => {
+    if (!trip?.members?.length || paidItemCount === 0) return []
+    const net: Record<string, number> = {}
+    trip.members.forEach(m => {
+      net[m.id] = Math.round((memberPaid[m.id] ?? 0) - (memberSpent[m.id] ?? 0))
+    })
+    const creditors = Object.entries(net).filter(([, v]) => v > 1).sort((a, b) => b[1] - a[1])
+    const debtors   = Object.entries(net).filter(([, v]) => v < -1).sort((a, b) => a[1] - b[1])
+    const transfers: { from: string; to: string; amount: number }[] = []
+    let ci = 0, di = 0
+    const cAmts = creditors.map(([, v]) => v)
+    const dAmts  = debtors.map(([, v]) => v)
+    while (ci < creditors.length && di < debtors.length) {
+      const amount = Math.min(cAmts[ci], -dAmts[di])
+      if (amount > 0) transfers.push({ from: debtors[di][0], to: creditors[ci][0], amount })
+      cAmts[ci] -= amount
+      dAmts[di]  += amount
+      if (cAmts[ci] < 1) ci++
+      if (-dAmts[di] < 1) di++
+    }
+    return transfers
+  }, [trip?.members, memberPaid, memberSpent, paidItemCount])
 
   const avgPerPerson = (trip?.members?.length ?? 1) > 1 && totalSpent > 0
     ? totalSpent / (trip?.members?.length ?? 1)
@@ -1647,53 +1799,186 @@ export default function SharePage() {
 
       {/* 정산 명세 팝업 */}
       {showSettlement && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200]"
-          onClick={() => setShowSettlement(false)}>
-          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl"
-            onClick={e => e.stopPropagation()}>
-            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between">
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200]"
+          onClick={() => setShowSettlement(false)}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl max-h-[85vh] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
               </div>
-              <button onClick={() => setShowSettlement(false)}
-                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+              <button
+                onClick={() => setShowSettlement(false)}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"
+              >
                 <X className="w-4 h-4" />
               </button>
             </div>
-            <div className="px-6 py-4 flex flex-col gap-3">
-              {(trip.members ?? []).map((m, mi) => {
-                const amt = memberSpent[m.id] ?? 0
-                return (
-                  <div key={m.id} className={`flex items-center gap-3 ${m.left ? 'opacity-50' : ''}`}>
-                    <PersonAvatar
-                      name={m.name}
-                      size={32}
-                      colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1))}
-                      hexColor={m.hexColor}
-                      photoURL={m.photoURL}
-                    />
-                    <span className="text-sm flex-1 font-medium text-gray-800 flex items-center gap-1.5">
-                      {m.name}
-                      {m.left && (
-                        <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">탈퇴</span>
-                      )}
-                    </span>
-                    <div className="text-right">
-                      <span className="text-sm font-bold text-gray-900 block">
-                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                          ? (formatLocal(Math.round(amt / rates[primaryCurrency]), primaryCurrency) || '0')
-                          : (formatKRW(Math.round(amt)) || '0원')
-                        }
-                      </span>
-                      {primaryCurrency !== 'KRW' && (
-                        <span className="text-[11px] text-gray-400">{formatKRW(Math.round(amt))}</span>
+
+            <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-4">
+              {/* 이렇게 보내세요 */}
+              {settlementTransfers.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">이렇게 보내세요</p>
+                  {settlementTransfers.map((t, ti) => {
+                    const from = (trip.members ?? []).find(m => m.id === t.from)
+                    const to   = (trip.members ?? []).find(m => m.id === t.to)
+                    if (!from || !to) return null
+                    const fci = from.hexColor ? undefined : (from.colorIndex ?? ((trip.members!.indexOf(from) % (CLAY.length - 1)) + 1))
+                    const tci = to.hexColor   ? undefined : (to.colorIndex   ?? ((trip.members!.indexOf(to)   % (CLAY.length - 1)) + 1))
+                    return (
+                      <div key={ti} className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
+                        <PersonAvatar name={from.name} size={26} colorIndex={fci} hexColor={from.hexColor} photoURL={from.photoURL} ringColor={from.photoURL ? (from.hexColor ?? CLAY[fci ?? 1]?.base) : undefined} />
+                        <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{from.name}</span>
+                        <span className="text-gray-400 text-xs flex-shrink-0">→</span>
+                        <PersonAvatar name={to.name} size={26} colorIndex={tci} hexColor={to.hexColor} photoURL={to.photoURL} ringColor={to.photoURL ? (to.hexColor ?? CLAY[tci ?? 1]?.base) : undefined} />
+                        <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{to.name}</span>
+                        <div className="ml-auto text-right flex-shrink-0">
+                          {preferredCurrency !== 'KRW' && rates[preferredCurrency] ? (
+                            <>
+                              <span className="text-sm font-bold text-emerald-600 block">{formatLocal(Math.round(t.amount / rates[preferredCurrency]), preferredCurrency)}</span>
+                              <span className="text-[10px] text-gray-400">{formatKRW(t.amount)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold text-emerald-600 block">{formatKRW(t.amount)}</span>
+                              {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                                <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(t.amount / rates[primaryCurrency]), primaryCurrency)}</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* 개인별 내역 */}
+              <div className="flex flex-col gap-1.5">
+                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
+                  {paidItemCount > 0 ? '개인별 내역' : '내 몫'}
+                </p>
+                {(trip.members ?? []).map((m, mi) => {
+                  const spent    = memberSpent[m.id] ?? 0
+                  const paid     = memberPaid[m.id]  ?? 0
+                  const net      = Math.round(paid - spent)
+                  const isExpanded        = expandedMemberId === m.id
+                  const paidItems         = memberPaidItems[m.id] ?? []
+                  const participatedItems = memberParticipatedItems[m.id] ?? []
+                  const ci    = m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1))
+                  return (
+                    <div key={m.id} className={`rounded-xl border transition-colors ${isExpanded ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-gray-50/60'} ${m.left ? 'opacity-50' : ''}`}>
+                      <button
+                        type="button"
+                        onClick={() => setExpandedMemberId(isExpanded ? null : m.id)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 text-left"
+                      >
+                        <PersonAvatar name={m.name} size={30} colorIndex={ci} hexColor={m.hexColor} photoURL={m.photoURL} ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none">
+                            {m.name}
+                            {m.left && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>}
+                            {paidItems.length > 0 && (
+                              <span className="text-[10px] text-blue-400 font-normal">{paidItems.length}건 결제</span>
+                            )}
+                          </span>
+                          {paidItemCount > 0 && (
+                            <span className="text-[10px] text-gray-400 mt-0.5 block">
+                              낸 돈 {formatKRW(Math.round(paid))} · 내 몫 {formatKRW(Math.round(spent))}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                          {paidItemCount > 0 ? (
+                            <>
+                              <span className={`text-sm font-bold block ${net > 0 ? 'text-emerald-600' : net < 0 ? 'text-red-500' : 'text-gray-400'}`}>
+                                {net === 0
+                                  ? <span className="text-xs font-normal text-gray-400">완료</span>
+                                  : preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                    ? <>{net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[preferredCurrency]), preferredCurrency)}</>
+                                    : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>
+                                }
+                              </span>
+                              {net !== 0 && (preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                ? <span className="text-[10px] text-gray-400">{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</span>
+                                : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
+                              )}
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-sm font-bold text-gray-900 block">
+                                {preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                  ? formatLocal(Math.round(spent / rates[preferredCurrency]), preferredCurrency)
+                                  : (formatKRW(Math.round(spent)) || '0원')}
+                              </span>
+                              {preferredCurrency !== 'KRW' && rates[preferredCurrency]
+                                ? <span className="text-[10px] text-gray-400">{formatKRW(Math.round(spent))}</span>
+                                : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {formatLocal(Math.round(spent / rates[primaryCurrency]), primaryCurrency)}</span>
+                              }
+                            </>
+                          )}
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="px-3 pb-3 flex flex-col gap-3 border-t border-blue-100/60 pt-2.5">
+                          <div>
+                            <p className="text-[10px] font-bold text-blue-500 mb-1.5">💳 결제한 항목</p>
+                            {paidItems.length === 0 ? (
+                              <p className="text-[11px] text-gray-400 pl-0.5">결제 기록 없음</p>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {paidItems.map((pi, pii) => (
+                                  <div key={pii} className="flex items-center gap-2">
+                                    <span className="flex-shrink-0 text-[11px]">
+                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    </span>
+                                    <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
+                                    <div className="text-right flex-shrink-0">
+                                      <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(pi.krw)}</span>
+                                      <span className="text-[10px] text-gray-400">1인 {formatKRW(Math.round(pi.perPersonKrw))} · {pi.participantCount}명</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-emerald-600 mb-1.5">👥 참여한 항목</p>
+                            {participatedItems.length === 0 ? (
+                              <p className="text-[11px] text-gray-400 pl-0.5">참여 기록 없음</p>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                {participatedItems.map((pi, pii) => (
+                                  <div key={pii} className="flex items-center gap-2">
+                                    <span className="flex-shrink-0 text-[11px]">
+                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    </span>
+                                    <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
+                                    <div className="text-right flex-shrink-0">
+                                      <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(Math.round(pi.perPersonKrw))}</span>
+                                      <span className="text-[10px] text-gray-400">{pi.participantCount}명 중 1인</span>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
                       )}
                     </div>
-                  </div>
-                )
-              })}
-              <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+                  )
+                })}
+              </div>
+
+              {/* 합계 */}
+              <div className="pt-1 border-t border-gray-100 flex items-center justify-between">
                 <span className="text-[11px] text-gray-400 flex items-center gap-1">
                   <Users className="w-3 h-3" />합계
                 </span>
@@ -1861,6 +2146,7 @@ export default function SharePage() {
                       size={36}
                       colorIndex={m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))}
                       hexColor={m.hexColor}
+                      ringColor={m.hexColor ?? CLAY[(m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)) % CLAY.length]?.base}
                     />
                     <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{m.name ?? '알 수 없음'}</span>
                     <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
