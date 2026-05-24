@@ -87,6 +87,13 @@ const REVIEWS = [
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function maskName(name: string): string {
+  if (!name || name === '익명') return '익명'
+  if (name.length === 1) return name
+  if (name.length === 2) return name[0] + '*'
+  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+}
+
 function Tag({ color, children }: { color: string; children: React.ReactNode }) {
   return (
     <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${color}`}>
@@ -473,7 +480,7 @@ export default function LandingPage() {
                 <Stars count={r.stars} />
                 <p className="text-sm text-gray-700 leading-relaxed flex-1">"{r.text}"</p>
                 <p className="text-xs font-semibold text-gray-400">
-                  {r.name}{'trip' in r ? ` · ${r.trip}` : ''}
+                  {maskName(r.name)}{'trip' in r ? ` · ${r.trip}` : ''}
                 </p>
               </div>
             ))}
