@@ -4487,7 +4487,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       </span>
                       <div className="text-right">
                         <span className="text-[12px] font-semibold text-gray-700 block">{formatKRW(totalSpent)}</span>
-                        {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency] && totalSpent > 0 && (
                           <p className="text-[10px] text-gray-400">약 {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
                         )}
                       </div>
@@ -4546,7 +4546,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     <span className="text-sm font-bold text-gray-900 block">
                       {formatKRW(totalSpent + settlementFixedKRW)}
                     </span>
-                    {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (totalSpent + settlementFixedKRW) > 0 && (
                       <span className="text-[11px] text-gray-400">
                         약 {formatLocal(Math.round((totalSpent + settlementFixedKRW) / rates[primaryCurrency]), primaryCurrency)}
                       </span>
