@@ -589,7 +589,7 @@ function TripsContent() {
 
       <AnnouncementModal />
 
-      {hintStep === 1 && <OnboardingCallout step={1} onNext={nextHint} onSkip={skipHint} />}
+      {hintStep === 1 && !dbLoading && trips.length === 0 && <OnboardingCallout step={1} onNext={nextHint} onSkip={skipHint} />}
       {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">
