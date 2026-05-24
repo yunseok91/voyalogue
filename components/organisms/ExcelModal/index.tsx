@@ -225,7 +225,7 @@ export function ExcelModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative z-10 w-full sm:max-w-[520px] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[92svh] sm:max-h-[88vh]">
+      <div className="relative z-10 w-full sm:max-w-[520px] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col">
 
         {/* 모바일 핸들 */}
         <div className="sm:hidden flex justify-center pt-3 pb-1 flex-shrink-0">
@@ -254,7 +254,7 @@ export function ExcelModal({
         </div>
 
         {/* ── 콘텐츠 ── */}
-        <div className="flex-1 overflow-y-auto px-6 pb-4 flex flex-col gap-4">
+        <div className="overflow-y-auto px-6 pb-4 flex flex-col gap-4 max-h-[65svh]">
 
           {/* 시트 구조 안내 */}
           <div className="bg-blue-50 rounded-2xl p-4 flex flex-col gap-2">
@@ -374,8 +374,11 @@ function TripCheckRow({
   const statusCls = STATUS_CLS[label] ?? 'bg-gray-100 text-gray-500'
 
   return (
-    <label
-      className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all ${
+    <div
+      role="checkbox"
+      aria-checked={checked}
+      onClick={onToggle}
+      className={`flex items-center gap-3 px-4 py-3 rounded-xl border cursor-pointer transition-all select-none ${
         checked
           ? 'border-blue-300 bg-blue-50/50'
           : 'border-gray-200 bg-white hover:border-gray-300'
@@ -387,12 +390,6 @@ function TripCheckRow({
       }`}>
         {checked && <Check className="w-3 h-3 text-white" />}
       </div>
-      <input
-        type="checkbox"
-        className="sr-only"
-        checked={checked}
-        onChange={onToggle}
-      />
 
       {/* 정보 */}
       <div className="flex-1 min-w-0">
@@ -415,6 +412,6 @@ function TripCheckRow({
       <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full flex-shrink-0 ${statusCls}`}>
         {label}
       </span>
-    </label>
+    </div>
   )
 }
