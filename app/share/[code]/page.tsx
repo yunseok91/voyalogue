@@ -802,7 +802,18 @@ export default function SharePage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, preferredCurrency } = useAuthStore()
+  const { user, loading: authLoading, preferredCurrency, avatarColor, avatarHexColor, setAvatarColor, setAvatarHexColor } = useAuthStore()
+
+  /* 유저 색상 로드 (AppNavbar 없는 이 페이지 직접 접근 시 null 방지) */
+  useEffect(() => {
+    if (!user || (avatarColor !== null || avatarHexColor !== null)) return
+    getDoc(doc(db, 'users', user.uid)).then(snap => {
+      if (!snap.exists()) return
+      const d = snap.data()
+      if (typeof d.avatarColor    === 'number') setAvatarColor(d.avatarColor)
+      if (typeof d.avatarHexColor === 'string') setAvatarHexColor(d.avatarHexColor)
+    }).catch(() => {})
+  }, [user?.uid])
 
   const [trip,         setTrip]        = useState<TripMeta | null>(null)
   const [notFound,     setNotFound]    = useState(false)
@@ -1469,11 +1480,16 @@ export default function SharePage() {
   const isTreasurer     = currentMember?.role === 'treasurer'
 
   /* Firebase Auth 최신 정보 반영 멤버 목록 (탈퇴 멤버 제외) */
-  const resolvedMembers = (trip.members ?? []).filter(m => !m.left).map(m => ({
-    ...m,
-    photoURL: m.id === user?.uid ? (user?.photoURL ?? m.photoURL) : m.photoURL,
-    name:     m.id === user?.uid ? (user?.displayName ?? m.name)  : m.name,
-  }))
+  const resolvedMembers = (trip.members ?? []).filter(m => !m.left).map(m => {
+    if (m.id !== user?.uid) return m
+    return {
+      ...m,
+      photoURL:   user?.photoURL ?? m.photoURL,
+      name:       user?.displayName ?? m.name,
+      hexColor:   avatarHexColor ?? m.hexColor,
+      colorIndex: avatarHexColor ? undefined : (avatarColor ?? m.colorIndex),
+    }
+  })
 
   const tw = gradientTextColor(trip.gradient) === 'white'
 
