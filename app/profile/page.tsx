@@ -375,7 +375,13 @@ function ProfileContent() {
                 size={80}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
-                ringColor={currentPhoto ? selectedRingColor : undefined}
+                ringColor={
+                  avatarHexColor
+                    ? avatarHexColor
+                    : avatarColor !== null
+                      ? CLAY[avatarColor % CLAY.length]?.base
+                      : undefined
+                }
               />
               <button
                 onClick={() => fileInputRef.current?.click()}

@@ -130,9 +130,13 @@ export function AppNavbar({
                 size={36}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
-                ringColor={(user?.photoURL || firestorePhotoURL)
-                  ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base ?? CLAY[1].base))
-                  : undefined}
+                ringColor={
+                  avatarHexColor
+                    ? avatarHexColor
+                    : avatarColor !== null
+                      ? CLAY[avatarColor % CLAY.length]?.base
+                      : undefined
+                }
               />
             </button>
 
