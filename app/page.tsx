@@ -8,7 +8,7 @@ import { ArrowRight, Globe, Menu, X, Star } from 'lucide-react'
 import { useAuthStore } from '@/features/auth/store'
 import { AdUnit } from '@/components/AdUnit'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
-import { getDocs, collection, query, where, orderBy, limit } from 'firebase/firestore'
+import { getDocs, collection, query, where, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -127,16 +127,25 @@ export default function LandingPage() {
     getDocs(query(
       collection(db, 'serviceReviews'),
       where('featured', '==', true),
-      orderBy('createdAt', 'desc'),
-      limit(6),
+      limit(12),
     )).then(snap => {
       if (snap.size > 0) {
-        setLiveReviews(snap.docs.map(d => {
-          const data = d.data()
-          return { id: d.id, name: data.displayName ?? '익명', text: data.text ?? '', stars: data.rating ?? 5 }
-        }))
+        const sorted = snap.docs
+          .map(d => {
+            const data = d.data()
+            return {
+              id:    d.id,
+              name:  data.displayName ?? '익명',
+              text:  data.text ?? '',
+              stars: data.rating ?? 5,
+              ts:    data.createdAt?.toMillis?.() ?? 0,
+            }
+          })
+          .sort((a, b) => b.ts - a.ts)
+          .slice(0, 6)
+        setLiveReviews(sorted)
       }
-    }).catch(() => {})
+    }).catch(err => console.error('[reviews]', err))
   }, [])
 
   useEffect(() => {
