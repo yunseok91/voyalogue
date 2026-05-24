@@ -23,10 +23,6 @@ type PlanItem = {
   order:    number
 }
 
-type DayMeta = {
-  dayId: string
-  date:  string
-}
 
 type TripMeta = {
   title:          string
@@ -52,7 +48,6 @@ function OverviewContent({ tripId }: { tripId: string }) {
 
   const [meta,      setMeta]      = useState<TripMeta | null>(null)
   const [dayItems,  setDayItems]  = useState<Record<string, PlanItem[]>>({})
-  const [dayMetas,  setDayMetas]  = useState<DayMeta[]>([])
   const [loading,   setLoading]   = useState(true)
   const [activeDayIdx, setActiveDayIdx] = useState(-1)  // -1 = 전체 일정
 
@@ -66,20 +61,15 @@ function OverviewContent({ tripId }: { tripId: string }) {
         const m = tripSnap.data() as TripMeta & { ownerUid?: string }
         if (!cancelled) setMeta(m)
 
-        /* days 서브컬렉션 */
-        const daysSnap = await getDocs(collection(db, 'users', uid, 'trips', tripId, 'days'))
-        if (cancelled) return
-        const metas: DayMeta[] = daysSnap.docs.map(d => ({ dayId: d.id, date: d.data().date ?? '' }))
-        metas.sort((a, b) => a.dayId.localeCompare(b.dayId))
-        setDayMetas(metas)
-
-        /* items per day */
+        /* items per day — meta.days 수 기반으로 d1~dN 직접 로드 (days 문서 존재 여부 무관) */
+        const totalDays = (m as { days?: number }).days ?? 0
+        const dayIds = Array.from({ length: totalDays }, (_, i) => `d${i + 1}`)
         const allItems: Record<string, PlanItem[]> = {}
-        await Promise.all(metas.map(async dm => {
+        await Promise.all(dayIds.map(async dayId => {
           const snap = await getDocs(
-            collection(db, 'users', uid, 'trips', tripId, 'days', dm.dayId, 'items')
+            collection(db, 'users', uid, 'trips', tripId, 'days', dayId, 'items')
           )
-          allItems[dm.dayId] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PlanItem))
+          allItems[dayId] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PlanItem))
         }))
         if (!cancelled) setDayItems(allItems)
       } finally {

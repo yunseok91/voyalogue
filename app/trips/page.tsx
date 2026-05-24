@@ -223,14 +223,6 @@ function AnnouncementModal() {
   )
 }
 
-type AdminMessage = {
-  id: string
-  title: string
-  body: string
-  createdAt: Timestamp
-  read: boolean
-}
-
 function parseTripCountry(city: string): string {
   const parts = city.split(',').map(s => s.trim())
   return parts[1] ?? ''
@@ -251,7 +243,6 @@ function TripsContent() {
   const [page,       setPage]       = useState(1)
   const [showExcel, setShowExcel] = useState(false)
   const [darkOverride, setDarkOverride] = useState<Record<string, boolean>>({})
-  const [popupMsg, setPopupMsg] = useState<AdminMessage | null>(null)
   const [seedLoading, setSeedLoading] = useState(false)
   const [editTarget,  setEditTarget]  = useState<Trip | null>(null)
   const [showReport,  setShowReport]  = useState(false)
@@ -260,7 +251,7 @@ function TripsContent() {
   const [showReview,  setShowReview]  = useState(false)
 
 
-  useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
+  useScrollLock(showExcel || !!editTarget || showReport || !!memberPopupTrip)
 
   /* Firestore 1회 읽기 + 24시간 지난 소프트 딜리트 항목 정리 */
   const fetchTrips = async (uid: string) => {
@@ -341,25 +332,6 @@ function TripsContent() {
     } catch {}
   }, [])
 
-  /* 마운트 시 미읽음 메시지 중 최신 1개 팝업 */
-  useEffect(() => {
-    if (!user) return
-    const fetchPopup = async () => {
-      try {
-        const q = query(
-          collection(db, 'users', user.uid, 'messages'),
-          orderBy('createdAt', 'desc')
-        )
-        const snap = await getDocs(q)
-        const unread = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as AdminMessage))
-          .find(m => !m.read)
-        if (unread) setPopupMsg(unread)
-      } catch { /* silent */ }
-    }
-    fetchPopup()
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.uid])
 
   const tripsWithStatus = useMemo(
     () => trips.map(t => ({ ...t, status: getStatus(t) })),
@@ -1225,36 +1197,6 @@ function TripsContent() {
         </div>
       )}
 
-      {/* 운영자 메시지 팝업 */}
-      {popupMsg && user && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]">
-          <div
-            className="bg-white rounded-2xl w-[360px] mx-4 shadow-xl overflow-hidden"
-            onClick={e => e.stopPropagation()}
-          >
-            <div className="bg-blue-600 px-5 py-3">
-              <span className="text-xs font-bold text-white/80 tracking-wide">운영자 메시지</span>
-            </div>
-            <div className="px-5 py-5">
-              <p className="text-base font-bold text-gray-900 mb-2">{popupMsg.title}</p>
-              <p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{popupMsg.body}</p>
-            </div>
-            <div className="px-5 pb-5">
-              <button
-                onClick={async () => {
-                  try {
-                    await updateDoc(doc(db, 'users', user.uid, 'messages', popupMsg.id), { read: true })
-                  } catch { /* silent */ }
-                  setPopupMsg(null)
-                }}
-                className="w-full py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors"
-              >
-                확인
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

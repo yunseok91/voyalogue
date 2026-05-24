@@ -331,10 +331,10 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     id: 'vibe', label: '여행 바이브는?', sub: '복수 선택 가능',
     type: 'multiselect', enabled: true, order: 5, required: true,
     options: [
-      { label: '🍜 먹방 중심',       value: '먹방중심' },
-      { label: '🏯 핫플 + 관광',     value: '핫플관광' },
-      { label: '😌 느긋한 힐링',     value: '느긋하게' },
-      { label: '💎 럭셔리·프리미엄', value: '프리미엄' },
+      { label: '🍜 먹방 중심',   value: '먹방중심' },
+      { label: '🏯 핫플 + 관광', value: '핫플관광' },
+      { label: '😌 느긋한 힐링', value: '느긋하게' },
+      { label: '🛍 쇼핑 투어',   value: '쇼핑투어' },
     ],
   },
   {
@@ -350,10 +350,10 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     id: 'foodPref', label: '음식 취향을 골라주세요', sub: '복수 선택 가능 · 건너뛰어도 돼요',
     type: 'multiselect', enabled: true, order: 7, required: false,
     options: [
-      { label: '현지 로컬 맛집',    value: '현지로컬'   },
-      { label: '인스타 감성 카페',  value: '인스타카페' },
-      { label: '가성비 식당',       value: '가성비식당' },
-      { label: '미슐랭·파인다이닝', value: '파인다이닝' },
+      { label: '🏪 현지 로컬 맛집',    value: '현지로컬'   },
+      { label: '☕ 인스타 감성 카페',  value: '인스타카페' },
+      { label: '🌮 야시장·길거리 음식', value: '야시장길거리' },
+      { label: '🍽 미슐랭·파인다이닝', value: '파인다이닝' },
     ],
   },
   {
@@ -467,7 +467,7 @@ export function AiTripPlanner({ onClose }: Props) {
     const endDate   = addDays(startDate, 3)
     return { startDate, endDate, nights: '3', people: '3' }
   })
-  const [phase,       setPhase]       = useState<'checking' | 'quiz' | 'generating' | 'preview' | 'creating'>('checking')
+  const [phase,       setPhase]       = useState<'checking' | 'quiz' | 'generating' | 'failed' | 'preview' | 'creating'>('checking')
   const [plan,        setPlan]        = useState<GeneratedPlan | null>(null)
   const [previewDay,  setPreviewDay]  = useState(0)
   const [selectedAccIdx, setSelectedAccIdx] = useState<number | null>(null)
@@ -609,7 +609,7 @@ export function AiTripPlanner({ onClose }: Props) {
     } catch (e) {
       const msg = e instanceof Error ? e.message : ''
       setError(msg || 'AI 오류가 발생했습니다. 다시 시도해주세요.')
-      setPhase('quiz')
+      setPhase('failed')
     }
   }
 
@@ -1189,6 +1189,36 @@ export function AiTripPlanner({ onClose }: Props) {
                     style={{ animationDelay: `${i * 0.15}s` }}
                   />
                 ))}
+              </div>
+            </div>
+          )}
+
+          {/* ── 생성 실패 (답변 보존, 다시 시도 가능) ── */}
+          {phase === 'failed' && (
+            <div className="flex flex-col items-center justify-center py-14 gap-5 text-center px-2">
+              <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center text-3xl">😵</div>
+              <div>
+                <p className="text-base font-bold text-gray-900">일정 생성에 실패했어요</p>
+                <p className="text-sm text-gray-400 mt-1.5 leading-relaxed">
+                  {error || 'AI 서버에 일시적인 오류가 발생했어요.'}
+                </p>
+                <p className="text-xs text-blue-500 font-semibold mt-2">
+                  입력하신 조건은 그대로 저장돼 있어요
+                </p>
+              </div>
+              <div className="flex flex-col gap-2.5 w-full mt-1">
+                <button
+                  onClick={generatePlan}
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <Sparkles className="w-4 h-4" /> 다시 시도하기
+                </button>
+                <button
+                  onClick={() => { setPhase('quiz'); setError('') }}
+                  className="w-full py-3.5 border border-gray-200 text-gray-600 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  조건 변경하기
+                </button>
               </div>
             </div>
           )}
