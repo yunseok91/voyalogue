@@ -59,8 +59,9 @@ export function NotificationBell() {
     }
     setOpen(false)
     if (msg.tripPath) {
-      /* 이미 해당 페이지에 있으면 재이동 없이 닫기만 */
-      if (pathname === msg.tripPath) return
+      /* 쿼리 포함 경로가 다르면 이동 (같은 페이지라도 ?notice=1 등 쿼리가 있으면 이동) */
+      const currentFull = pathname + window.location.search
+      if (currentFull === msg.tripPath) return
       router.push(msg.tripPath)
     }
   }

@@ -450,7 +450,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
           {isOwner ? '플래너' : '일정'}
         </Link>
         <div className="h-4 w-px bg-gray-200" />
-        <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>대시보드</span>
+        <span className="text-sm font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>나의 여행 리포트</span>
       </nav>
 
       <main className="max-w-[860px] mx-auto px-4 sm:px-6 py-8 sm:py-10 flex flex-col gap-6 sm:gap-8">

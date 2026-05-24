@@ -1,10 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { collection, getDocs } from 'firebase/firestore'
+import { collection, getDocs, getDoc, doc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { X, Download, FileSpreadsheet, Check, Loader2, Crown, User } from 'lucide-react'
-import { exportToExcel, type TripRow, type ItemRow } from '@/utils/excel'
+import { exportToExcel, type TripRow, type ItemRow, type BudgetRow } from '@/utils/excel'
 import { getRatesInKRW, toKRW } from '@/lib/exchangeRate'
 import { CURRENCY_SYMBOLS } from '@/lib/currencyMap'
 
@@ -63,8 +63,9 @@ export function ExcelModal({
       const rates = await getRatesInKRW().catch(() => ({} as Record<string, number>))
       const selectedTrips = trips.filter(t => selected.has(t.id))
 
-      const tripRows:  TripRow[]  = []
-      const itemRows:  ItemRow[]  = []
+      const tripRows:   TripRow[]   = []
+      const itemRows:   ItemRow[]   = []
+      const budgetRows: BudgetRow[] = []
 
       for (const trip of selectedTrips) {
         /* ── 멤버 uid→name 맵 ── */
@@ -80,9 +81,11 @@ export function ExcelModal({
         const nonOwners  = allMembers.filter(m => m.role !== 'owner').map(m => m.name)
         const memberList = nonOwners.length > 0 ? nonOwners.join(', ') : '혼자'
 
+        const tripTitle = trip.title || trip.city
+
         /* ── Trip row ── */
         tripRows.push({
-          title:      trip.title || trip.city,
+          title:      tripTitle,
           city:       trip.city,
           ownerName,
           startDate:  trip.startDate,
@@ -95,13 +98,23 @@ export function ExcelModal({
         /* ── Firestore 경로: 초대받은 여행은 ownerUid 기준 ── */
         const ownerUid = (trip.isInvited && trip.ownerUid) ? trip.ownerUid : uid
 
+        /* ── 여행 메타(예산) 로드 ── */
+        const tripDocSnap = await getDoc(doc(db, 'users', ownerUid, 'trips', trip.id))
+        const tripMeta    = tripDocSnap.data() ?? {}
+        const totalBudget: number             = Number(tripMeta.budget ?? 0)
+        const dayBudgets:  Record<string, number> = tripMeta.dayBudgets ?? {}
+
         const daysSnap = await getDocs(
           collection(db, 'users', ownerUid, 'trips', trip.id, 'days')
         )
 
+        /* 일별 실지출 집계용 */
+        type DayMeta = { dayId: string; dayLabel: string; date: string; dayNum: number; actualKRW: number }
+        const dayActuals: DayMeta[] = []
+
         for (const daySnap of daysSnap.docs) {
           const dayData  = daySnap.data()
-          const dayLabel = String(dayData.label ?? daySnap.id)       // 'Day 1'
+          const dayLabel = String(dayData.label ?? daySnap.id)
           const dayNum   = parseInt(dayLabel.replace(/\D/g, '')) || 0
           const date     = String(dayData.date ?? '')
 
@@ -109,21 +122,21 @@ export function ExcelModal({
             collection(db, 'users', ownerUid, 'trips', trip.id, 'days', daySnap.id, 'items')
           )
 
+          let dayActualKRW = 0
+
           for (const itm of itmsSnap.docs) {
             const d        = itm.data()
             const price    = Number(d.price    ?? 0)
             const currency = String(d.currency ?? 'KRW')
             const sym      = CURRENCY_SYMBOLS[currency] ?? currency
 
-            /* 비용(통화) */
             const priceLocal = price === 0 ? '0' : `${sym}${price.toLocaleString()}`
-
-            /* 비용(원화) */
-            const priceKRW = currency === 'KRW'
+            const priceKRW   = currency === 'KRW'
               ? price
               : Math.round(toKRW(price, currency, rates))
 
-            /* 참여 멤버 */
+            dayActualKRW += priceKRW
+
             const participantIds: string[] = Array.isArray(d.participantIds) ? d.participantIds : []
             let participants: string
             if (participantIds.length === 0) {
@@ -135,7 +148,7 @@ export function ExcelModal({
             }
 
             itemRows.push({
-              tripTitle:    trip.title || trip.city,
+              tripTitle,
               city:         trip.city,
               day:          dayLabel,
               date,
@@ -150,10 +163,53 @@ export function ExcelModal({
               _order:       Number(d.order    ?? 0),
             })
           }
+
+          dayActuals.push({ dayId: daySnap.id, dayLabel, date, dayNum, actualKRW: dayActualKRW })
+        }
+
+        /* ── 예산 분석 rows 생성 ── */
+        const totalActual = dayActuals.reduce((s, d) => s + d.actualKRW, 0)
+
+        const calcStatus = (budget: number, actual: number, pct: number | null) => {
+          if (budget === 0) return '미설정'
+          if (pct === null) return '미설정'
+          if (pct > 100) return '초과'
+          if (pct >= 90) return '적정'
+          return '절약'
+        }
+
+        /* 전체 요약 행 */
+        const overallPct = totalBudget > 0 ? Math.round(totalActual / totalBudget * 100) : null
+        budgetRows.push({
+          tripTitle,
+          division:  '전체',
+          date:      `${trip.startDate} ~ ${trip.endDate}`,
+          budgetKRW: totalBudget,
+          actualKRW: totalActual,
+          diffKRW:   totalBudget > 0 ? totalBudget - totalActual : 0,
+          usagePct:  overallPct,
+          status:    calcStatus(totalBudget, totalActual, overallPct),
+        })
+
+        /* 일별 행 (dayNum 오름차순) */
+        const sortedDays = [...dayActuals].sort((a, b) => a.dayNum - b.dayNum)
+        for (const day of sortedDays) {
+          const db2    = dayBudgets[day.dayId] ?? 0
+          const dayPct = db2 > 0 ? Math.round(day.actualKRW / db2 * 100) : null
+          budgetRows.push({
+            tripTitle,
+            division:  day.dayLabel,
+            date:      day.date,
+            budgetKRW: db2,
+            actualKRW: day.actualKRW,
+            diffKRW:   db2 > 0 ? db2 - day.actualKRW : 0,
+            usagePct:  dayPct,
+            status:    calcStatus(db2, day.actualKRW, dayPct),
+          })
         }
       }
 
-      exportToExcel({ trips: tripRows, items: itemRows })
+      exportToExcel({ trips: tripRows, items: itemRows, budgets: budgetRows })
     } finally {
       setExporting(false)
     }
@@ -212,6 +268,10 @@ export function ExcelModal({
                 {
                   sheet: '일정',
                   cols:  '여행 · 날 · 날짜 · 시간대(아침→점심→저녁→미정) · 장소 · 카테고리 · 비용(통화·원화) · 메모 · 참여 멤버',
+                },
+                {
+                  sheet: '예산 분석',
+                  cols:  '여행 · 구분(전체/Day N) · 날짜 · 예산(원) · 실지출(원) · 잔여/초과(원) · 사용률 · 판정(절약·적정·초과·미설정)',
                 },
               ].map(({ sheet, cols }) => (
                 <div key={sheet} className="flex items-start gap-2">

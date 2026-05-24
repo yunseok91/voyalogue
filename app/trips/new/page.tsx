@@ -732,6 +732,7 @@ function NewTripContent() {
                                   {dm.date.slice(5).replace('-', '/')}
                                 </span>
                               </div>
+                              <div className="flex-1" />
                               <input
                                 type="number"
                                 value={val || ''}
@@ -748,7 +749,7 @@ function NewTripContent() {
                                 placeholder="미설정"
                                 min={0}
                                 max={maxMan}
-                                className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all bg-white"
+                                className="w-24 px-3 py-2 rounded-lg border border-gray-200 text-sm text-right text-gray-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all bg-white placeholder:text-left"
                               />
                               <div className="flex flex-col items-end w-10 flex-shrink-0">
                                 <span className="text-xs text-gray-500">만원</span>
@@ -765,7 +766,7 @@ function NewTripContent() {
                           <button
                             type="button"
                             onClick={() => setDayBudgets({})}
-                            className="text-xs text-gray-400 hover:text-red-500 transition-colors text-right"
+                            className="w-fit ml-auto text-xs text-gray-400 hover:text-red-500 transition-colors"
                           >
                             일별 예산 전체 초기화
                           </button>

@@ -439,6 +439,7 @@ export function TripEditModal({
                               </span>
                             )}
                           </div>
+                          <div className="flex-1" />
                           <input
                             type="number"
                             value={val || ''}
@@ -455,7 +456,7 @@ export function TripEditModal({
                             placeholder="미설정"
                             min={0}
                             max={maxMan}
-                            className={`flex-1 px-3 py-2 rounded-lg border text-sm text-gray-900 outline-none transition-all bg-white ${
+                            className={`w-24 px-3 py-2 rounded-lg border text-sm text-right text-gray-900 outline-none transition-all bg-white placeholder:text-left ${
                               isThisOver
                                 ? 'border-red-300 focus:border-red-400 focus:ring-2 focus:ring-red-400/10'
                                 : 'border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10'
@@ -476,7 +477,7 @@ export function TripEditModal({
                       <button
                         type="button"
                         onClick={() => setDayBudgetsLocal({})}
-                        className="text-[11px] text-gray-400 hover:text-red-500 transition-colors text-right"
+                        className="w-fit ml-auto text-[11px] text-gray-400 hover:text-red-500 transition-colors"
                       >
                         일별 예산 전체 초기화
                       </button>

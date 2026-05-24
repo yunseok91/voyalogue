@@ -4,9 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, CheckSquare, Headset, LogOut,
-  Users, Wallet, Crown, Edit2, Menu, X, LayoutDashboard, Megaphone, UserCircle,
+  Users, Wallet, Crown, Edit2, Menu, X, Megaphone, UserCircle,
 } from 'lucide-react'
-import { NotificationBell } from '@/components/NotificationBell'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { gradientStyle } from '@/lib/tripGradient'
 import { InfoTooltip } from '@/components/InfoTooltip'
@@ -40,8 +39,6 @@ type Props = {
   members:       NavMember[]
   currentMember?: NavMember | null
 
-  summaryHref: string
-
   onMemberClick:     () => void
   onChecklistToggle: () => void
   onReportClick:     () => void
@@ -55,7 +52,6 @@ export function TripNavbar({
   startDate, endDate, nights,
   isOwner, isTreasurer, user,
   members, currentMember,
-  summaryHref,
   onMemberClick, onChecklistToggle, onReportClick, onNoticeClick,
   onLeaveTrip, onEditTrip,
 }: Props) {
@@ -70,8 +66,6 @@ export function TripNavbar({
   const swatchStyle = coverPhotoURL
     ? { backgroundImage: `url(${coverPhotoURL})`, backgroundSize: 'cover', backgroundPosition: `center ${coverPhotoPosition ?? 50}%` }
     : { background: gradientStyle(gradient) }
-
-  const showSummary = !!(user && (isOwner || currentMember))
 
   const closeMenu = () => setShowMenu(false)
 
@@ -158,18 +152,6 @@ export function TripNavbar({
             <Users className="w-3.5 h-3.5 text-gray-400" />
           </button>
 
-          {/* 알림 */}
-          {user && <NotificationBell />}
-
-          {/* 문의/버그 신고 */}
-          <button
-            onClick={onReportClick}
-            title="문의 / 버그 신고"
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500 active:bg-orange-50 transition-colors flex-shrink-0"
-          >
-            <Headset className="w-4 h-4" />
-          </button>
-
           {/* 탈퇴 */}
           {onLeaveTrip && user && currentMember && !currentMember.left && (
             <button
@@ -191,7 +173,7 @@ export function TripNavbar({
               <Menu className="w-4 h-4" />
               <span className="hidden lg:inline text-xs font-semibold">메뉴</span>
             </button>
-            <InfoTooltip text="준비물 체크리스트, 공지사항, 대시보드(별점·요약), 마이페이지로 이동할 수 있습니다." width={210} />
+            <InfoTooltip text="준비물 체크리스트, 공지사항, 문의/신고, 마이페이지로 이동할 수 있습니다." width={210} />
           </div>
         </div>
       </div>
@@ -227,14 +209,6 @@ export function TripNavbar({
 
         {/* 우측 아이콘 */}
         <div className="flex items-center gap-1.5">
-          {user && <NotificationBell />}
-          <button
-            onClick={onReportClick}
-            title="문의 / 버그 신고"
-            className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-500 active:bg-orange-50 transition-colors flex-shrink-0"
-          >
-            <Headset className="w-4 h-4" />
-          </button>
           {onLeaveTrip && user && currentMember && !currentMember.left && (
             <button
               onClick={onLeaveTrip}
@@ -306,26 +280,19 @@ export function TripNavbar({
                 <InfoTooltip text={isOwner ? '멤버 전체에게 전달할 공지를 작성하세요. 집합 장소·주의사항·일정 변경 등을 공유할 수 있어요.' : '방장이 작성한 공지사항을 확인하세요.'} width={220} />
               </div>
 
-              {/* 대시보드 */}
-              {showSummary && (
-                <div className="flex items-center">
-                  <Link
-                    href={summaryHref}
-                    data-tour="summary-btn"
-                    onClick={closeMenu}
-                    className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors flex-1 min-w-0"
-                  >
-                    <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
-                      <LayoutDashboard style={{ width: 18, height: 18 }} className="text-violet-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-800">대시보드</p>
-                      <p className="text-[11px] text-gray-400">지출·일정 요약, 방문 후기 작성</p>
-                    </div>
-                  </Link>
-                  <InfoTooltip text="전체 지출 현황, 일정 요약, 멤버별 별점을 한눈에 확인하세요. 여행 후 후기를 남기는 공간이기도 해요." width={220} />
+              {/* 문의 / 버그 신고 */}
+              <button
+                onClick={() => { onReportClick(); closeMenu() }}
+                className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left"
+              >
+                <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
+                  <Headset style={{ width: 18, height: 18 }} className="text-orange-500" />
                 </div>
-              )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-800">문의 / 버그 신고</p>
+                  <p className="text-[11px] text-gray-400">불편사항이나 오류를 알려주세요</p>
+                </div>
+              </button>
 
               {/* 마이페이지 */}
               <div className="border-t border-gray-100 mt-1 pt-1">

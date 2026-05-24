@@ -373,6 +373,45 @@ async function compressImg(file: File): Promise<Blob> {
   })
 }
 
+/* ── 통화별 빠른 금액 버튼 ── */
+function getQuickAmounts(currency: string): { value: number; label: string }[] {
+  switch (currency) {
+    case 'KRW': return [
+      { value: 5000, label: '5천' }, { value: 10000, label: '1만' },
+      { value: 30000, label: '3만' }, { value: 50000, label: '5만' },
+      { value: 100000, label: '10만' },
+    ]
+    case 'JPY': return [
+      { value: 500, label: '¥500' }, { value: 1000, label: '¥1,000' },
+      { value: 3000, label: '¥3,000' }, { value: 5000, label: '¥5,000' },
+      { value: 10000, label: '¥10,000' },
+    ]
+    case 'VND': return [
+      { value: 50000, label: '₫5만' }, { value: 100000, label: '₫10만' },
+      { value: 200000, label: '₫20만' }, { value: 500000, label: '₫50만' },
+      { value: 1000000, label: '₫100만' },
+    ]
+    case 'THB': return [
+      { value: 100, label: '฿100' }, { value: 200, label: '฿200' },
+      { value: 500, label: '฿500' }, { value: 1000, label: '฿1K' },
+      { value: 2000, label: '฿2K' },
+    ]
+    case 'CNY': return [
+      { value: 20, label: '¥20' }, { value: 50, label: '¥50' },
+      { value: 100, label: '¥100' }, { value: 200, label: '¥200' },
+      { value: 500, label: '¥500' },
+    ]
+    default: {
+      const s = CURRENCY_SYMBOLS[currency] ?? currency
+      return [
+        { value: 5, label: `${s}5` }, { value: 10, label: `${s}10` },
+        { value: 20, label: `${s}20` }, { value: 50, label: `${s}50` },
+        { value: 100, label: `${s}100` },
+      ]
+    }
+  }
+}
+
 /* ── 추가 패널 (총무 전용) ── */
 function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUid, tripId, defaultPlace }: {
   onAdd:    (item: Omit<PlanItem, 'id' | 'order'>) => void
@@ -381,6 +420,8 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
   members: Member[]; tripUid: string; tripId: string
   defaultPlace?: { name: string; lat: number; lng: number }
 }) {
+  const [showDone,       setShowDone]       = useState(false)
+  const [addedName,      setAddedName]      = useState('')
   const [name,           setName]           = useState(defaultPlace?.name ?? '')
   const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
   const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
@@ -452,8 +493,9 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
       } catch { /* silent */ }
     }
     receiptPreviews.forEach(u => URL.revokeObjectURL(u))
+    const doneName = name.trim()
     onAdd({
-      name: name.trim(), timeSlot, cat,
+      name: doneName, timeSlot, cat,
       price: Number(price) || 0, currency, comment, rating,
       lat: lat ?? 0, lng: lng ?? 0,
       participants: participantIds.length || members.length,
@@ -461,7 +503,9 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
       ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
     })
     setUploading(false)
-    onClose()
+    setName(''); setPrice(''); setComment(''); setLat(null); setLng(null)
+    setReceiptFiles([]); setReceiptPreviews([])
+    setAddedName(doneName); setShowDone(true)
   }
 
   return (
@@ -475,7 +519,40 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
           <h3 className="text-base font-bold text-gray-900">일정 추가</h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
         </div>
-        <form onSubmit={submit} className="flex-1 flex flex-col overflow-hidden">
+
+        {/* 등록 완료 화면 */}
+        {showDone && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-5 px-6 py-12">
+            <div className="w-16 h-16 rounded-full bg-emerald-50 flex items-center justify-center">
+              <svg className="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" strokeWidth={2.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-base font-bold text-gray-900 mb-1">정상적으로 등록됐습니다.</p>
+              {addedName && <p className="text-sm text-gray-400">{addedName}</p>}
+            </div>
+            <div className="flex flex-col gap-2.5 w-full mt-1">
+              <button
+                type="button"
+                onClick={() => setShowDone(false)}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl text-sm font-bold transition-colors"
+              >
+                추가 등록하기
+              </button>
+              <button
+                type="button"
+                onClick={onClose}
+                className="w-full py-3.5 border border-gray-200 text-gray-600 rounded-2xl text-sm font-semibold hover:bg-gray-50 transition-colors"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* form — showDone 때도 DOM 유지해 autocomplete 살려둠 */}
+        <form onSubmit={submit} className={`flex-1 flex flex-col overflow-hidden ${showDone ? 'hidden' : ''}`}>
           <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
           {/* 장소명 */}
           <div>
@@ -542,6 +619,15 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
               </select>
               <input type="number" placeholder="0" value={price} onChange={e => setPrice(e.target.value)}
                 className="flex-1 px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+            </div>
+            <div className="flex gap-1.5 flex-wrap mt-1">
+              {getQuickAmounts(currency).map(({ value, label }) => (
+                <button key={value} type="button"
+                  onClick={() => setPrice(String(value))}
+                  className="px-2.5 py-1 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
           {/* 별점 */}
@@ -1515,7 +1601,6 @@ export default function SharePage() {
 
         currentMember={currentMember}
 
-        summaryHref={`/trips/${trip.id}/summary?owner=${trip.uid}`}
         onMemberClick={() => setShowMemberPopup(true)}
         onChecklistToggle={() => setShowChecklist(v => !v)}
         onReportClick={() => setShowReport(true)}

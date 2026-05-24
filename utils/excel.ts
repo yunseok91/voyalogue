@@ -2,36 +2,47 @@ import * as XLSX from 'xlsx'
 
 /* ── 타입 ── */
 export type TripRow = {
-  title:      string   // 여행 제목 (title || city)
+  title:      string
   city:       string
   ownerName:  string
   startDate:  string
   endDate:    string
   nights:     number
   days:       number
-  memberList: string   // 쉼표 구분 | "혼자"
+  memberList: string
 }
 
 export type ItemRow = {
   tripTitle:    string
   city:         string
-  day:          string   // 'Day 1'
-  date:         string   // 'YYYY-MM-DD'
+  day:          string
+  date:         string
   timeSlot:     string
   name:         string
   category:     string
-  priceLocal:   string   // '¥980' | '₩5,000'
+  priceLocal:   string
   priceKRW:     number
   comment:      string
-  participants: string   // 이름 쉼표 구분 | '전체'
-  /* 정렬용 내부 키 (엑셀 출력 제외) */
+  participants: string
   _dayNum?:     number
   _order?:      number
 }
 
+export type BudgetRow = {
+  tripTitle:  string
+  division:   string   // '전체' | 'Day 1' | ...
+  date:       string
+  budgetKRW:  number
+  actualKRW:  number
+  diffKRW:    number   // 양수 = 절약, 음수 = 초과
+  usagePct:   number | null  // null = 예산 미설정
+  status:     string   // '절약' | '적정' | '초과' | '미설정'
+}
+
 export type ExcelData = {
-  trips: TripRow[]
-  items: ItemRow[]
+  trips:   TripRow[]
+  items:   ItemRow[]
+  budgets: BudgetRow[]
 }
 
 /* ── 상수 ── */
@@ -62,7 +73,7 @@ export function exportToExcel(data: ExcelData, filename = '내_여행_일정') {
   ]
   XLSX.utils.book_append_sheet(wb, ws1, '여행 목록')
 
-  /* ── Sheet 2 : 일정 (시간대 아침→점심→저녁→미정 순 정렬) ── */
+  /* ── Sheet 2 : 일정 ── */
   const sorted = [...data.items].sort((a, b) => {
     if (a.tripTitle !== b.tripTitle) return a.tripTitle.localeCompare(b.tripTitle)
     const da = a._dayNum ?? 0, db = b._dayNum ?? 0
@@ -89,6 +100,30 @@ export function exportToExcel(data: ExcelData, filename = '내_여행_일정') {
     { wch: 12 }, { wch: 10 }, { wch: 30 }, { wch: 24 },
   ]
   XLSX.utils.book_append_sheet(wb, ws2, '일정')
+
+  /* ── Sheet 3 : 예산 분석 ── */
+  if (data.budgets.length > 0) {
+    const budgetHeaders = [
+      '여행', '구분', '날짜', '예산(원)', '실지출(원)', '잔여/초과(원)', '사용률', '판정',
+    ]
+    const budgetRows = data.budgets.map(b => [
+      b.tripTitle,
+      b.division,
+      b.date,
+      b.budgetKRW > 0 ? b.budgetKRW : '미설정',
+      b.actualKRW,
+      b.budgetKRW > 0 ? b.diffKRW : '-',
+      b.usagePct !== null ? `${b.usagePct}%` : '-',
+      b.status,
+    ])
+    const ws3 = XLSX.utils.aoa_to_sheet([budgetHeaders, ...budgetRows])
+    ws3['!cols'] = [
+      { wch: 22 }, { wch: 8 }, { wch: 24 },
+      { wch: 14 }, { wch: 14 }, { wch: 14 },
+      { wch: 8 }, { wch: 10 },
+    ]
+    XLSX.utils.book_append_sheet(wb, ws3, '예산 분석')
+  }
 
   XLSX.writeFile(wb, `${filename}_${new Date().toISOString().slice(0, 10)}.xlsx`)
 }
