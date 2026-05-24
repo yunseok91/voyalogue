@@ -17,9 +17,7 @@ import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
-import { OnboardingCallout } from '@/components/OnboardingCallout'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
-import { useOnboarding } from '@/hooks/useOnboarding'
 
 /* ── 타입 ── */
 type TripStatus  = 'ongoing' | 'upcoming' | 'done'
@@ -260,7 +258,7 @@ function TripsContent() {
   const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
   const [copyingId,   setCopyingId]   = useState<string | null>(null)
   const [showReview,  setShowReview]  = useState(false)
-  const { hintStep, nextHint, skipHint } = useOnboarding()
+
 
   useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
 
@@ -589,7 +587,6 @@ function TripsContent() {
 
       <AnnouncementModal />
 
-      {hintStep === 1 && !dbLoading && trips.length === 0 && <OnboardingCallout step={1} onNext={nextHint} onSkip={skipHint} />}
       {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">

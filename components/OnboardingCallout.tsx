@@ -89,27 +89,42 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
     }
   }, [measure])
 
-  /* 이 페이지에 대상 요소가 없으면 렌더 안 함 */
-  if (!def || !rect || vw === 0) return null
+  if (!def || vw === 0) return null
 
   const CALLOUT_W = 260
   const GAP = 12
 
-  const arrowOnTop = vh - rect.bottom >= 160 || vh - rect.bottom >= rect.top
-  const top = arrowOnTop ? rect.bottom + GAP : rect.top - 160 - GAP
-  let left = rect.left + rect.width / 2 - CALLOUT_W / 2
-  left = Math.max(8, Math.min(left, vw - CALLOUT_W - 8))
-  const arrowLeft = Math.max(10, Math.min(Math.round(rect.left + rect.width / 2 - left - 6), CALLOUT_W - 20))
+  /* target이 이 페이지에 없으면 하단 중앙 고정 */
+  const isFallback = !rect
+
+  let posStyle: React.CSSProperties
+  let arrowOnTop = false
+  let arrowLeft = CALLOUT_W / 2 - 6
+
+  if (isFallback) {
+    posStyle = {
+      bottom: 28,
+      left: '50%',
+      transform: 'translateX(-50%)',
+    }
+  } else {
+    arrowOnTop = vh - rect!.bottom >= 160 || vh - rect!.bottom >= rect!.top
+    const top = arrowOnTop ? rect!.bottom + GAP : rect!.top - 160 - GAP
+    let left = rect!.left + rect!.width / 2 - CALLOUT_W / 2
+    left = Math.max(8, Math.min(left, vw - CALLOUT_W - 8))
+    arrowLeft = Math.max(10, Math.min(Math.round(rect!.left + rect!.width / 2 - left - 6), CALLOUT_W - 20))
+    posStyle = { top, left }
+  }
 
   return (
     <div
       className="fixed bg-white rounded-2xl p-4 border border-gray-100"
-      style={{ top, left, width: CALLOUT_W, zIndex: 9999, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}
+      style={{ ...posStyle, width: CALLOUT_W, zIndex: 9999, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}
     >
-      {arrowOnTop && (
+      {!isFallback && arrowOnTop && (
         <div className="absolute w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100" style={{ top: -6, left: arrowLeft }} />
       )}
-      {!arrowOnTop && (
+      {!isFallback && !arrowOnTop && (
         <div className="absolute w-3 h-3 bg-white rotate-45 border-r border-b border-gray-100" style={{ bottom: -6, left: arrowLeft }} />
       )}
 
@@ -132,6 +147,7 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
         <button
           onClick={onSkip}
           className="w-5 h-5 flex items-center justify-center rounded-full text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-colors"
+          aria-label="닫기"
         >
           <X size={12} />
         </button>
@@ -143,7 +159,7 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
 
       <div className="flex items-center justify-between">
         <button onClick={onSkip} className="text-xs text-gray-400 hover:text-gray-500 transition-colors">
-          건너뛰기
+          닫기
         </button>
         <button
           onClick={onNext}

@@ -3,6 +3,7 @@ import './globals.css'
 import { AuthProvider } from '@/components/AuthProvider'
 import { InAppBrowserGate } from '@/components/InAppBrowserGate'
 import { GoogleAnalytics } from '@/components/GoogleAnalytics'
+import { OnboardingBanner } from '@/components/OnboardingBanner'
 
 export const metadata: Metadata = {
   title: {
@@ -44,7 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         */}
         <GoogleAnalytics />
         <InAppBrowserGate>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            {children}
+            <OnboardingBanner />
+          </AuthProvider>
         </InAppBrowserGate>
       </body>
     </html>

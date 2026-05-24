@@ -39,8 +39,6 @@ import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
-import { OnboardingCallout } from '@/components/OnboardingCallout'
-import { useOnboarding } from '@/hooks/useOnboarding'
 import { InfoTooltip } from '@/components/InfoTooltip'
 
 /* ── 타입 ── */
@@ -1969,7 +1967,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showReport,      setShowReport]      = useState(false)
 
   /* 온보딩 */
-  const { hintStep, nextHint, skipHint } = useOnboarding()
+
 
   /* 환율 */
   const [rates,    setRates]    = useState<Record<string, number>>({ KRW: 1 })
@@ -4913,9 +4911,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
         />
       )}
 
-      {hintStep >= 2 && hintStep <= 4 && (
-        <OnboardingCallout step={hintStep} onNext={nextHint} onSkip={skipHint} />
-      )}
 
     </div>
   )
