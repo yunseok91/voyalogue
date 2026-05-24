@@ -3,32 +3,32 @@
 import { useEffect, useCallback, useState } from 'react'
 import { X, ChevronRight } from 'lucide-react'
 
-export const CALLOUT_TOTAL = 4
+export const HINT_TOTAL = 4
 
 const STEP_DEFS = [
   {
     step: 1,
     target: 'create-trip',
-    title: '새 여행 만들기',
-    description: 'AI가 여행 일정 초안을 추천해드려요. 목적지·날짜를 입력하고 대표 사진과 예산도 설정할 수 있어요.',
+    title: '여행 만들기',
+    description: '목적지와 날짜를 입력해 여행을 생성하세요.',
   },
   {
     step: 2,
-    target: 'member-btn',
-    title: '멤버 초대 & 역할',
-    description: 'PIN 번호로 친구를 초대하세요. 방장·총무·멤버 역할을 설정해 함께 여행을 관리할 수 있어요.',
+    target: 'add-item',
+    title: '일정 추가',
+    description: '날짜별로 식사·장소·교통 일정을 기록하세요.',
   },
   {
     step: 3,
-    target: 'checklist-btn',
-    title: '여행 체크리스트',
-    description: '준비물과 할 일을 체크리스트로 관리하세요. 멤버 모두가 실시간으로 확인하고 완료 체크할 수 있어요.',
+    target: 'member-btn',
+    title: '멤버 초대',
+    description: '링크를 공유해 친구·가족과 함께 계획하세요.',
   },
   {
     step: 4,
-    target: 'summary-btn',
-    title: '여행 요약 & 예산',
-    description: '여행 예산 설정, 지출 내역 기록, 멤버 간 정산까지 한눈에 확인하세요.',
+    target: 'menu-btn',
+    title: '여행 후 별점',
+    description: '방문한 장소에 별점을 남겨 추억을 기록하세요.',
   },
 ]
 
@@ -61,7 +61,7 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
     setVh(window.innerHeight)
   }, [def])
 
-  /* Highlight target element */
+  /* 대상 요소 하이라이트 */
   useEffect(() => {
     if (!def) return
     const el = findVisible(def.target)
@@ -89,47 +89,38 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
     }
   }, [measure])
 
+  /* 이 페이지에 대상 요소가 없으면 렌더 안 함 */
   if (!def || !rect || vw === 0) return null
 
-  const CALLOUT_W = 272
+  const CALLOUT_W = 260
   const GAP = 12
 
-  const arrowOnTop = vh - rect.bottom >= 170 || vh - rect.bottom >= rect.top
-
-  const top = arrowOnTop ? rect.bottom + GAP : rect.top - 178 - GAP
+  const arrowOnTop = vh - rect.bottom >= 160 || vh - rect.bottom >= rect.top
+  const top = arrowOnTop ? rect.bottom + GAP : rect.top - 160 - GAP
   let left = rect.left + rect.width / 2 - CALLOUT_W / 2
   left = Math.max(8, Math.min(left, vw - CALLOUT_W - 8))
-  const arrowLeft = Math.max(10, Math.min(Math.round(rect.left + rect.width / 2 - left - 7), CALLOUT_W - 24))
+  const arrowLeft = Math.max(10, Math.min(Math.round(rect.left + rect.width / 2 - left - 6), CALLOUT_W - 20))
 
   return (
     <div
       className="fixed bg-white rounded-2xl p-4 border border-gray-100"
-      style={{
-        top, left, width: CALLOUT_W,
-        zIndex: 9999,
-        boxShadow: '0 8px 40px rgba(0,0,0,0.18)',
-      }}
+      style={{ top, left, width: CALLOUT_W, zIndex: 9999, boxShadow: '0 8px 40px rgba(0,0,0,0.18)' }}
     >
       {arrowOnTop && (
-        <div
-          className="absolute w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100"
-          style={{ top: -6, left: arrowLeft }}
-        />
+        <div className="absolute w-3 h-3 bg-white rotate-45 border-l border-t border-gray-100" style={{ top: -6, left: arrowLeft }} />
       )}
       {!arrowOnTop && (
-        <div
-          className="absolute w-3 h-3 bg-white rotate-45 border-r border-b border-gray-100"
-          style={{ bottom: -6, left: arrowLeft }}
-        />
+        <div className="absolute w-3 h-3 bg-white rotate-45 border-r border-b border-gray-100" style={{ bottom: -6, left: arrowLeft }} />
       )}
 
+      {/* 진행 도트 + 닫기 */}
       <div className="flex items-center justify-between mb-2.5">
         <div className="flex items-center gap-1">
-          {Array.from({ length: CALLOUT_TOTAL }).map((_, i) => (
+          {Array.from({ length: HINT_TOTAL }).map((_, i) => (
             <div
               key={i}
               style={{
-                width: i === step - 1 ? 20 : 6,
+                width: i === step - 1 ? 18 : 6,
                 height: 6,
                 borderRadius: 9999,
                 background: i === step - 1 ? '#3b82f6' : '#e5e7eb',
@@ -146,6 +137,7 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
         </button>
       </div>
 
+      <p className="text-[10px] font-semibold text-blue-500 mb-0.5">{step} / {HINT_TOTAL}</p>
       <h3 className="text-sm font-bold text-gray-900 mb-1">{def.title}</h3>
       <p className="text-xs text-gray-500 leading-relaxed mb-3">{def.description}</p>
 
@@ -157,7 +149,7 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
           onClick={onNext}
           className="flex items-center gap-1 bg-blue-500 hover:bg-blue-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
         >
-          {step === CALLOUT_TOTAL ? '완료' : '다음'}
+          {step === HINT_TOTAL ? '완료' : '다음'}
           <ChevronRight size={12} />
         </button>
       </div>

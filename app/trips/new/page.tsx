@@ -13,6 +13,7 @@ import { generateCode } from '@/lib/inviteCode'
 import { loadGoogleMaps } from '@/lib/googleMaps'
 import { AiTripPlanner } from '@/components/AiTripPlanner'
 import { useScrollLock } from '@/hooks/useScrollLock'
+import { InfoTooltip } from '@/components/InfoTooltip'
 
 /* ── 타입 ──────────────────────────────────── */
 type Country = {
@@ -403,7 +404,7 @@ function NewTripContent() {
                 </div>
                 <div className="text-left flex-1">
                   <p className="text-sm font-bold leading-tight">AI로 여행 일정 자동 생성</p>
-                  <p className="text-xs text-white/70 mt-0.5">몇 가지 질문에 답하면 AI가 일정을 짜줘요</p>
+                  <p className="text-xs text-white/70 mt-0.5">목적지·기간·여행 스타일을 입력하면 식사·관광·교통 일정을 자동으로 짜줘요</p>
                 </div>
                 <ChevronRight className="w-4 h-4 text-white/60 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
               </button>
@@ -417,8 +418,9 @@ function NewTripContent() {
 
             {/* ── 도시/국가 검색 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">
+              <label className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5">
                 어디로 여행하시나요? <span className="text-blue-600">*</span>
+                <InfoTooltip text="나라·도시 이름으로 검색하거나 직접 입력할 수 있어요. 여행 카드에 표시되며 지도와 환율 계산에도 활용됩니다." width={220} />
               </label>
               <div ref={wrapperRef} className="relative">
                 <div className="relative">
@@ -582,7 +584,10 @@ function NewTripContent() {
 
             {/* ── 여행 인원 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">여행 인원</label>
+              <label className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5">
+                여행 인원
+                <InfoTooltip text="함께 여행하는 총 인원수입니다. 정산 시 1인당 부담 금액 계산과 멤버 초대 인원 제한에 사용됩니다." width={210} />
+              </label>
               <div className="flex items-center w-fit bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <button type="button" onClick={() => setPeople(p => Math.max(1, p - 1))}
                   className="w-12 h-12 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
@@ -598,7 +603,11 @@ function NewTripContent() {
 
             {/* ── 여행 예산 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">여행 예산 <span className="text-gray-400 font-normal">(만원 단위, 선택)</span></label>
+              <label className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5">
+                여행 예산
+                <span className="text-gray-400 font-normal text-[12px]">(만원 단위, 선택)</span>
+                <InfoTooltip text="전체 여행 예산을 만원 단위로 입력하세요. 실제 지출 합계와 비교해 예산 현황을 보여주며, 일별로 나눠 배정할 수도 있어요." width={220} />
+              </label>
               <div className="flex items-center gap-2">
                 <input
                   type="number"
@@ -765,7 +774,10 @@ function NewTripContent() {
 
             {/* ── 대표 사진 · 테마 컬러 ── */}
             <div className="flex flex-col gap-2">
-              <label className="text-[13px] font-semibold text-gray-700">대표 사진 · 테마 컬러</label>
+              <label className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5">
+                대표 사진 · 테마 컬러
+                <InfoTooltip text="내 여행 목록 카드의 배경입니다. 여행 사진을 업로드하거나 원하는 색상을 선택하세요. 나중에 여행 상세 페이지에서도 변경 가능합니다." width={230} />
+              </label>
 
               {/* 사진 업로드 */}
               {coverPhotoPreview ? (
@@ -838,8 +850,10 @@ function NewTripContent() {
             {/* ── 여행 제목 (선택) ── */}
             <div className="flex flex-col gap-2">
               <div className="flex items-center justify-between">
-                <label className="text-[13px] font-semibold text-gray-700">
-                  여행 제목 <span className="text-gray-400 font-normal">(선택)</span>
+                <label className="text-[13px] font-semibold text-gray-700 flex items-center gap-1.5">
+                  여행 제목
+                  <span className="text-gray-400 font-normal text-[12px]">(선택)</span>
+                  <InfoTooltip text="여행 카드에 표시될 이름입니다. 비워두면 도시명이 자동으로 표시됩니다. 예: '도쿄의 봄', '파리 첫 여행'" width={210} />
                 </label>
                 <span className={`text-[11px] font-medium tabular-nums ${tripTitle.length >= 18 ? 'text-orange-500' : 'text-gray-300'}`}>
                   {tripTitle.length}/20

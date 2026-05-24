@@ -5,43 +5,61 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
-const LS_KEY = 'voyalogue_tour_step'
+const LS_KEY = 'voyalogue_hint_step'
 
 export function useOnboarding() {
   const { user } = useAuthStore()
-  const [tourStep, setTourStep] = useState<number>(0)
-  const [ready,    setReady]    = useState(false)
+  const [hintStep, setHintStep] = useState<number>(0)
 
   useEffect(() => {
     if (!user) return
+
+    // localStorage에 진행 중인 단계가 있으면 그걸 쓴다
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(LS_KEY) : null
+    if (saved !== null) {
+      const n = parseInt(saved, 10)
+      setHintStep(isNaN(n) ? 0 : n)
+      return
+    }
+
+    // 없으면 Firestore에서 완료 여부 확인
     getDoc(doc(db, 'users', user.uid))
       .then(snap => {
-        const data = snap.data()
-        if (data?.onboardingDone) {
-          setTourStep(0)
+        if (snap.data()?.onboardingDone) {
+          setHintStep(0)
         } else {
-          setTourStep(1)
+          setHintStep(1)
+          localStorage.setItem(LS_KEY, '1')
         }
       })
-      .catch(() => setTourStep(1))
-      .finally(() => setReady(true))
+      .catch(() => {
+        setHintStep(1)
+        localStorage.setItem(LS_KEY, '1')
+      })
   }, [user?.uid])
 
-  const skipTour = useCallback(async () => {
-    setTourStep(0)
-    if (typeof window !== 'undefined') localStorage.removeItem(LS_KEY)
+  const nextHint = useCallback(() => {
+    setHintStep(prev => {
+      const next = prev + 1
+      if (next > 4) {
+        localStorage.removeItem(LS_KEY)
+        if (user) {
+          updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
+        }
+        return 0
+      }
+      localStorage.setItem(LS_KEY, String(next))
+      return next
+    })
+  }, [user])
+
+  const skipHint = useCallback(() => {
+    setHintStep(0)
+    localStorage.removeItem(LS_KEY)
     if (user) {
-      try { await updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }) } catch {}
+      updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
     }
   }, [user])
 
-  const resetTour = useCallback(async () => {
-    setTourStep(1)
-    if (typeof window !== 'undefined') localStorage.removeItem(LS_KEY)
-    if (user) {
-      try { await updateDoc(doc(db, 'users', user.uid), { onboardingDone: false }) } catch {}
-    }
-  }, [user])
-
-  return { tourStep, ready, skipTour, resetTour }
+  return { hintStep, nextHint, skipHint }
 }

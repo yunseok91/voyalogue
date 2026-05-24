@@ -17,7 +17,7 @@ import { gradientStyle, parseGradientHex } from '@/lib/tripGradient'
 import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
-import { OnboardingModal } from '@/components/OnboardingModal'
+import { OnboardingCallout } from '@/components/OnboardingCallout'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
 import { useOnboarding } from '@/hooks/useOnboarding'
 
@@ -260,7 +260,7 @@ function TripsContent() {
   const [memberPopupTrip, setMemberPopupTrip] = useState<InvitedTrip | null>(null)
   const [copyingId,   setCopyingId]   = useState<string | null>(null)
   const [showReview,  setShowReview]  = useState(false)
-  const { tourStep, skipTour } = useOnboarding()
+  const { hintStep, nextHint, skipHint } = useOnboarding()
 
   useScrollLock(showExcel || !!popupMsg || !!editTarget || showReport || !!memberPopupTrip)
 
@@ -455,7 +455,9 @@ function TripsContent() {
       const { seedSampleTrip } = await import('@/lib/seedSampleTrip')
       await seedSampleTrip(user.uid, user.displayName ?? '나')
       await fetchTrips(user.uid)
-    } catch { /* silent */ } finally {
+    } catch (e) {
+      console.error('샘플 여행 생성 실패:', e)
+    } finally {
       setSeedLoading(false)
     }
   }
@@ -587,7 +589,7 @@ function TripsContent() {
 
       <AnnouncementModal />
 
-      {tourStep > 0 && <OnboardingModal onClose={skipTour} />}
+      {hintStep === 1 && <OnboardingCallout step={1} onNext={nextHint} onSkip={skipHint} />}
       {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 
       <main className="max-w-[1380px] mx-auto px-4 sm:px-6 lg:px-16 pt-6 sm:pt-10 pb-16">

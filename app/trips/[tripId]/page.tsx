@@ -39,6 +39,9 @@ import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
+import { OnboardingCallout } from '@/components/OnboardingCallout'
+import { useOnboarding } from '@/hooks/useOnboarding'
+import { InfoTooltip } from '@/components/InfoTooltip'
 
 /* ── 타입 ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -1965,6 +1968,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showSettlement,  setShowSettlement]  = useState(false)
   const [showReport,      setShowReport]      = useState(false)
 
+  /* 온보딩 */
+  const { hintStep, nextHint, skipHint } = useOnboarding()
+
   /* 환율 */
   const [rates,    setRates]    = useState<Record<string, number>>({ KRW: 1 })
   const [dayRates,   setDayRates]   = useState<Record<string, number>>({})
@@ -3353,10 +3359,14 @@ function PlannerContent({ tripId }: { tripId: string }) {
               })()}
             </div>
             {activeDayIdx !== -1 && (
-              <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
-                <Plus className="w-3.5 h-3.5" /> 추가
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
+                  data-tour="add-item"
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> 추가
+                </button>
+                <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />
+              </div>
             )}
           </div>
 
@@ -3789,7 +3799,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {/* 헤더 */}
             <div className="px-5 sm:px-6 pt-3 sm:pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div>
-                <h3 className="text-base font-bold text-gray-900">여행 멤버</h3>
+                <div className="flex items-center gap-1.5">
+                  <h3 className="text-base font-bold text-gray-900">여행 멤버</h3>
+                  <InfoTooltip text="방장: 모든 권한 · 총무: 일정 추가·편집 가능 · 게스트: 일정 열람만 가능. 아바타의 💛 버튼으로 총무를 지정할 수 있어요." width={230} />
+                </div>
                 <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <span>{(meta.members ?? []).filter(m => !m.left).length} / {meta.people || 1}명 참여 중</span>
                   {(meta.members ?? []).filter(m => !m.left).length >= (meta.people || 1) && (
@@ -3963,7 +3976,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
             {/* 초대 링크 */}
             <div className="border-t border-gray-100 px-4 sm:px-5 pb-5 pt-4 flex flex-col gap-2 flex-shrink-0">
-              <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-1">참여 링크</p>
+              <div className="flex items-center gap-1.5 mb-1">
+                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">참여 링크</p>
+                <InfoTooltip text="링크를 공유해 친구·가족을 여행에 초대하세요. PIN 링크는 4자리 비밀번호 입력 후 일정을 열람할 수 있고, 뷰어 링크는 PIN 없이 바로 열람 가능합니다." width={240} />
+              </div>
 
               {/* PIN 참여 링크 */}
               <div className="rounded-2xl border border-blue-200 bg-blue-50/60 overflow-hidden">
@@ -3973,7 +3989,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-blue-700">멤버 참여 링크</p>
-                    <p className="text-[11px] text-blue-400">PIN 입력 후 일정 열람 가능</p>
+                    <p className="text-[11px] text-blue-400">4자리 PIN 입력 후 일정 열람 가능</p>
                   </div>
                 </div>
                 {/* PIN 직접 입력 */}
@@ -4017,7 +4033,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </div>
                 <div className="flex-1 text-left">
                   <p className="text-xs font-semibold text-gray-700">뷰어 링크 복사</p>
-                  <p className="text-[11px] text-gray-400">일정 보기만 가능</p>
+                  <p className="text-[11px] text-gray-400">PIN 없이 일정 열람만 가능 (편집 불가)</p>
                 </div>
                 {copied === 'view'
                   ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -4895,6 +4911,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
         />
       )}
 
+      {hintStep >= 2 && hintStep <= 4 && (
+        <OnboardingCallout step={hintStep} onNext={nextHint} onSkip={skipHint} />
+      )}
 
     </div>
   )
