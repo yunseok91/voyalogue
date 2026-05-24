@@ -396,6 +396,7 @@ function NewTripContent() {
               {/* AI 플래너 배너 */}
               <button
                 type="button"
+                data-tour="ai-planner-btn"
                 onClick={() => setShowAiPlanner(true)}
                 className="mt-4 w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl bg-gradient-to-r from-blue-600 to-violet-600 hover:from-blue-700 hover:to-violet-700 text-white transition-all shadow-md shadow-blue-500/20 group"
               >
@@ -590,7 +591,7 @@ function NewTripContent() {
                 <label className="text-[13px] font-semibold text-gray-700">여행 인원</label>
                 <InfoTooltip text="함께 여행하는 총 인원수입니다. 정산 시 1인당 부담 금액 계산과 멤버 초대 인원 제한에 사용됩니다." width={210} />
               </div>
-              <div className="flex items-center w-fit bg-white border border-gray-200 rounded-xl overflow-hidden">
+              <div data-tour="people-count" className="flex items-center w-fit bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <button type="button" onClick={() => setPeople(p => Math.max(1, p - 1))}
                   className="w-12 h-12 flex items-center justify-center text-gray-500 hover:bg-gray-50 transition-colors">
                   <Minus className="w-4 h-4" />
@@ -612,7 +613,7 @@ function NewTripContent() {
                 </label>
                 <InfoTooltip text="전체 여행 예산을 만원 단위로 입력하세요. 실제 지출 합계와 비교해 예산 현황을 보여주며, 일별로 나눠 배정할 수도 있어요." width={220} />
               </div>
-              <div className="flex items-center gap-2">
+              <div data-tour="budget-setting" className="flex items-center gap-2">
                 <input
                   type="number"
                   min={0}
@@ -785,7 +786,7 @@ function NewTripContent() {
 
               {/* 사진 업로드 */}
               {coverPhotoPreview ? (
-                <div className="relative w-full h-28 rounded-xl overflow-hidden border border-gray-200 group">
+                <div data-tour="cover-photo" className="relative w-full h-28 rounded-xl overflow-hidden border border-gray-200 group">
                   <img src={coverPhotoPreview} alt="커버" className="w-full h-full object-cover" />
                   <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                     <button type="button" onClick={() => coverFileRef.current?.click()}
@@ -799,7 +800,7 @@ function NewTripContent() {
                   </div>
                 </div>
               ) : (
-                <button type="button" onClick={() => coverFileRef.current?.click()}
+                <button type="button" data-tour="cover-photo" onClick={() => coverFileRef.current?.click()}
                   className="w-full h-20 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 hover:bg-blue-50/40 flex flex-col items-center justify-center gap-1 transition-colors text-gray-400 hover:text-blue-500">
                   <ImagePlus className="w-5 h-5" />
                   <span className="text-xs font-medium">사진 업로드 (선택)</span>

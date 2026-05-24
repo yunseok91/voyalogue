@@ -3,7 +3,7 @@
 import { useEffect, useCallback, useState } from 'react'
 import { X, ChevronRight } from 'lucide-react'
 
-export const HINT_TOTAL = 4
+export const HINT_TOTAL = 9
 
 const STEP_DEFS = [
   {
@@ -14,21 +14,51 @@ const STEP_DEFS = [
   },
   {
     step: 2,
-    target: 'add-item',
-    title: '일정 추가',
-    description: '날짜별로 식사·장소·교통 일정을 기록하세요.',
+    target: 'ai-planner-btn',
+    title: 'AI 일정 자동 생성',
+    description: '목적지·기간·스타일만 입력하면 AI가 식사·관광·교통 일정을 자동으로 짜드려요.',
   },
   {
     step: 3,
-    target: 'member-btn',
-    title: '멤버 초대',
-    description: '링크를 공유해 친구·가족과 함께 계획하세요.',
+    target: 'people-count',
+    title: '여행 인원',
+    description: '함께 여행하는 인원수를 설정하세요. 정산 시 1인당 부담 금액 계산에 사용됩니다.',
   },
   {
     step: 4,
+    target: 'budget-setting',
+    title: '여행 예산',
+    description: '전체 예산을 입력하면 지출 현황을 한눈에 볼 수 있어요. 일별로 나눠 배정할 수도 있어요.',
+  },
+  {
+    step: 5,
+    target: 'cover-photo',
+    title: '대표 사진',
+    description: '여행 카드에 표시될 사진을 업로드하거나 테마 색상을 선택하세요.',
+  },
+  {
+    step: 6,
+    target: 'add-item',
+    title: '일정 추가',
+    description: 'Day 탭을 선택하면 나타나는 + 추가 버튼을 눌러 식사·장소·교통 일정을 기록하세요.',
+  },
+  {
+    step: 7,
+    target: 'member-btn',
+    title: '멤버 초대',
+    description: '링크를 공유해 친구·가족과 함께 계획하세요. PIN 설정으로 보안도 지킬 수 있어요.',
+  },
+  {
+    step: 8,
+    target: 'budget-bar',
+    title: '예산 & 정산',
+    description: '총 지출과 예산 현황을 확인하세요. 여러 명이면 1인 평균 & 정산 명세도 한눈에 볼 수 있어요.',
+  },
+  {
+    step: 9,
     target: 'menu-btn',
     title: '대시보드 & 별점',
-    description: '메뉴에서 대시보드를 열면 별점·지출 요약을 확인할 수 있어요.',
+    description: '메뉴에서 대시보드를 열면 장소별 별점·지출 요약을 확인할 수 있어요.',
   },
 ]
 
@@ -94,9 +124,10 @@ export function OnboardingCallout({ step, onNext, onSkip }: Props) {
   const CALLOUT_W = 260
   const GAP = 12
 
-  /* step 1은 target 없어도 하단 중앙에 표시, 2-4는 target 있는 페이지에서만 표시 */
+  /* step 1, 6은 target 없어도 하단 중앙에 표시, 나머지는 target 있는 페이지에서만 표시 */
+  const FALLBACK_STEPS = new Set([1, 6])
   const isFallback = !rect
-  if (isFallback && step !== 1) return null
+  if (isFallback && !FALLBACK_STEPS.has(step)) return null
 
   let posStyle: React.CSSProperties
   let arrowOnTop = false

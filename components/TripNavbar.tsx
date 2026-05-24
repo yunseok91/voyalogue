@@ -272,59 +272,59 @@ export function TripNavbar({
 
             <div className="flex flex-col px-3 py-3">
               {/* 여행 준비물 */}
-              <button
-                data-tour="checklist-btn"
-                onClick={() => { onChecklistToggle(); closeMenu() }}
-                className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-                  <CheckSquare className="w-4.5 h-4.5 text-blue-600" style={{ width: 18, height: 18 }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <p className="text-sm font-semibold text-gray-800">여행 준비물</p>
-                    <InfoTooltip text="여행 전 챙겨야 할 물건·할 일을 체크리스트로 관리하세요. 멤버 전원이 함께 확인하고 완료 처리할 수 있어요." width={220} />
+              <div className="flex items-center">
+                <button
+                  data-tour="checklist-btn"
+                  onClick={() => { onChecklistToggle(); closeMenu() }}
+                  className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left flex-1 min-w-0"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+                    <CheckSquare className="w-4.5 h-4.5 text-blue-600" style={{ width: 18, height: 18 }} />
                   </div>
-                  <p className="text-[11px] text-gray-400">여권·환전·예약 등 준비물 체크</p>
-                </div>
-              </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">여행 준비물</p>
+                    <p className="text-[11px] text-gray-400">여권·환전·예약 등 준비물 체크</p>
+                  </div>
+                </button>
+                <InfoTooltip text="여행 전 챙겨야 할 물건·할 일을 체크리스트로 관리하세요. 멤버 전원이 함께 확인하고 완료 처리할 수 있어요." width={220} />
+              </div>
 
               {/* 공지사항 */}
-              <button
-                onClick={() => { onNoticeClick(); closeMenu() }}
-                className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left"
-              >
-                <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-                  <Megaphone style={{ width: 18, height: 18 }} className="text-amber-500" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1">
-                    <p className="text-sm font-semibold text-gray-800">공지사항</p>
-                    <InfoTooltip text={isOwner ? '멤버 전체에게 전달할 공지를 작성하세요. 집합 장소·주의사항·일정 변경 등을 공유할 수 있어요.' : '방장이 작성한 공지사항을 확인하세요.'} width={220} />
+              <div className="flex items-center">
+                <button
+                  onClick={() => { onNoticeClick(); closeMenu() }}
+                  className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors text-left flex-1 min-w-0"
+                >
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+                    <Megaphone style={{ width: 18, height: 18 }} className="text-amber-500" />
                   </div>
-                  <p className="text-[11px] text-gray-400">{isOwner ? '멤버 전체에 공지 작성·수정' : '방장 공지 확인'}</p>
-                </div>
-              </button>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-800">공지사항</p>
+                    <p className="text-[11px] text-gray-400">{isOwner ? '멤버 전체에 공지 작성·수정' : '방장 공지 확인'}</p>
+                  </div>
+                </button>
+                <InfoTooltip text={isOwner ? '멤버 전체에게 전달할 공지를 작성하세요. 집합 장소·주의사항·일정 변경 등을 공유할 수 있어요.' : '방장이 작성한 공지사항을 확인하세요.'} width={220} />
+              </div>
 
               {/* 대시보드 */}
               {showSummary && (
-                <Link
-                  href={summaryHref}
-                  data-tour="summary-btn"
-                  onClick={closeMenu}
-                  className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors"
-                >
-                  <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
-                    <LayoutDashboard style={{ width: 18, height: 18 }} className="text-violet-600" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1">
-                      <p className="text-sm font-semibold text-gray-800">대시보드</p>
-                      <InfoTooltip text="전체 지출 현황, 일정 요약, 멤버별 별점을 한눈에 확인하세요. 여행 후 후기를 남기는 공간이기도 해요." width={220} />
+                <div className="flex items-center">
+                  <Link
+                    href={summaryHref}
+                    data-tour="summary-btn"
+                    onClick={closeMenu}
+                    className="flex items-center gap-3 px-3 py-3.5 rounded-xl hover:bg-gray-50 transition-colors flex-1 min-w-0"
+                  >
+                    <div className="w-9 h-9 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+                      <LayoutDashboard style={{ width: 18, height: 18 }} className="text-violet-600" />
                     </div>
-                    <p className="text-[11px] text-gray-400">지출·일정 요약, 방문 후기 작성</p>
-                  </div>
-                </Link>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-800">대시보드</p>
+                      <p className="text-[11px] text-gray-400">지출·일정 요약, 방문 후기 작성</p>
+                    </div>
+                  </Link>
+                  <InfoTooltip text="전체 지출 현황, 일정 요약, 멤버별 별점을 한눈에 확인하세요. 여행 후 후기를 남기는 공간이기도 해요." width={220} />
+                </div>
               )}
 
               {/* 마이페이지 */}

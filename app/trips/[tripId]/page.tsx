@@ -3528,7 +3528,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           </div>
 
           {/* 예산 푸터 */}
-          <div className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
+          <div data-tour="budget-bar" className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
             {/* 전체 지출 */}
             <div className="flex items-center justify-between mb-2">
               <div className={`flex items-center gap-1.5 text-xs ${overageKRW > 0 ? 'text-red-500' : 'text-gray-500'}`}>
@@ -3584,6 +3584,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {(meta.members ?? []).length > 1 && totalSpent > 0 && (
               <div className="mt-2 pt-2 border-t border-gray-100">
                 <div
+                  data-tour="settlement-btn"
                   className="flex items-center justify-between cursor-pointer group"
                   onClick={() => setShowSettlement(true)}
                 >

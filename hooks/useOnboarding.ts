@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { doc, getDoc, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
+import { HINT_TOTAL } from '@/components/OnboardingCallout'
 
 const LS_KEY = 'voyalogue_hint_step'
 
@@ -38,10 +39,18 @@ export function useOnboarding() {
       })
   }, [user?.uid])
 
+  const finish = useCallback(() => {
+    localStorage.removeItem(LS_KEY)
+    if (user) {
+      updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
+    }
+    setHintStep(0)
+  }, [user])
+
   const nextHint = useCallback(() => {
     setHintStep(prev => {
       const next = prev + 1
-      if (next > 4) {
+      if (next > HINT_TOTAL) {
         localStorage.removeItem(LS_KEY)
         if (user) {
           updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
@@ -54,12 +63,17 @@ export function useOnboarding() {
   }, [user])
 
   const skipHint = useCallback(() => {
-    setHintStep(0)
-    localStorage.removeItem(LS_KEY)
-    if (user) {
-      updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
-    }
-  }, [user])
+    finish()
+  }, [finish])
 
-  return { hintStep, nextHint, skipHint }
+  const jumpToStep = useCallback((n: number) => {
+    if (n > HINT_TOTAL) {
+      finish()
+      return
+    }
+    localStorage.setItem(LS_KEY, String(n))
+    setHintStep(n)
+  }, [finish])
+
+  return { hintStep, nextHint, skipHint, jumpToStep }
 }
