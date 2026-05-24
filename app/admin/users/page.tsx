@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { collection, getDocs, doc, deleteDoc, Timestamp, updateDoc, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send, Users } from 'lucide-react'
+import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send, Users, RotateCcw, Plane } from 'lucide-react'
 
 type UserRow = {
   uid: string
@@ -30,6 +30,21 @@ type BetaSettings = {
   userCount: number
 }
 
+async function deleteUserTrips(uid: string) {
+  const tripsSnap = await getDocs(collection(db, 'users', uid, 'trips'))
+  for (const tripDoc of tripsSnap.docs) {
+    const daysSnap = await getDocs(collection(db, 'users', uid, 'trips', tripDoc.id, 'days'))
+    for (const dayDoc of daysSnap.docs) {
+      const itemsSnap = await getDocs(collection(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id, 'items'))
+      for (const item of itemsSnap.docs) {
+        await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id, 'items', item.id))
+      }
+      await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id))
+    }
+    await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id))
+  }
+}
+
 export default function AdminUsersPage() {
   const [users, setUsers]         = useState<UserRow[]>([])
   const [loading, setLoading]     = useState(true)
@@ -38,6 +53,8 @@ export default function AdminUsersPage() {
   const [trips, setTrips]         = useState<Record<string, TripItem[]>>({})
   const [tripsLoading, setTripsLoading] = useState<string | null>(null)
   const [deleting, setDeleting]   = useState<string | null>(null)
+  const [resetting, setResetting] = useState<string | null>(null)
+  const [seeding, setSeeding]     = useState<string | null>(null)
   const [toggling, setToggling]   = useState<string | null>(null)
   const [msgModal, setMsgModal]   = useState<MsgModal>(null)
   const [msgTitle, setMsgTitle]   = useState('')
@@ -51,7 +68,6 @@ export default function AdminUsersPage() {
 
   useEffect(() => {
     const load = async () => {
-      /* 사용자 목록 */
       try {
         const snap = await getDocs(collection(db, 'users'))
         const rows: UserRow[] = await Promise.all(
@@ -73,7 +89,6 @@ export default function AdminUsersPage() {
         setLoading(false)
       }
 
-      /* 베타 설정 (별도 에러 처리) */
       try {
         const betaSnap = await getDoc(doc(db, 'config', 'betaSettings'))
         if (betaSnap.exists()) {
@@ -144,34 +159,68 @@ export default function AdminUsersPage() {
     }
   }
 
+  /* 데이터 초기화: 여행 전체 삭제 + onboarding 리셋 (계정 유지) */
+  const handleReset = async (u: UserRow) => {
+    if (!confirm(`"${u.displayName || u.uid.slice(0, 8)}"의 여행 데이터를 전부 삭제하고 온보딩을 리셋할까요?\n계정은 유지됩니다.`)) return
+    setResetting(u.uid)
+    try {
+      await deleteUserTrips(u.uid)
+      const msgsSnap = await getDocs(collection(db, 'users', u.uid, 'messages'))
+      for (const m of msgsSnap.docs) {
+        await deleteDoc(doc(db, 'users', u.uid, 'messages', m.id))
+      }
+      const metaSnap = await getDocs(collection(db, 'users', u.uid, 'meta'))
+      for (const m of metaSnap.docs) {
+        await deleteDoc(doc(db, 'users', u.uid, 'meta', m.id))
+      }
+      await updateDoc(doc(db, 'users', u.uid), { onboardingDone: false })
+      setUsers(prev => prev.map(row => row.uid === u.uid ? { ...row, tripCount: 0 } : row))
+      setTrips(prev => ({ ...prev, [u.uid]: [] }))
+      showToast('데이터가 초기화되었습니다')
+    } catch (err) {
+      console.error('초기화 실패:', err)
+      showToast('초기화 실패')
+    } finally {
+      setResetting(null)
+    }
+  }
+
+  /* 샘플여행 복원 */
+  const handleSeedSample = async (u: UserRow) => {
+    if (!confirm(`"${u.displayName || u.uid.slice(0, 8)}"에게 도쿄 샘플여행을 추가할까요?`)) return
+    setSeeding(u.uid)
+    try {
+      const { seedSampleTrip } = await import('@/lib/seedSampleTrip')
+      await seedSampleTrip(u.uid, u.displayName || '나')
+      const snap = await getDocs(collection(db, 'users', u.uid, 'trips'))
+      setUsers(prev => prev.map(row => row.uid === u.uid ? { ...row, tripCount: snap.size } : row))
+      setTrips(prev => ({
+        ...prev,
+        [u.uid]: snap.docs.map(d => ({ id: d.id, ...d.data() } as TripItem)),
+      }))
+      showToast('샘플여행이 추가되었습니다')
+    } catch (err) {
+      console.error('샘플여행 추가 실패:', err)
+      showToast('샘플여행 추가 실패')
+    } finally {
+      setSeeding(null)
+    }
+  }
+
+  /* 계정 + 데이터 전체 삭제 */
   const handleDelete = async (uid: string) => {
     if (!confirm(`사용자 ${uid.slice(0, 8)}… 의 모든 데이터를 삭제할까요?`)) return
     setDeleting(uid)
     try {
-      // trips → days → items
-      const tripsSnap = await getDocs(collection(db, 'users', uid, 'trips'))
-      for (const tripDoc of tripsSnap.docs) {
-        const daysSnap = await getDocs(collection(db, 'users', uid, 'trips', tripDoc.id, 'days'))
-        for (const dayDoc of daysSnap.docs) {
-          const itemsSnap = await getDocs(collection(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id, 'items'))
-          for (const item of itemsSnap.docs) {
-            await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id, 'items', item.id))
-          }
-          await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id, 'days', dayDoc.id))
-        }
-        await deleteDoc(doc(db, 'users', uid, 'trips', tripDoc.id))
-      }
-      // messages
+      await deleteUserTrips(uid)
       const msgsSnap = await getDocs(collection(db, 'users', uid, 'messages'))
       for (const m of msgsSnap.docs) {
         await deleteDoc(doc(db, 'users', uid, 'messages', m.id))
       }
-      // meta subcollection (citySettings 등)
       const metaSnap = await getDocs(collection(db, 'users', uid, 'meta'))
       for (const m of metaSnap.docs) {
         await deleteDoc(doc(db, 'users', uid, 'meta', m.id))
       }
-      // user document
       await deleteDoc(doc(db, 'users', uid))
       setUsers(prev => prev.filter(u => u.uid !== uid))
       if (expanded === uid) setExpanded(null)
@@ -367,6 +416,7 @@ export default function AdminUsersPage() {
                     <button
                       onClick={e => { e.stopPropagation(); handleDelete(u.uid) }}
                       disabled={deleting === u.uid}
+                      title="계정+데이터 전체 삭제"
                       className="w-8 h-8 flex items-center justify-center rounded-full text-gray-400 hover:bg-red-50 hover:text-red-500 transition-colors disabled:opacity-40"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -380,7 +430,28 @@ export default function AdminUsersPage() {
 
                 {expanded === u.uid && (
                   <div className="px-5 pb-4 bg-gray-50 border-t border-gray-100">
-                    <p className="text-xs font-semibold text-gray-500 mt-3 mb-2">여행 목록</p>
+                    {/* ── 관리 액션 ── */}
+                    <div className="flex items-center gap-2 mt-3 mb-3 flex-wrap">
+                      <button
+                        onClick={() => handleReset(u)}
+                        disabled={resetting === u.uid}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 hover:bg-amber-100 transition-colors disabled:opacity-40"
+                      >
+                        <RotateCcw className="w-3 h-3" />
+                        {resetting === u.uid ? '초기화 중…' : '데이터 초기화'}
+                      </button>
+                      <button
+                        onClick={() => handleSeedSample(u)}
+                        disabled={seeding === u.uid}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-40"
+                      >
+                        <Plane className="w-3 h-3" />
+                        {seeding === u.uid ? '추가 중…' : '샘플여행 복원'}
+                      </button>
+                    </div>
+
+                    {/* ── 여행 목록 ── */}
+                    <p className="text-xs font-semibold text-gray-500 mb-2">여행 목록</p>
                     {tripsLoading === u.uid ? (
                       <p className="text-xs text-gray-400">불러오는 중…</p>
                     ) : (trips[u.uid] ?? []).length === 0 ? (
