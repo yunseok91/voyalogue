@@ -1,9 +1,9 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { collection, getDocs, updateDoc, addDoc, doc, Timestamp, orderBy, query, serverTimestamp } from 'firebase/firestore'
+import { collection, getDocs, updateDoc, addDoc, doc, getDoc, Timestamp, orderBy, query, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { CheckCircle, XCircle, Clock, MessageSquare, Send } from 'lucide-react'
+import { CheckCircle, XCircle, Clock, MessageSquare, Send, Ban } from 'lucide-react'
 
 type ReportStatus = 'pending' | 'resolved' | 'dismissed' | 'replied'
 type ReportFilter = 'all' | 'pending' | 'resolved'
@@ -38,9 +38,11 @@ export default function AdminReportsPage() {
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState<ReportFilter>('all')
   const [updating, setUpdating] = useState<string | null>(null)
-  const [replyTarget, setReplyTarget] = useState<string | null>(null)
-  const [replyText,   setReplyText]   = useState('')
-  const [replying,    setReplying]    = useState(false)
+  const [replyTarget,  setReplyTarget]  = useState<string | null>(null)
+  const [replyText,    setReplyText]    = useState('')
+  const [replying,     setReplying]     = useState(false)
+  const [suspending,   setSuspending]   = useState<string | null>(null)
+  const [suspended,    setSuspended]    = useState<Set<string>>(new Set())
 
   useEffect(() => {
     const load = async () => {
@@ -100,6 +102,25 @@ export default function AdminReportsPage() {
       setReplyText('')
     } catch { /* silent */ } finally {
       setReplying(false)
+    }
+  }
+
+  const handleSuspendUser = async (report: Report) => {
+    const targetUid = report.targetType === 'user' ? report.targetId : null
+    if (!targetUid) return
+    setSuspending(report.id)
+    try {
+      const userSnap = await getDoc(doc(db, 'users', targetUid))
+      const alreadySuspended = userSnap.data()?.suspended === true
+      await updateDoc(doc(db, 'users', targetUid), { suspended: !alreadySuspended })
+      setSuspended(prev => {
+        const next = new Set(prev)
+        if (alreadySuspended) next.delete(report.id)
+        else next.add(report.id)
+        return next
+      })
+    } catch { /* silent */ } finally {
+      setSuspending(null)
     }
   }
 
@@ -198,7 +219,23 @@ export default function AdminReportsPage() {
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+                      {/* 유저 신고 → 정지 버튼 */}
+                      {r.targetType === 'user' && (
+                        <button
+                          onClick={() => handleSuspendUser(r)}
+                          disabled={suspending === r.id}
+                          className={`flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full transition-colors disabled:opacity-40 ${
+                            suspended.has(r.id)
+                              ? 'bg-orange-100 text-orange-700 hover:bg-orange-200'
+                              : 'bg-gray-100 text-gray-600 hover:bg-orange-100 hover:text-orange-700'
+                          }`}
+                        >
+                          <Ban className="w-3.5 h-3.5" />
+                          {suspended.has(r.id) ? '정지해제' : '정지'}
+                        </button>
+                      )}
+
                       {r.status === 'pending' && (
                         <>
                           {isFeedback && (

@@ -9,7 +9,7 @@ import {
   deleteUser,
 } from 'firebase/auth'
 import { ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage'
-import { collection, getDocs, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, getDoc, setDoc, updateDoc, addDoc, serverTimestamp, query, where } from 'firebase/firestore'
 import { auth, db, storage } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { CLAY } from '@/components/PersonAvatar'
@@ -345,15 +345,26 @@ function ProfileContent() {
     if (!user || deleteInput !== '탈퇴') return
     setDeleteLoading(true); setDeleteError('')
     try {
-      await deleteUser(user)
-      router.push('/')
-    } catch (err: unknown) {
-      const code = (err as { code?: string }).code ?? ''
-      setDeleteError(
-        code === 'auth/requires-recent-login'
-          ? '보안을 위해 재로그인 후 탈퇴해주세요.'
-          : '탈퇴 처리 중 오류가 발생했습니다.'
+      /* 중복 요청 방지 */
+      const existing = await getDocs(
+        query(collection(db, 'deleteRequests'), where('uid', '==', user.uid), where('status', '==', 'pending'))
       )
+      if (!existing.empty) {
+        setDeleteError('이미 탈퇴 신청이 접수되어 있어요. 운영팀이 처리 중이에요.')
+        return
+      }
+      await addDoc(collection(db, 'deleteRequests'), {
+        uid:         user.uid,
+        email:       user.email ?? '',
+        displayName: user.displayName ?? '',
+        status:      'pending',
+        requestedAt: serverTimestamp(),
+      })
+      setShowDelete(false)
+      setDeleteInput('')
+      alert('탈퇴 신청이 접수됐어요.\n운영팀이 확인 후 2~3일 내 처리해 드립니다.')
+    } catch {
+      setDeleteError('탈퇴 신청 중 오류가 발생했습니다. 다시 시도해주세요.')
     } finally { setDeleteLoading(false) }
   }
 
@@ -705,9 +716,9 @@ function ProfileContent() {
             <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mb-4">
               <Trash2 className="w-5 h-5 text-red-500" />
             </div>
-            <h3 className="text-base font-bold text-gray-900 mb-1">정말 탈퇴하시겠습니까?</h3>
+            <h3 className="text-base font-bold text-gray-900 mb-1">탈퇴 신청</h3>
             <p className="text-sm text-gray-500 mb-4">
-              모든 여행 데이터가 영구적으로 삭제되며 복구할 수 없습니다.
+              탈퇴 신청 후 운영팀 확인을 거쳐 <strong>2~3일 내</strong> 계정과 모든 데이터가 삭제됩니다.
               계속하려면 아래에 <strong>탈퇴</strong>를 입력해주세요.
             </p>
             <input
@@ -732,7 +743,7 @@ function ProfileContent() {
               >
                 {deleteLoading
                   ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  : '탈퇴 확인'
+                  : '탈퇴 신청'
                 }
               </button>
             </div>

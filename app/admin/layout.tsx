@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
-import { LayoutDashboard, Users, Megaphone, Flag, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Users, Megaphone, Flag, Sparkles, UserMinus } from 'lucide-react'
 import { doc, getDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/admin/announcements',  icon: Megaphone,       label: '공지사항' },
   { href: '/admin/reports',        icon: Flag,            label: '신고 관리' },
   { href: '/admin/ai-questions',   icon: Sparkles,        label: 'AI 질문 관리' },
+  { href: '/admin/delete-requests', icon: UserMinus,      label: '탈퇴 요청' },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
