@@ -2503,7 +2503,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
         const next = { ...prev }
         results.forEach(r => {
           if (r.empty && r.fromCache) return
-          next[r.dayId] = r.items
+          // 아이템이 있을 때만 덮어씀 — 빈 결과로 기존 데이터를 지우지 않음
+          // (활성 Day의 실시간 리스너가 삭제 동기화를 담당)
+          if (r.items.length > 0) next[r.dayId] = r.items
         })
         return next
       })
