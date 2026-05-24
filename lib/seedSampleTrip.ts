@@ -26,7 +26,7 @@ export async function seedSampleTrip(uid: string, displayName: string) {
   const tripId  = tripRef.id
 
   const days = [0, 1, 2].map(i => ({
-    dayId: `sample-d${i + 1}`,
+    dayId: `d${i + 1}`,
     label: `Day ${i + 1}`,
     date:  addDays(startBase, i),
   }))
@@ -84,11 +84,11 @@ export async function seedSampleTrip(uid: string, displayName: string) {
     isSample:  true,
     members:   [{ id: uid, name: displayName, role: 'owner' }],
     flights: [
-      { id: 'sample-flight-out', name: '인천 → 하네다 (KE705)', type: 'outbound', dayId: 'sample-d1', departTime: '09:20', arriveTime: '11:35', lat: 35.5494, lng: 139.7798, price: 350000, currency: 'KRW', includeInSettlement: true },
-      { id: 'sample-flight-in',  name: '하네다 → 인천 (KE706)', type: 'inbound',  dayId: 'sample-d3', departTime: '15:30', arriveTime: '17:45', lat: 37.4602, lng: 126.4407, price: 0, currency: 'KRW', includeInSettlement: false },
+      { id: 'sample-flight-out', name: '인천 → 하네다 (KE705)', type: 'outbound', dayId: 'd1', departTime: '09:20', arriveTime: '11:35', lat: 35.5494, lng: 139.7798, price: 350000, currency: 'KRW', includeInSettlement: true },
+      { id: 'sample-flight-in',  name: '하네다 → 인천 (KE706)', type: 'inbound',  dayId: 'd3', departTime: '15:30', arriveTime: '17:45', lat: 37.4602, lng: 126.4407, price: 0, currency: 'KRW', includeInSettlement: false },
     ],
     accommodations: [
-      { id: 'sample-acc-1', name: '신주쿠 워싱턴 호텔', checkInDayId: 'sample-d1', checkInTime: '15:00', checkOutDayId: 'sample-d3', checkOutTime: '11:00', lat: 35.6906, lng: 139.6923, price: 30000, currency: 'JPY', includeInSettlement: true },
+      { id: 'sample-acc-1', name: '신주쿠 워싱턴 호텔', checkInDayId: 'd1', checkInTime: '15:00', checkOutDayId: 'd3', checkOutTime: '11:00', lat: 35.6906, lng: 139.6923, price: 30000, currency: 'JPY', includeInSettlement: true },
     ],
     checklist: [
       { id: 'c1', label: '여권 유효기간 확인 (6개월 이상)', done: true  },

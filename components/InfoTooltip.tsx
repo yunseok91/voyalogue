@@ -49,8 +49,9 @@ export function InfoTooltip({ text, width = 210 }: Props) {
       <button
         ref={btnRef}
         type="button"
-        onClick={() => { calc(); setOpen(v => !v) }}
-        className="flex items-center justify-center text-gray-300 hover:text-blue-400 transition-colors focus:outline-none"
+        onClick={e => { e.stopPropagation(); e.preventDefault(); calc(); setOpen(v => !v) }}
+        onMouseDown={e => e.stopPropagation()}
+        className="flex items-center justify-center text-gray-400 hover:text-blue-500 transition-colors focus:outline-none"
         aria-label="도움말"
       >
         <HelpCircle size={14} />
