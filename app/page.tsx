@@ -431,7 +431,7 @@ export default function LandingPage() {
                   </li>
                 ))}
               </ul>
-              <Link href="/auth"
+              <Link href="/trips/new"
                 className="inline-flex items-center gap-2 w-fit px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-[22px] text-sm transition-colors">
                 AI로 일정 만들어보기
               </Link>
