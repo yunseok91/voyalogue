@@ -103,7 +103,7 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
 
       const style = document.createElement('style')
       style.innerHTML = `
-        .gm-style-iw-c { padding: 0 !important; border-radius: 12px !important; box-shadow: 0 2px 12px rgba(0,0,0,0.12) !important; }
+        .gm-style-iw-c { padding: 0 !important; border-radius: 12px !important; box-shadow: 0 2px 12px rgba(0,0,0,0.12) !important; overflow: hidden !important; }
         .gm-style-iw-d { overflow: hidden !important; }
         .gm-ui-hover-effect { display: none !important; }
         .gm-style-iw-tc { display: none !important; }
@@ -214,14 +214,10 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
             clickable: true,
           })
 
-          const typeLabel = isFlightType ? '✈&nbsp;비행기' : '&nbsp;숙소'
+          const typeLabel = isFlightType ? '✈ 비행기' : '🏠 숙소'
+          const mapsUrlSpec = `https://www.google.com/maps/search/${encodeURIComponent(item.name)}`
           const iw = new google.maps.InfoWindow({
-            content: `<div style="padding:10px 14px 10px 12px;">
-              <div style="margin-bottom:5px;">
-                <span style="font-size:11px;font-weight:700;color:${color};background:${color}22;padding:2px 8px 2px 7px;border-radius:20px;">${typeLabel}</span>
-              </div>
-              <div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</div>
-            </div>`,
+            content: `<div style="min-width:160px;"><div style="background:${color};padding:5px 12px;"><span style="font-size:10px;font-weight:700;color:white;">${typeLabel}</span></div><div style="padding:8px 12px 9px;"><p style="margin:0 0 5px;font-size:13px;font-weight:700;color:#111827;">${item.name}</p><div style="text-align:right;"><a href="${mapsUrlSpec}" target="_blank" rel="noopener" style="font-size:10px;color:#3B82F6;font-weight:600;text-decoration:none;">구글맵에서 보기</a></div></div></div>`,
             pixelOffset: new google.maps.Size(0, -6),
           })
           marker.addListener('click', () => {
@@ -247,12 +243,12 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
             zIndex:    idx + 10,
             clickable: true,
           })
+          const mapsUrlReg = `https://www.google.com/maps/search/${encodeURIComponent(item.name)}`
+          const catHtmlReg = item.cat
+            ? `<span style="font-size:10px;font-weight:600;color:${color};background:${color}1A;padding:1.5px 7px;border-radius:20px;">${item.cat}</span>`
+            : '<span></span>'
           const iw = new google.maps.InfoWindow({
-            content: `<div style="display:flex;align-items:center;gap:8px;padding:9px 14px 9px 10px;">
-              <span style="flex-shrink:0;width:20px;height:20px;border-radius:50%;background:${color};
-                color:#fff;text-align:center;line-height:20px;font-size:11px;font-weight:700;">${num}</span>
-              <span style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;letter-spacing:-0.01em;">${item.name}</span>
-            </div>`,
+            content: `<div style="min-width:160px;"><div style="background:${color};padding:5px 12px;display:flex;align-items:center;gap:6px;"><span style="width:18px;height:18px;border-radius:50%;background:rgba(255,255,255,0.28);color:white;text-align:center;line-height:18px;font-size:10px;font-weight:700;flex-shrink:0;">${num}</span><span style="font-size:10px;font-weight:700;color:white;">${item.timeSlot}</span></div><div style="padding:8px 12px 9px;"><p style="margin:0 0 5px;font-size:13px;font-weight:700;color:#111827;">${item.name}</p><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">${catHtmlReg}<a href="${mapsUrlReg}" target="_blank" rel="noopener" style="font-size:10px;color:#3B82F6;font-weight:600;text-decoration:none;flex-shrink:0;">구글맵에서 보기</a></div></div></div>`,
             pixelOffset: new google.maps.Size(0, -4),
           })
           marker.addListener('click', () => {
@@ -530,9 +526,10 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
           zIndex: active ? 15 : 2,
           title:  item.name,
         })
-        const typeLabel = isFlightType ? '✈&nbsp;비행기' : '&nbsp;숙소'
+        const typeLabel = isFlightType ? '✈ 비행기' : '🏠 숙소'
+        const mapsUrlSpecM = `https://www.google.com/maps/search/${encodeURIComponent(item.name)}`
         const iw = new google.maps.InfoWindow({
-          content: `<div style="padding:10px 14px 10px 12px;"><div style="margin-bottom:5px;"><span style="font-size:11px;font-weight:700;color:${sColor};background:${sColor}22;padding:2px 8px 2px 7px;border-radius:20px;">${typeLabel}</span></div><div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;">${item.name}</div></div>`,
+          content: `<div style="min-width:160px;"><div style="background:${sColor};padding:5px 12px;"><span style="font-size:10px;font-weight:700;color:white;">${typeLabel}</span></div><div style="padding:8px 12px 9px;"><p style="margin:0 0 5px;font-size:13px;font-weight:700;color:#111827;">${item.name}</p><div style="text-align:right;"><a href="${mapsUrlSpecM}" target="_blank" rel="noopener" style="font-size:10px;color:#3B82F6;font-weight:600;text-decoration:none;">구글맵에서 보기</a></div></div></div>`,
           pixelOffset: new google.maps.Size(0, -6),
         })
         marker.addListener('click', () => {
@@ -598,11 +595,15 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
           })
 
           /* 클릭 InfoWindow */
-          const iwColor = showAll ? group.color : (SLOT_COLORS[item.timeSlot] ?? '#94A3B8')
-          const iwLabel = showAll ? `<div style="font-size:11px;font-weight:700;color:${iwColor};margin-bottom:2px;">${group.label}</div>` : ''
+          const iwColor    = showAll ? group.color : (SLOT_COLORS[item.timeSlot] ?? '#94A3B8')
+          const headerText = showAll ? `${group.label} · ${item.timeSlot}` : item.timeSlot
+          const mapsUrlDay = `https://www.google.com/maps/search/${encodeURIComponent(item.name)}`
+          const catHtmlDay = item.cat
+            ? `<span style="font-size:10px;font-weight:600;color:${iwColor};background:${iwColor}1A;padding:1.5px 7px;border-radius:20px;">${item.cat}</span>`
+            : '<span></span>'
           const iw = new google.maps.InfoWindow({
-            content: `<div style="padding:9px 14px 9px 10px;">${iwLabel}<div style="font-size:13px;font-weight:600;color:#111827;white-space:nowrap;">${item.name}</div></div>`,
-            pixelOffset: new google.maps.Size(0, showAll ? -6 : -4),
+            content: `<div style="min-width:160px;"><div style="background:${iwColor};padding:5px 12px;"><span style="font-size:10px;font-weight:700;color:white;">${headerText}</span></div><div style="padding:8px 12px 9px;"><p style="margin:0 0 5px;font-size:13px;font-weight:700;color:#111827;">${item.name}</p><div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">${catHtmlDay}<a href="${mapsUrlDay}" target="_blank" rel="noopener" style="font-size:10px;color:#3B82F6;font-weight:600;text-decoration:none;flex-shrink:0;">구글맵에서 보기</a></div></div></div>`,
+            pixelOffset: new google.maps.Size(0, -6),
           })
           marker.addListener('click', () => {
             openIwRef.current?.close()

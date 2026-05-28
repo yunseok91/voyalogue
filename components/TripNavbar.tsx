@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, CheckSquare, Headset, LogOut,
@@ -9,6 +9,83 @@ import {
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { gradientStyle } from '@/lib/tripGradient'
 import { InfoTooltip } from '@/components/InfoTooltip'
+
+function getTimezone(city: string): string | null {
+  const c = city.toLowerCase()
+  if (/일본|japan|도쿄|tokyo|오사카|osaka|교토|kyoto|후쿠오카|fukuoka|나고야|nagoya|삿포로|sapporo/.test(c)) return 'Asia/Tokyo'
+  if (/프랑스|france|파리|paris/.test(c)) return 'Europe/Paris'
+  if (/영국|britain|uk |england|런던|london/.test(c)) return 'Europe/London'
+  if (/뉴욕|new york/.test(c)) return 'America/New_York'
+  if (/로스앤젤레스|los angeles|샌프란시스코|san francisco|라스베가스|las vegas/.test(c)) return 'America/Los_Angeles'
+  if (/태국|thailand|방콕|bangkok|치앙마이|chiang mai/.test(c)) return 'Asia/Bangkok'
+  if (/베트남|vietnam|하노이|hanoi|호치민|ho chi minh|다낭|da nang/.test(c)) return 'Asia/Ho_Chi_Minh'
+  if (/싱가포르|singapore/.test(c)) return 'Asia/Singapore'
+  if (/홍콩|hong kong/.test(c)) return 'Asia/Hong_Kong'
+  if (/중국|china|베이징|beijing|상하이|shanghai/.test(c)) return 'Asia/Shanghai'
+  if (/스페인|spain|마드리드|madrid|바르셀로나|barcelona/.test(c)) return 'Europe/Madrid'
+  if (/이탈리아|italy|로마|rome|밀라노|milan|베네치아|venice|피렌체|florence/.test(c)) return 'Europe/Rome'
+  if (/독일|germany|베를린|berlin|뮌헨|munich|프랑크푸르트|frankfurt/.test(c)) return 'Europe/Berlin'
+  if (/호주|australia|시드니|sydney|멜버른|melbourne/.test(c)) return 'Australia/Sydney'
+  if (/뉴질랜드|new zealand|오클랜드|auckland/.test(c)) return 'Pacific/Auckland'
+  if (/터키|turkey|이스탄불|istanbul/.test(c)) return 'Europe/Istanbul'
+  if (/아랍에미리트|uae|두바이|dubai/.test(c)) return 'Asia/Dubai'
+  if (/인도|india|뭄바이|mumbai|델리|delhi/.test(c)) return 'Asia/Kolkata'
+  if (/한국|korea|서울|seoul|부산|busan|제주|jeju/.test(c)) return 'Asia/Seoul'
+  if (/필리핀|philippines|마닐라|manila|세부|cebu/.test(c)) return 'Asia/Manila'
+  if (/발리|bali|인도네시아|indonesia|자카르타|jakarta/.test(c)) return 'Asia/Makassar'
+  if (/말레이시아|malaysia|쿠알라룸푸르|kuala lumpur/.test(c)) return 'Asia/Kuala_Lumpur'
+  if (/대만|taiwan|타이페이|taipei/.test(c)) return 'Asia/Taipei'
+  if (/포르투갈|portugal|리스본|lisbon/.test(c)) return 'Europe/Lisbon'
+  if (/네덜란드|netherlands|암스테르담|amsterdam/.test(c)) return 'Europe/Amsterdam'
+  if (/체코|czech|프라하|prague/.test(c)) return 'Europe/Prague'
+  if (/오스트리아|austria|빈|vienna/.test(c)) return 'Europe/Vienna'
+  if (/스위스|switzerland|취리히|zurich|제네바|geneva/.test(c)) return 'Europe/Zurich'
+  if (/그리스|greece|아테네|athens/.test(c)) return 'Europe/Athens'
+  if (/터키|turkey|이스탄불|istanbul/.test(c)) return 'Europe/Istanbul'
+  if (/캐나다|canada|토론토|toronto/.test(c)) return 'America/Toronto'
+  if (/밴쿠버|vancouver/.test(c)) return 'America/Vancouver'
+  if (/멕시코|mexico/.test(c)) return 'America/Mexico_City'
+  if (/이집트|egypt|카이로|cairo/.test(c)) return 'Africa/Cairo'
+  if (/모로코|morocco|마라케시|marrakech/.test(c)) return 'Africa/Casablanca'
+  if (/러시아|russia|모스크바|moscow/.test(c)) return 'Europe/Moscow'
+  return null
+}
+
+type ClockInfo = { time: string; dateFull: string; dateShort: string; offset: string }
+
+function computeClock(tz: string): ClockInfo | null {
+  try {
+    const now = new Date()
+    const time = new Intl.DateTimeFormat('ko', { timeZone: tz, hour: 'numeric', minute: '2-digit', hour12: true }).format(now)
+    const datePart = new Intl.DateTimeFormat('ko', { timeZone: tz, year: 'numeric', month: 'long', day: 'numeric' }).format(now)
+    const weekPart = new Intl.DateTimeFormat('ko', { timeZone: tz, weekday: 'long' }).format(now)
+    const shortDatePart = new Intl.DateTimeFormat('ko', { timeZone: tz, month: 'long', day: 'numeric' }).format(now)
+    const dateFull  = `${datePart}, ${weekPart}`
+    const dateShort = `${shortDatePart}, ${weekPart}`
+
+    /* GMT 오프셋 계산 */
+    const local = new Date(now.toLocaleString('en-US', { timeZone: tz }))
+    const utc   = new Date(now.toLocaleString('en-US', { timeZone: 'UTC' }))
+    const diff  = Math.round((local.getTime() - utc.getTime()) / 60_000)
+    const h = Math.floor(Math.abs(diff) / 60)
+    const m = Math.abs(diff) % 60
+    const sign = diff >= 0 ? '+' : '-'
+    const offset = m > 0 ? `GMT${sign}${h}:${String(m).padStart(2, '0')}` : `GMT${sign}${h}`
+
+    return { time, dateFull, dateShort, offset }
+  } catch { return null }
+}
+
+function useLocalClock(timezone: string | null) {
+  const [info, setInfo] = useState<ClockInfo | null>(() => timezone ? computeClock(timezone) : null)
+  useEffect(() => {
+    if (!timezone) return
+    setInfo(computeClock(timezone))
+    const id = setInterval(() => setInfo(computeClock(timezone)), 10_000)
+    return () => clearInterval(id)
+  }, [timezone])
+  return info
+}
 
 export type NavMember = {
   id:          string
@@ -56,6 +133,8 @@ export function TripNavbar({
   onLeaveTrip, onEditTrip,
 }: Props) {
   const [showMenu, setShowMenu] = useState(false)
+  const timezone  = getTimezone(city)
+  const localInfo = useLocalClock(timezone)
 
   const roleBadgeCls = isOwner
     ? 'bg-blue-600 text-white'
@@ -117,6 +196,14 @@ export function TripNavbar({
             </button>
           )}
         </div>
+
+        {/* ── 현지 시간 (데스크탑 2줄) ── */}
+        {localInfo && (
+          <div className="hidden sm:flex flex-col items-end flex-shrink-0 text-right pr-1">
+            <span className="text-sm font-bold text-gray-800 tabular-nums leading-tight">{localInfo.time}</span>
+            <span className="text-[10px] text-gray-400 leading-tight whitespace-nowrap">{localInfo.dateFull} ({localInfo.offset})</span>
+          </div>
+        )}
 
         {/* ── 데스크탑 액션 (sm 이상) ── */}
         <div className="hidden sm:flex items-center gap-1.5 flex-shrink-0">
@@ -184,7 +271,7 @@ export function TripNavbar({
         <button
           onClick={onMemberClick}
           data-tour="member-btn"
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors"
+          className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors flex-shrink-0"
         >
           <div className="flex -space-x-2">
             {members.slice(0, 3).map((m, i) => {
@@ -206,6 +293,14 @@ export function TripNavbar({
           </div>
           <span className="text-xs font-medium text-gray-600">{members.length}명</span>
         </button>
+
+        {/* 현지 시간 (모바일 중앙) */}
+        {localInfo ? (
+          <div className="flex flex-col items-center text-center px-2">
+            <span className="text-sm font-bold text-gray-800 tabular-nums leading-tight">{localInfo.time}</span>
+            <span className="text-[10px] text-gray-400 leading-tight whitespace-nowrap">{localInfo.dateShort} ({localInfo.offset})</span>
+          </div>
+        ) : <div />}
 
         {/* 우측 아이콘 */}
         <div className="flex items-center gap-1.5">

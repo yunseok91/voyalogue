@@ -50,6 +50,7 @@ type PlanItem = {
   id:           string
   name:         string
   timeSlot:     TimeSlot
+  startTime?:   string   // HH:MM (optional)
   cat:          Category
   price:        number
   currency:     string
@@ -190,6 +191,16 @@ const SLOT_DOT: Record<TimeSlot, string> = {
   점심: 'bg-green-500',
   저녁: 'bg-violet-500',
   미정: 'bg-gray-400',
+}
+
+/* HH:MM → { label: "오전 9:30" | "오후 2:30", isPM: bool } */
+function parseItemTime(hhmm: string): { label: string; isPM: boolean } {
+  const [hStr, mStr] = hhmm.split(':')
+  const h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const isPM = h >= 12
+  const h12  = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return { label: `${isPM ? '오후' : '오전'} ${h12}:${m}`, isPM }
 }
 
 function formatDate(d: string) {
@@ -449,12 +460,20 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
 
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
-          {/* 1행: 시간대 도트 + 별점 */}
+          {/* 1행: 시간대 도트 + 시각 + 별점 */}
           <div className="flex items-center gap-2">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
             />
+            {item.startTime && (() => {
+              const { label, isPM } = parseItemTime(item.startTime)
+              return (
+                <span className={`flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums leading-none ${isPM ? 'bg-orange-50 text-orange-500' : 'bg-sky-50 text-sky-500'}`}>
+                  {label}
+                </span>
+              )
+            })()}
             <StarRow
               myRating={item.ratings?.[myUid] ?? 0}
               ratings={item.ratings}
@@ -689,6 +708,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [addedName,     setAddedName]     = useState('')
   const [name,          setName]          = useState(defaultPlace?.name ?? '')
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>('미정')
+  const [startTime,      setStartTime]      = useState('')
   const [cat,            setCat]            = useState<Category>('장소')
   const [price,          setPrice]          = useState('')
   const [currency,       setCurrency]       = useState(defaultCurrency)
@@ -934,11 +954,12 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         participants: participantIds.length || people,
         participantIds,
         ...(payerId ? { payerId } : {}),
+        ...(startTime ? { startTime } : {}),
         ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
       })
       setReceiptFiles([]); setReceiptPreviews([]); setUploading(false)
       const doneName = name.trim()
-      setName(''); setPrice(''); setComment(''); setLat(null); setLng(null); setCoordsFromMap(false)
+      setName(''); setPrice(''); setComment(''); setLat(null); setLng(null); setCoordsFromMap(false); setStartTime('')
       showDoneScreen(doneName)
     } finally {
       setSubmitting(false)
@@ -1254,8 +1275,19 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   className={inputCls}
                 />
               </div>
-              <div className="flex flex-col gap-1">
-                <label className="text-[12px] font-semibold text-gray-600">시간대</label>
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-semibold text-gray-600">시간대</label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] text-gray-400">시각</span>
+                    <input
+                      type="time"
+                      value={startTime}
+                      onChange={e => setStartTime(e.target.value)}
+                      className="px-2 py-1 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white focus:outline-none focus:border-blue-400 transition-colors"
+                    />
+                  </div>
+                </div>
                 <div className="flex gap-2 flex-wrap">
                   {TIME_SLOTS.map(t => (
                     <button key={t} type="button" onClick={() => setTimeSlot(t)}
@@ -1670,6 +1702,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
   const { avatarColor, avatarHexColor, user: authUser } = useAuthStore()
   const [name,           setName]           = useState(item.name)
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>(item.timeSlot)
+  const [startTime,      setStartTime]      = useState(item.startTime ?? '')
   const [cat,            setCat]            = useState<Category>(item.cat)
   const [price,          setPrice]          = useState(item.price > 0 ? String(item.price) : '')
   const [currency,       setCurrency]       = useState(item.currency)
@@ -1759,6 +1792,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
       const finalReceipts = [...receipts, ...uploadedURLs]
       await onUpdate(item.id, {
         name: name.trim(), timeSlot, cat,
+        ...(startTime ? { startTime } : { startTime: '' }),
         price: Number(price) || 0, currency,
         comment, lat, lng,
         participants: participantIds.length || people,
@@ -1797,8 +1831,19 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
               className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
             />
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-[12px] font-semibold text-gray-600">시간대</label>
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[12px] font-semibold text-gray-600">시간대</label>
+              <div className="flex items-center gap-1.5">
+                <span className="text-[11px] text-gray-400">시각</span>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={e => setStartTime(e.target.value)}
+                  className="px-2 py-1 rounded-lg border border-gray-200 text-xs text-gray-700 bg-white focus:outline-none focus:border-blue-400 transition-colors"
+                />
+              </div>
+            </div>
             <div className="flex gap-2 flex-wrap">
               {TIME_SLOTS.map(t => (
                 <button key={t} type="button" onClick={() => setTimeSlot(t)}

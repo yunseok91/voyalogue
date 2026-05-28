@@ -4,12 +4,13 @@ import Link from 'next/link'
 import Script from 'next/script'
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
-import { ArrowRight, Globe, Menu, X, Star } from 'lucide-react'
+import { Globe, Menu, X, Star } from 'lucide-react'
 import { useAuthStore } from '@/features/auth/store'
 import { AdUnit } from '@/components/AdUnit'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
 import { getDocs, collection, query, where, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
+import { TripMap, type DayGroup, DAY_COLORS } from '@/components/TripMap'
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -21,22 +22,22 @@ const NAV_LINKS = [
 
 const FEATURES = [
   {
-    icon: '📅',
-    bg: 'bg-blue-50',
-    title: '드래그 앤 드롭 일정 관리',
-    desc: '캘린더에 끌어다 놓기만 하세요. 이동 시간과 거리를 고려해 최적의 시간표를 자동으로 구성해 드립니다.',
+    icon: '✨',
+    bg: 'bg-violet-50',
+    title: 'AI가 짜주는 맞춤 일정',
+    desc: '취향·예산·인원·교통수단을 입력하면 AI가 최적의 여행 일정을 자동으로 생성해 드립니다. 단 1분이면 완성.',
   },
   {
-    icon: '🗺',
+    icon: '🗺️',
     bg: 'bg-teal-50',
     title: '지도로 보는 전체 동선',
-    desc: '구글 지도 위에서 전체 동선을 한눈에 확인하세요. 일정을 추가할 때마다 지도에 핀이 자동으로 그려집니다.',
+    desc: '국내는 카카오맵, 해외는 구글맵. 장소를 추가할 때마다 지도에 핀이 그려지고 날짜별 경로를 한눈에 확인할 수 있어요.',
   },
   {
     icon: '👥',
     bg: 'bg-orange-50',
     title: '친구와 함께 계획하기',
-    desc: '초대 링크로 일행을 불러 함께 일정을 보고 수정하세요. 총무 권한으로 역할을 나눠 더 효율적으로 준비할 수 있습니다.',
+    desc: '초대 링크로 일행을 불러 함께 일정을 보고 수정하세요. 예산을 나눠 정산하고 총무 권한으로 역할도 분담할 수 있어요.',
   },
 ]
 
@@ -58,10 +59,39 @@ const STEPS = [
   },
 ]
 
-const MAP_ITEMS = [
-  { n: 1, name: '에펠탑', time: '10:00 AM', stars: 5, tag: '장소', active: true },
-  { n: 2, name: '루브르 박물관', time: '02:00 PM', stars: 4, tag: '박물관', active: false },
-  { n: 3, name: '센 강 유람선', time: '07:30 PM', stars: 5, tag: '액티비티', active: false },
+type SidebarItemType = 'flight' | 'hotel' | 'place'
+const MAP_ITEMS: { n: number; name: string; time: string; stars?: number; tag: string; active: boolean; type: SidebarItemType }[] = [
+  { n: 1, name: '파리 CDG 도착',  time: '10:30 AM', tag: '비행기', active: false, type: 'flight' },
+  { n: 2, name: '에펠탑',         time: '06:00 PM', stars: 5, tag: '장소',  active: true,  type: 'place'  },
+  { n: 3, name: '오페라 호텔',    time: '09:00 PM', tag: '숙소',  active: false, type: 'hotel'  },
+]
+
+const DEMO_DAY_GROUPS: DayGroup[] = [
+  {
+    dayId: 'd1', label: 'Day 1', color: DAY_COLORS[0],
+    items: [
+      { id: 'flight-in',  name: '파리 CDG 도착',   lat: 49.0097, lng: 2.5479, timeSlot: '비행기', cat: '비행기', markerType: 'special' },
+      { id: 'p1',         name: '에펠탑',           lat: 48.8584, lng: 2.2945, timeSlot: '저녁',   cat: '장소'   },
+      { id: 'hotel1',     name: '오페라 호텔',      lat: 48.8736, lng: 2.3322, timeSlot: '숙소',   cat: '숙소',  markerType: 'special' },
+    ],
+  },
+  {
+    dayId: 'd2', label: 'Day 2', color: DAY_COLORS[1],
+    items: [
+      { id: 'p2',     name: '루브르 박물관',   lat: 48.8606, lng: 2.3376, timeSlot: '아침', cat: '박물관'  },
+      { id: 'p3',     name: '노트르담 대성당', lat: 48.8530, lng: 2.3499, timeSlot: '점심', cat: '장소'    },
+      { id: 'p4',     name: '센 강 유람선',    lat: 48.8566, lng: 2.3522, timeSlot: '저녁', cat: '액티비티'},
+      { id: 'hotel1', name: '오페라 호텔',     lat: 48.8736, lng: 2.3322, timeSlot: '숙소', cat: '숙소',   markerType: 'special' },
+    ],
+  },
+  {
+    dayId: 'd3', label: 'Day 3', color: DAY_COLORS[2],
+    items: [
+      { id: 'p5',        name: '몽마르트 언덕', lat: 48.8867, lng: 2.3431, timeSlot: '아침', cat: '장소'   },
+      { id: 'p6',        name: '오르세 미술관', lat: 48.8600, lng: 2.3266, timeSlot: '점심', cat: '박물관' },
+      { id: 'flight-out',name: '파리 CDG 출발', lat: 49.0097, lng: 2.5479, timeSlot: '비행기', cat: '비행기', markerType: 'special' },
+    ],
+  },
 ]
 
 const REVIEWS = [
@@ -291,12 +321,12 @@ export default function LandingPage() {
               {user ? (
                 <Link href="/trips"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
-                  내 여행 시작하기 &nbsp;→
+                  내 여행 시작하기
                 </Link>
               ) : (
                 <Link href="/auth"
                   className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
-                  새 일정 만들기 &nbsp;→
+                  새 일정 만들기
                 </Link>
               )}
               <button onClick={() => scrollTo('demo')}
@@ -372,6 +402,99 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── AI Trip Planner ───────────────────────────────────────────────── */}
+      <section className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-[#F9FAFB]">
+        <div className="max-w-[1440px] mx-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-12 lg:gap-20">
+
+            {/* 왼쪽 텍스트 */}
+            <div className="flex-1 flex flex-col gap-6">
+              <div className="inline-flex">
+                <Tag color="bg-violet-100 text-violet-700">AI Trip Planner</Tag>
+              </div>
+              <h2 className="text-4xl xl:text-[44px] font-extrabold text-gray-900 leading-tight"
+                style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                몇 가지 질문에 답하면<br />AI가 일정을 완성해요
+              </h2>
+              <p className="text-base text-gray-500 leading-relaxed max-w-[480px]">
+                여행지, 기간, 인원, 취향만 입력하세요. Gemini AI가 식사 · 관광 · 이동을 고려해 하루하루 최적의 코스를 짜드립니다.
+              </p>
+              <ul className="flex flex-col gap-3">
+                {[
+                  '✈️  목적지와 여행 기간 설정',
+                  '🎯  취향 · 예산 · 교통수단 선택',
+                  '🗓️  AI가 날짜별 코스 자동 완성',
+                  '📍  지도에서 전체 동선 바로 확인',
+                ].map(item => (
+                  <li key={item} className="flex items-center gap-2.5 text-sm text-gray-700">
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link href="/auth"
+                className="inline-flex items-center gap-2 w-fit px-6 py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-[22px] text-sm transition-colors">
+                AI로 일정 만들어보기
+              </Link>
+            </div>
+
+            {/* 오른쪽 UI 목업 */}
+            <div className="flex-1 w-full max-w-[480px]">
+              <div className="bg-white rounded-[24px] border border-gray-200 shadow-xl overflow-hidden">
+                {/* 헤더 */}
+                <div className="px-5 pt-5 pb-4 border-b border-gray-100 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center text-white text-base">✨</div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">AI 여행 플래너</p>
+                    <p className="text-[11px] text-gray-400">취향 기반 맞춤 일정 생성</p>
+                  </div>
+                </div>
+                {/* 생성된 일정 미리보기 */}
+                <div className="px-5 py-4 flex flex-col gap-3">
+                  <p className="text-xs font-bold text-gray-500">🗓 Day 1 · 도쿄</p>
+                  {[
+                    { time: '아침', place: '쓰키지 시장', cat: '식사', color: 'bg-amber-500' },
+                    { time: '점심', place: '아사쿠사 센소지', cat: '장소', color: 'bg-blue-500' },
+                    { time: '저녁', place: '신주쿠 골든가이', cat: '식사', color: 'bg-rose-500' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <div className={`w-6 h-6 rounded-full ${item.color} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{item.place}</p>
+                        <p className="text-[11px] text-gray-400">{item.time}</p>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">{item.cat}</span>
+                    </div>
+                  ))}
+                  <p className="text-xs font-bold text-gray-500 mt-1">🗓 Day 2 · 도쿄</p>
+                  {[
+                    { time: '아침', place: '하라주쿠 카페 거리', cat: '식사', color: 'bg-emerald-500' },
+                    { time: '점심', place: '시부야 스카이 전망대', cat: '장소', color: 'bg-blue-500' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
+                      <div className={`w-6 h-6 rounded-full ${item.color} flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0`}>
+                        {i + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-900">{item.place}</p>
+                        <p className="text-[11px] text-gray-400">{item.time}</p>
+                      </div>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-200 text-gray-600">{item.cat}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="px-5 pb-5">
+                  <div className="w-full py-3 bg-gradient-to-r from-blue-600 to-violet-600 text-white text-sm font-bold rounded-2xl text-center">
+                    일정 저장하기
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* ── 광고 1 — Features 하단 / How it works 상단 ── */}
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4 bg-white">
         <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
@@ -435,23 +558,29 @@ export default function LandingPage() {
                 <p className="text-base font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                   파리 여행 일정
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">7월 15일 – 7월 20일 · 5일</p>
+                <p className="text-xs text-gray-400 mt-0.5">7월 15일 – 7월 17일 · 3일</p>
               </div>
               <div className="h-px bg-gray-100 my-4" />
               <div className="flex flex-col gap-2">
                 {MAP_ITEMS.map(item => (
                   <div key={item.n}
                     className={`flex items-center gap-3 p-3 rounded-xl border transition-colors ${item.active ? 'bg-blue-50 border-blue-100' : 'bg-white border-gray-100'}`}>
-                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${item.active ? 'bg-blue-600' : 'bg-gray-400'}`}>
-                      {item.n}
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
+                      item.type === 'flight' ? 'bg-sky-500' : item.type === 'hotel' ? 'bg-amber-700' : item.active ? 'bg-blue-600' : 'bg-gray-400'
+                    }`}>
+                      {item.type === 'flight' ? '✈' : item.type === 'hotel' ? '🏠' : item.n}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{item.name} · {item.time}</p>
-                      <Stars count={item.stars} />
+                      {item.stars != null ? <Stars count={item.stars} /> : (
+                        <p className="text-[11px] text-gray-400">{item.tag}</p>
+                      )}
                     </div>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${item.active ? 'text-blue-600' : 'text-gray-400'}`}>
-                      {item.tag}
-                    </span>
+                    {item.stars != null && (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${item.active ? 'text-blue-600' : 'text-gray-400'}`}>
+                        {item.tag}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
@@ -459,13 +588,10 @@ export default function LandingPage() {
 
             {/* Map area */}
             <div className="flex-1 relative min-h-[380px]">
-              <div className="absolute top-4 left-4 z-10 bg-white rounded-2xl px-4 py-2 shadow-md border border-gray-100 flex items-center gap-2">
-                <span className="text-xs font-semibold text-blue-600">📍 경로 최적화 켜짐</span>
-              </div>
-              <iframe
-                src="https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d10499.550398158215!2d2.3002247!3d48.8615861!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sko!2skr!4v1716900000000!5m2!1sko!2skr"
-                className="w-full h-full min-h-[380px] border-0"
-                allowFullScreen loading="lazy" title="Paris Map"
+              <TripMap
+                city="파리, 프랑스"
+                items={[]}
+                dayGroups={DEMO_DAY_GROUPS}
               />
             </div>
           </div>
@@ -516,12 +642,12 @@ export default function LandingPage() {
           {user ? (
             <Link href="/trips"
               className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">
-              내 여행 보러가기 <ArrowRight className="w-4 h-4" />
+              내 여행 보러가기
             </Link>
           ) : (
             <Link href="/auth"
               className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">
-              무료로 시작하기 <ArrowRight className="w-4 h-4" />
+              무료로 시작하기
             </Link>
           )}
         </div>

@@ -767,17 +767,18 @@ function TripsContent() {
                 const effClrToggle = hasCover ? 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20' : clrToggle
 
                 const isPending = !!trip.pendingDelete
+                const isDone     = !isOngoing && !isUpcoming && !isPending
                 const deletedAtMs = trip.deletedAt?.toMillis() ?? Date.now()
                 const remainHours = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
 
                 return (
                   <div key={trip.id} className={`group relative ${isPending ? '' : 'cursor-pointer'}`}
                     onClick={isPending ? undefined : () => window.location.href = `/trips/${trip.id}`}>
-                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all ${
-                      isPending ? 'border-red-200' : isOngoing ? 'border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : 'border-gray-200 group-hover:shadow-md group-hover:-translate-y-0.5'
+                    <div className={`rounded-2xl border overflow-hidden transition-all ${
+                      isPending ? 'border-red-200 bg-white' : isOngoing ? 'bg-white border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : isDone ? 'bg-gray-50 border-gray-200 group-hover:shadow-sm group-hover:-translate-y-0.5' : 'bg-white border-gray-200 group-hover:shadow-md group-hover:-translate-y-0.5'
                     }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={cardBgStyle}>
+                        style={isDone ? { ...cardBgStyle, filter: 'grayscale(60%) brightness(0.88)' } : cardBgStyle}>
                         <div className="flex items-start justify-between">
                           <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${effClrIcon}`} />
                           {!isPending && (
@@ -838,8 +839,8 @@ function TripsContent() {
                           <p className={`text-xs mt-1 font-medium ${effClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
-                      <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2">
-                        <span className={`text-sm font-semibold flex-1 ${isPending ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
+                      <div className={`px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2 ${isDone ? 'bg-gray-50' : 'bg-white'}`}>
+                        <span className={`text-sm font-semibold flex-1 ${isPending ? 'text-gray-400' : isDone ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
                         {!isPending && (
                           <>
                             <button
@@ -940,6 +941,7 @@ function TripsContent() {
               {sortedInvited.map(trip => {
                 const isOngoing  = trip.status === 'ongoing'
                 const isUpcoming = trip.status === 'upcoming'
+                const isDone = !isOngoing && !isUpcoming
                 const badge = isOngoing  ? { label: '여행중', cls: 'bg-green-500 text-white' }
                             : isUpcoming ? { label: `D-${getDday(trip.startDate)}`, cls: 'bg-blue-50 text-blue-600' }
                             :              { label: '완료', cls: 'bg-gray-100 text-gray-500' }
@@ -976,11 +978,11 @@ function TripsContent() {
                 return (
                   <div key={trip.id} className={`group relative ${!isPending ? 'cursor-pointer' : ''}`}
                     onClick={!isPending ? () => window.location.href = `/share/${trip.viewCode}` : undefined}>
-                    <div className={`bg-white rounded-2xl border overflow-hidden transition-all ${
-                      isPending ? 'border-red-200' : isOngoing ? 'border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : 'border-indigo-100 ring-1 ring-indigo-50 group-hover:shadow-md group-hover:-translate-y-0.5'
+                    <div className={`rounded-2xl border overflow-hidden transition-all ${
+                      isPending ? 'border-red-200 bg-white' : isOngoing ? 'bg-white border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : isDone ? 'bg-gray-50 border-gray-200 group-hover:shadow-sm' : 'bg-white border-indigo-100 ring-1 ring-indigo-50 group-hover:shadow-md group-hover:-translate-y-0.5'
                     }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
                       <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={invCardBgStyle}>
+                        style={isDone ? { ...invCardBgStyle, filter: 'grayscale(60%) brightness(0.88)' } : invCardBgStyle}>
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-1.5">
                             <User className={`w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 ${invClrIcon}`} />
@@ -1021,8 +1023,8 @@ function TripsContent() {
                           <p className={`text-xs mt-1 font-medium ${invClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
                         </div>
                       </div>
-                      <div className="px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between">
-                        <span className="text-sm font-semibold text-gray-700">{trip.nights}박 {trip.days}일</span>
+                      <div className={`px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between ${isDone ? 'bg-gray-50' : 'bg-white'}`}>
+                        <span className={`text-sm font-semibold ${isDone ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
                         {/* 멤버 아바타 스택 — 클릭 시 멤버 목록 팝업 */}
                         {visibleMembers.length > 0 ? (
                           <button
