@@ -62,6 +62,12 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberReviews']) &&
         resource.data.viewCode is string &&
         exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
+      // 총무(멤버): joinCode가 활성 상태일 때 checklist 필드만 수정 허용
+      allow update: if request.auth != null &&
+        request.auth.uid != uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['checklist']) &&
+        resource.data.joinCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(resource.data.joinCode));
     }
 
     // Member invite codes: public read, owner write
