@@ -2097,7 +2097,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [copied,        setCopied]        = useState<'view' | 'edit' | 'join' | null>(null)
   const [joinPinInput,  setJoinPinInput]  = useState('')
   const [pinSaved,      setPinSaved]      = useState(false)
-  const [copiedMember,  setCopiedMember]  = useState<string | null>(null)
   const [newMemberName, setNewMemberName] = useState('')
   const [newMemberEmoji,setNewMemberEmoji]= useState('😊')
   const [colorPickForId,  setColorPickForId]  = useState<string | null>(null)
@@ -2325,8 +2324,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!meta) return
     setDoc(doc(db, 'shareIndex', meta.viewCode), { uid, tripId, canEdit: false })
     setDoc(doc(db, 'shareIndex', meta.editCode), { uid, tripId, canEdit: true })
-    if (meta.joinCode && meta.joinPin) {
-      setDoc(doc(db, 'shareIndex', meta.joinCode), { uid, tripId, canEdit: true, pin: meta.joinPin })
+    if (meta.joinCode) {
+      setDoc(doc(db, 'shareIndex', meta.joinCode), { uid, tripId, canEdit: true, ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
     }
   }, [meta?.viewCode, meta?.editCode, meta?.joinCode, meta?.joinPin])
 
@@ -3018,8 +3017,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }
 
   const copyJoinLink = async () => {
-    if (!meta?.joinCode) return
-    const url = `${window.location.origin}/share/${meta.joinCode}`
+    if (!meta) return
+    let code = meta.joinCode
+    if (!code) {
+      code = generateCode(10)
+      await updateDoc(doc(db, 'users', uid, 'trips', tripId), { joinCode: code })
+      await setDoc(doc(db, 'shareIndex', code), { uid, tripId, canEdit: true, ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
+      setMeta(prev => prev ? { ...prev, joinCode: code! } : prev)
+    }
+    const url = `${window.location.origin}/share/${code}`
     await navigator.clipboard.writeText(url)
     setCopied('join')
     setTimeout(() => setCopied(null), 2000)
@@ -3100,31 +3106,6 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setMeta({ ...meta, members })
   }
 
-  const copyMemberInvite = async (memberId: string) => {
-    if (!meta) return
-    const member = meta.members.find(m => m.id === memberId)
-    if (!member) return
-
-    let inviteCode = member.inviteCode
-    if (!inviteCode) {
-      inviteCode = generateCode(12)
-      const members = meta.members.map(m =>
-        m.id === memberId ? { ...m, inviteCode } : m
-      )
-      await Promise.all([
-        updateDoc(doc(db, 'users', uid, 'trips', tripId), { members }),
-        setDoc(doc(db, 'memberInvites', inviteCode), {
-          ownerUid: uid, tripId, memberId, viewCode: meta.viewCode,
-        }),
-      ])
-      setMeta({ ...meta, members })
-    }
-
-    const url = `${window.location.origin}/invite/${inviteCode}`
-    await navigator.clipboard.writeText(url)
-    setCopiedMember(memberId)
-    setTimeout(() => setCopiedMember(null), 2000)
-  }
 
   /* ── 수정 모달 자동완성 (비행기) ── */
   useEffect(() => {
@@ -4265,28 +4246,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     </div>
 
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      {m.role !== 'owner' && (
-                        <>
-                          <button
-                            onClick={() => copyMemberInvite(m.id)}
-                            title="개인 초대 링크 복사"
-                            className="flex items-center gap-1 px-2 py-1.5 rounded-xl border border-gray-200 hover:border-blue-300 hover:bg-blue-50/60 transition-colors group min-w-0">
-                            {copiedMember === m.id ? (
-                              <Check className="w-3 h-3 text-green-500 flex-shrink-0" />
-                            ) : (
-                              <Link2 className="w-3 h-3 text-gray-400 group-hover:text-blue-500 flex-shrink-0" />
-                            )}
-                            <span className="text-[11px] font-semibold text-gray-500 group-hover:text-blue-600 leading-none">
-                              {copiedMember === m.id ? '복사' : '링크'}
-                            </span>
-                          </button>
-                          {!m.left && (
-                            <button onClick={() => removeMember(m.id)}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </>
+                      {m.role !== 'owner' && !m.left && (
+                        <button onClick={() => removeMember(m.id)}
+                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
                       )}
                     </div>
                   </div>
@@ -4342,7 +4306,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-xs font-semibold text-blue-700">멤버 참여 링크</p>
-                    <p className="text-[11px] text-blue-400">4자리 PIN 입력 후 일정 열람 가능</p>
+                    <p className="text-[11px] text-blue-400">PIN 설정으로 보안 강화 (선택 사항)</p>
                   </div>
                 </div>
                 {/* PIN 직접 입력 */}
@@ -4368,8 +4332,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <div className="px-3.5 pb-3">
                   <button
                     onClick={copyJoinLink}
-                    disabled={!meta?.joinCode || !meta?.joinPin}
-                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
                   >
                     {copied === 'join'
                       ? <><Check className="w-3.5 h-3.5" />복사됨</>
@@ -4687,6 +4650,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           dayMetas={days}
           initialDayBudgets={dayBudgets}
           coverPhotoURL={meta.coverPhotoURL}
+          coverPhotoPosition={meta.coverPhotoPosition}
           uid={uid}
           tripId={tripId}
           onClose={() => setShowEdit(false)}
@@ -4694,16 +4658,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
             const start = new Date(data.startDate)
             const batch = writeBatch(db)
             batch.update(doc(db, 'users', uid, 'trips', tripId), {
-              title:         data.title || null,
-              startDate:     data.startDate,
-              endDate:       data.endDate,
-              nights:        data.nights,
-              days:          data.days,
-              people:        data.people,
-              currency:      data.currency || null,
-              budget:        data.budgetKRW,
-              dayBudgets:    data.dayBudgets,
-              coverPhotoURL: data.coverPhotoURL ?? null,
+              title:              data.title || null,
+              startDate:          data.startDate,
+              endDate:            data.endDate,
+              nights:             data.nights,
+              days:               data.days,
+              people:             data.people,
+              currency:           data.currency || null,
+              budget:             data.budgetKRW,
+              dayBudgets:         data.dayBudgets,
+              coverPhotoURL:      data.coverPhotoURL ?? null,
+              coverPhotoPosition: data.coverPhotoPosition ?? 50,
             })
             for (let i = 0; i < data.days; i++) {
               const d = new Date(start)
@@ -4726,7 +4691,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
               people:        data.people,
               budget:        data.budgetKRW,
               dayBudgets:    data.dayBudgets,
-              coverPhotoURL: data.coverPhotoURL,
+              coverPhotoURL:      data.coverPhotoURL,
+              coverPhotoPosition: data.coverPhotoPosition ?? 50,
             } : prev)
           }}
         />

@@ -156,7 +156,7 @@ export function TripEditModal({
               <div className="flex flex-col gap-2">
                 {/* 드래그로 위치 조정 */}
                 <div
-                  className={`relative w-full h-36 rounded-xl overflow-hidden border border-gray-200 select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  className={`relative w-full h-[120px] sm:h-[130px] rounded-xl overflow-hidden border border-gray-200 select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                   onMouseDown={e => {
                     e.preventDefault()
                     setDragging(true)
