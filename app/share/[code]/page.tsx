@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone, Receipt } from 'lucide-react'
 import {
   collection, getDoc, getDocs, onSnapshot,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -102,6 +102,7 @@ type PlanItem = {
   participantIds?: string[]
   payerId?: string
   receipts?: string[]
+  startTime?: string
 }
 
 type Day = { dayId: string; label: string; date: string }
@@ -118,6 +119,15 @@ const CAT_COLORS: Record<Category, string> = {
 }
 const CAT_DISPLAY: Record<Category, string> = {
   식사: '식사', 장소: '관광', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
+}
+
+function parseItemTime(hhmm: string): { label: string; isPM: boolean } {
+  const [hStr, mStr] = hhmm.split(':')
+  const h = parseInt(hStr, 10)
+  const m = mStr ?? '00'
+  const isPM = h >= 12
+  const h12  = h === 0 ? 12 : h > 12 ? h - 12 : h
+  return { label: `${isPM ? '오후' : '오전'} ${h12}:${m}`, isPM }
 }
 
 function formatDate(d: string) {
@@ -174,23 +184,12 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showPP,  setShowPP]  = useState(false)
-  const [menu,    setMenu]    = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (!showPP) return
     const t = setTimeout(() => setShowPP(false), 2500)
     return () => clearTimeout(t)
   }, [showPP])
-
-  useEffect(() => {
-    if (!menu) return
-    const handler = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenu(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [menu])
 
   const validSet   = memberIds ? new Set(memberIds) : null
   const actualPart = item.participantIds
@@ -236,12 +235,20 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
 
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
-          {/* 1행: 시간대 도트 + 별점 */}
+          {/* 1행: 시간대 도트 + 시각 + 별점 */}
           <div className="flex items-center gap-2">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
             />
+            {item.startTime && (() => {
+              const { label, isPM } = parseItemTime(item.startTime)
+              return (
+                <span className={`flex items-center gap-0.5 text-[11px] font-bold px-1.5 py-0.5 rounded-md tabular-nums leading-none ${isPM ? 'bg-orange-50 text-orange-500' : 'bg-sky-50 text-sky-500'}`}>
+                  {label}
+                </span>
+              )
+            })()}
             <StarRow
               myRating={myUid ? (item.ratings?.[myUid] ?? 0) : 0}
               ratings={item.ratings}
@@ -304,34 +311,26 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         </div>
       </div>
 
-      {/* 더보기 메뉴 (편집 권한 있을 때만) */}
+      {/* 편집 권한 인라인 버튼 */}
       {canEdit && (
-        <div className="relative flex-shrink-0" ref={menuRef}>
-          <button
-            onClick={e => { e.stopPropagation(); setMenu(v => !v) }}
-            className="w-7 h-7 flex items-center justify-center rounded-md text-gray-300 hover:text-gray-600 hover:bg-gray-100 opacity-0 group-hover:opacity-100 transition-all"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </button>
-          {menu && (
-            <div className="absolute right-0 top-8 z-20 bg-white border border-gray-200 rounded-xl shadow-lg py-1 w-28">
-              {onEdit && (
-                <button
-                  className="w-full px-3 py-2 flex items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                  onClick={e => { e.stopPropagation(); onEdit(item); setMenu(false) }}
-                >
-                  <Edit2 className="w-3.5 h-3.5" /> 수정
-                </button>
-              )}
-              {onDelete && (
-                <button
-                  className="w-full px-3 py-2 flex items-center gap-2 text-sm text-red-500 hover:bg-red-50 transition-colors"
-                  onClick={e => { e.stopPropagation(); onDelete(item.id); setMenu(false) }}
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> 삭제
-                </button>
-              )}
-            </div>
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(item) }}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+            >
+              <Receipt className="w-3 h-3" />
+              <span>내역</span>
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={e => { e.stopPropagation(); onEdit(item) }}
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+            >
+              <Edit2 className="w-3 h-3" />
+              <span>수정</span>
+            </button>
           )}
         </div>
       )}
