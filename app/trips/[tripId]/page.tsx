@@ -2050,7 +2050,7 @@ const OVERSEAS_DEFAULTS = ['여권', '항공권 (출력 또는 모바일)', '해
 
 /* ── 플래너 본체 ── */
 function PlannerContent({ tripId }: { tripId: string }) {
-  const { user, avatarColor, avatarHexColor, preferredCurrency, setAvatarColor, setAvatarHexColor } = useAuthStore()
+  const { user, avatarColor, avatarHexColor, preferredCurrency, setAvatarColor, setAvatarHexColor, setOnboardingPaused } = useAuthStore()
   const uid    = user!.uid
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -2107,6 +2107,30 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showReport,      setShowReport]      = useState(false)
 
   /* 온보딩 */
+  const [memberTipDismissed,   setMemberTipDismissed]   = useState(() => {
+    try { return localStorage.getItem('member_panel_tip_seen') === '1' } catch { return false }
+  })
+  const [showWelcome,          setShowWelcome]          = useState(false)
+  const [showTreasurerPrompt,  setShowTreasurerPrompt]  = useState(false)
+  const [pendingTreasurer,     setPendingTreasurer]     = useState(false)
+
+  // 웰컴/총무 모달이 열려있는 동안 온보딩 콜아웃 숨김
+  useEffect(() => {
+    setOnboardingPaused(showWelcome || showTreasurerPrompt)
+  }, [showWelcome, showTreasurerPrompt, setOnboardingPaused])
+  useEffect(() => {
+    try {
+      const hasTreasurer = !!localStorage.getItem('showTreasurerPrompt')
+      if (hasTreasurer) localStorage.removeItem('showTreasurerPrompt')
+      if (localStorage.getItem('showWelcome')) {
+        localStorage.removeItem('showWelcome')
+        setShowWelcome(true)
+        if (hasTreasurer) setPendingTreasurer(true)
+      } else if (hasTreasurer) {
+        setShowTreasurerPrompt(true)
+      }
+    } catch {}
+  }, [])
 
 
   /* 환율 */
@@ -3330,6 +3354,91 @@ function PlannerContent({ tripId }: { tripId: string }) {
   return (
     <div className="h-screen flex flex-col overflow-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
 
+      {/* ── 첫 여행 웰컴 모달 ── */}
+      {showWelcome && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.5)' }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden relative">
+            {/* 상단 그라데이션 헤더 */}
+            <div className="bg-gradient-to-br from-violet-500 to-indigo-600 px-8 pt-10 pb-8 flex flex-col items-center gap-3">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
+                <MapPin className="w-8 h-8 text-white" strokeWidth={2} />
+              </div>
+              <div className="text-center">
+                <h2 className="text-xl font-extrabold text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  첫 여행을 만들었어요!
+                </h2>
+                <p className="text-sm text-white/80 mt-1 leading-relaxed">
+                  설레는 여행의 시작이에요.<br />일정을 추가하고 소중한 기억을 기록해보세요.
+                </p>
+              </div>
+            </div>
+            {/* 본문 */}
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-2xl">
+                <div className="w-9 h-9 rounded-xl bg-amber-400 flex items-center justify-center flex-shrink-0">
+                  <Crown className="w-4.5 h-4.5 text-white" strokeWidth={2} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-amber-900 mb-0.5">총무 기능을 활용해보세요</p>
+                  <p className="text-xs text-amber-700 leading-relaxed">
+                    멤버 초대 후 총무를 지정하면 여행 경비 관리와 정산을 한 사람이 맡아 깔끔하게 처리할 수 있어요.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowWelcome(false); if (pendingTreasurer) { setPendingTreasurer(false); setShowTreasurerPrompt(true) } }}
+                className="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-bold rounded-2xl text-sm transition-colors"
+              >
+                일정 만들러 가기
+              </button>
+            </div>
+            <button
+              onClick={() => { setShowWelcome(false); if (pendingTreasurer) { setPendingTreasurer(false); setShowTreasurerPrompt(true) } }}
+              className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 hover:bg-white/30 text-white transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 총무 지정 프롬프트 ── */}
+      {showTreasurerPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-8 sm:pb-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden">
+            <div className="px-6 pt-7 pb-6 flex flex-col gap-5">
+              <div className="flex items-start gap-4">
+                <div className="w-11 h-11 rounded-2xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <Crown className="w-5 h-5 text-amber-500" strokeWidth={2} />
+                </div>
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900 mb-1" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                    총무를 지정하시겠어요?
+                  </h3>
+                  <p className="text-sm text-gray-500 leading-relaxed">
+                    방장이 총무를 여러 명 지정할 수 있어요. 멤버를 초대한 뒤 설정할 수도 있어요.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2.5">
+                <button
+                  onClick={() => setShowTreasurerPrompt(false)}
+                  className="flex-1 py-3 border border-gray-200 text-gray-600 font-semibold rounded-2xl text-sm hover:bg-gray-50 transition-colors"
+                >
+                  나중에
+                </button>
+                <button
+                  onClick={() => { setShowTreasurerPrompt(false); setShowMembers(true) }}
+                  className="flex-1 py-3 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-2xl text-sm transition-colors"
+                >
+                  멤버 관리 열기
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Navbar ── */}
       <TripNavbar
         tripId={tripId}
@@ -4031,6 +4140,34 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <X className="w-4 h-4" />
               </button>
             </div>
+
+            {/* 멤버 패널 온보딩 팁 — 혼자일 때만, 한 번 닫으면 사라짐 */}
+            {!memberTipDismissed && (meta.members ?? []).filter(m => !m.left).length <= 1 && (
+              <div className="mx-3 sm:mx-4 mt-3 mb-1 bg-blue-50 border border-blue-100 rounded-2xl p-4 flex gap-3 flex-shrink-0">
+                <div className="w-8 h-8 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <Users className="w-4 h-4 text-white" strokeWidth={2} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-blue-900 mb-1">친구를 초대해보세요!</p>
+                  <ul className="flex flex-col gap-1">
+                    <li className="flex items-start gap-1.5 text-xs text-blue-700 leading-relaxed">
+                      <span className="font-bold mt-0.5">·</span>
+                      <span><span className="font-semibold">멤버 추가</span> — 닉네임을 입력해 직접 추가할 수 있어요</span>
+                    </li>
+                    <li className="flex items-start gap-1.5 text-xs text-blue-700 leading-relaxed">
+                      <span className="font-bold mt-0.5">·</span>
+                      <span><span className="font-semibold">PIN 참여 링크</span> — 여러 명이면 PIN을 설정하고 링크를 공유하면 편해요</span>
+                    </li>
+                  </ul>
+                </div>
+                <button
+                  onClick={() => { setMemberTipDismissed(true); try { localStorage.setItem('member_panel_tip_seen', '1') } catch {} }}
+                  className="w-6 h-6 flex items-center justify-center rounded-full hover:bg-blue-200 text-blue-400 flex-shrink-0 self-start"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
 
             {/* 멤버 목록 */}
             <div className="px-3 sm:px-4 py-2 flex flex-col gap-1 overflow-y-auto flex-1 min-h-0">

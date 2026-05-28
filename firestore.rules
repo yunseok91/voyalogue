@@ -105,6 +105,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // 삭제된 유저 목록: 본인 uid 읽기(재가입 차단 체크), 어드민 write
+    match /deletedUsers/{uid} {
+      allow read:  if request.auth != null && request.auth.uid == uid;
+      allow write: if isAdmin();
+    }
+
     // Service reviews: anyone read, authenticated users create/update own, admin full access
     match /serviceReviews/{id} {
       allow read:   if true;

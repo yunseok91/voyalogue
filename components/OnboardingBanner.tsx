@@ -12,7 +12,7 @@ const NEW_PAGE_STEPS_END = 5
 const TRIP_PAGE_STEPS_START = 6
 
 export function OnboardingBanner() {
-  const { user } = useAuthStore()
+  const { user, onboardingPaused } = useAuthStore()
   const { hintStep, nextHint, skipHint, jumpToStep } = useOnboarding()
   const pathname = usePathname()
 
@@ -27,7 +27,14 @@ export function OnboardingBanner() {
     }
   }, [pathname, hintStep, jumpToStep])
 
-  if (!user || hintStep === 0) return null
+  if (!user || hintStep === 0 || onboardingPaused) return null
+
+  const isOnNewPage      = pathname === '/trips/new'
+  const isOnTripDetailPage = /^\/trips\/[^/]+$/.test(pathname) && pathname !== '/trips/new'
+
+  // trips/new 페이지에서는 steps 2-5만, trip detail 페이지에서는 steps 6-9만 표시
+  if (isOnNewPage      && hintStep >= TRIP_PAGE_STEPS_START) return null
+  if (isOnTripDetailPage && hintStep >= 2 && hintStep <= NEW_PAGE_STEPS_END) return null
 
   return <OnboardingCallout step={hintStep} onNext={nextHint} onSkip={skipHint} />
 }

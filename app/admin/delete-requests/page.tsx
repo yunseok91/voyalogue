@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { collection, getDocs, doc, updateDoc, deleteDoc, orderBy, query, where, Timestamp } from 'firebase/firestore'
+import { collection, getDocs, doc, updateDoc, deleteDoc, setDoc, serverTimestamp, orderBy, query, where, Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { CheckCircle, XCircle, Clock, Trash2 } from 'lucide-react'
 
@@ -33,7 +33,7 @@ async function deleteUserAllData(uid: string) {
   for (const m of msgsSnap.docs) await deleteDoc(doc(db, 'users', uid, 'messages', m.id))
   const metaSnap = await getDocs(collection(db, 'users', uid, 'meta'))
   for (const m of metaSnap.docs) await deleteDoc(doc(db, 'users', uid, 'meta', m.id))
-  await deleteDoc(doc(db, 'users', uid))
+  await setDoc(doc(db, 'users', uid), { deleted: true, deletedAt: serverTimestamp() })
 }
 
 export default function DeleteRequestsPage() {

@@ -1,16 +1,21 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { onAuthStateChanged, signOut, updateProfile } from 'firebase/auth'
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, increment } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, increment, onSnapshot } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { setUser, setLoading, setAdFree } = useAuthStore()
+  const snapUnsubRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async user => {
+      /* 이전 실시간 리스너 정리 */
+      snapUnsubRef.current?.()
+      snapUnsubRef.current = null
+
       if (!user) {
         setUser(null)
         return
@@ -23,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const betaRef     = doc(db, 'config', 'betaSettings')
 
       const snap = await getDoc(userRef).catch(() => null)
+      const isDeletedUser = snap?.exists() === true && snap.data().deleted === true
       const isNewUser = !snap?.exists()
 
       if (snap && snap.exists() && snap.data().suspended === true) {
@@ -32,7 +38,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
 
-      /* 신규 유저: 베타 한도 확인 후 카운터 증가 */
+      /* 탈퇴 유저 처리 — lastSignInTime으로 신규 로그인 여부 판별 */
+      let isReregistering = false
+      if (isDeletedUser) {
+        try {
+          const lastSignIn = new Date(user.metadata.lastSignInTime ?? 0).getTime()
+          const isFreshLogin = Date.now() - lastSignIn < 30_000
+
+          if (isFreshLogin) {
+            // 방금 직접 로그인 → 재등록 허용, 로컬 플래그 초기화
+            isReregistering = true
+            localStorage.removeItem('voyalogue_allow_reregister')
+            localStorage.removeItem('voyalogue_onboarding_done')
+            localStorage.removeItem('voyalogue_hint_step')
+            localStorage.removeItem('voyagelogue_welcomed')
+          } else {
+            // 캐시된 세션으로 접근 → 강제 로그아웃 후 랜딩페이지
+            await signOut(auth).catch(() => {})
+            window.location.href = '/'
+            return
+          }
+        } catch {
+          await signOut(auth).catch(() => {})
+          window.location.href = '/'
+          return
+        }
+      }
+
+      /* 신규 유저(진짜 신규): 베타 한도 확인 후 카운터 증가
+         삭제 후 재가입(isDeletedUser)은 베타 카운터 증가 제외 */
       if (isNewUser) {
         try {
           const betaSnap = await getDoc(betaRef)
@@ -85,11 +119,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           photoURL:    resolvedPhoto,
           lastLoginAt: serverTimestamp(),
         },
-        { merge: true }
+        // 재등록 시: merge: false로 deleted 플래그 완전 제거 (데이터 초기화)
+        { merge: !isReregistering }
       ).catch(() => {})
 
+      /* 어드민이 deleted/suspended 처리하면 즉시 강제 로그아웃 */
+      snapUnsubRef.current = onSnapshot(userRef, docSnap => {
+        if (!docSnap.exists()) return
+        const data = docSnap.data()
+        if (data.deleted === true) {
+          snapUnsubRef.current?.()
+          snapUnsubRef.current = null
+          signOut(auth).catch(() => {})
+          window.location.href = '/'
+        } else if (data.suspended === true) {
+          snapUnsubRef.current?.()
+          snapUnsubRef.current = null
+          signOut(auth).catch(() => {})
+          localStorage.setItem('account_suspended', 'true')
+          window.location.href = '/auth?suspended=1'
+        }
+      })
+
     })
-    return unsub
+    return () => {
+      unsub()
+      snapUnsubRef.current?.()
+    }
   }, [setUser])
 
   return <>{children}</>

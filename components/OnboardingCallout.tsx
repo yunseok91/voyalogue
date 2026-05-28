@@ -57,8 +57,8 @@ const STEP_DEFS = [
   {
     step: 9,
     target: 'menu-btn',
-    title: '대시보드 & 별점',
-    description: '메뉴에서 대시보드를 열면 장소별 별점·지출 요약을 확인할 수 있어요.',
+    title: '나의 여행 리포트',
+    description: '메뉴에서 나의 여행 리포트를 열면 장소별 별점·지출 요약을 한눈에 확인할 수 있어요.',
   },
 ]
 

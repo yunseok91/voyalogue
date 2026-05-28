@@ -643,35 +643,42 @@ function TripsContent() {
           </div>
         ) : totalTrips === 0 ? (
           /* ── 첫 방문 온보딩 가이드 ── */
-          <div className="flex flex-col items-center py-16 px-4">
+          <div className="flex flex-col items-center py-10 px-4">
             <div className="w-full max-w-md">
-              <div className="text-center mb-8">
-                <div className="w-16 h-16 rounded-2xl bg-blue-50 flex items-center justify-center mx-auto mb-4">
-                  <MapPin className="w-8 h-8 text-blue-500" />
+
+              {/* 환영 헤더 */}
+              <div className="relative rounded-3xl overflow-hidden mb-6 bg-gradient-to-br from-blue-600 via-blue-500 to-violet-600 px-8 pt-10 pb-8 text-center">
+                {/* 배경 장식 */}
+                <div className="absolute top-0 right-0 w-40 h-40 rounded-full bg-white/10 -translate-y-1/2 translate-x-1/2" />
+                <div className="absolute bottom-0 left-0 w-24 h-24 rounded-full bg-white/10 translate-y-1/2 -translate-x-1/2" />
+                <div className="relative">
+                  <div className="w-14 h-14 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center mx-auto mb-5">
+                    <MapPin className="w-7 h-7 text-white" strokeWidth={2.5} />
+                  </div>
+                  <h2 className="text-2xl font-extrabold text-white mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                    {user?.displayName ? `${user.displayName.split(' ')[0]}님, 환영해요!` : '환영합니다!'}
+                  </h2>
+                  <p className="text-sm text-white/80 leading-relaxed">
+                    첫 여행을 만들고 특별한 추억을<br />기록해보세요
+                  </p>
                 </div>
-                <h2 className="text-xl font-extrabold text-gray-900 mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                  첫 여행을 계획해보세요
-                </h2>
-                <p className="text-sm text-gray-500 leading-relaxed">
-                  Voyalogue로 여행 일정, 예산, 체크리스트를<br />한 곳에서 관리하세요.
-                </p>
               </div>
 
               {/* 사용 방법 단계 */}
-              <div className="space-y-3 mb-8">
+              <div className="space-y-2.5 mb-6">
                 {[
-                  { step: '01', title: '여행 만들기',    desc: '목적지와 날짜를 입력해 여행을 생성하세요.',      color: 'bg-blue-500' },
-                  { step: '02', title: '일정 추가',       desc: '날짜별로 식사·장소·교통 일정을 기록하세요.',    color: 'bg-violet-500' },
-                  { step: '03', title: '멤버 초대',       desc: '링크를 공유해 친구·가족과 함께 계획하세요.',    color: 'bg-emerald-500' },
-                  { step: '04', title: '여행 후 별점',    desc: '방문한 장소에 별점을 남겨 추억을 기록하세요.', color: 'bg-amber-500' },
+                  { step: '01', title: '여행 만들기',   desc: '목적지와 날짜를 입력해 여행을 생성하세요.',     color: 'bg-blue-500' },
+                  { step: '02', title: '일정 추가',      desc: '날짜별로 식사·장소·교통 일정을 기록하세요.',   color: 'bg-violet-500' },
+                  { step: '03', title: '멤버 초대',      desc: '링크를 공유해 친구·가족과 함께 계획하세요.',   color: 'bg-emerald-500' },
+                  { step: '04', title: '여행 후 별점',   desc: '방문한 장소에 별점을 남겨 추억을 기록하세요.', color: 'bg-amber-500' },
                 ].map(({ step, title, desc, color }) => (
-                  <div key={step} className="flex items-start gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
-                    <span className={`flex-shrink-0 w-7 h-7 rounded-full ${color} text-white text-[11px] font-extrabold flex items-center justify-center`}>
+                  <div key={step} className="flex items-center gap-4 p-4 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                    <span className={`flex-shrink-0 w-8 h-8 rounded-full ${color} text-white text-[11px] font-extrabold flex items-center justify-center`}>
                       {step}
                     </span>
                     <div>
-                      <p className="text-sm font-bold text-gray-900 leading-none mb-1">{title}</p>
-                      <p className="text-xs text-gray-500 leading-relaxed">{desc}</p>
+                      <p className="text-sm font-bold text-gray-900 leading-none mb-0.5">{title}</p>
+                      <p className="text-xs text-gray-400 leading-relaxed">{desc}</p>
                     </div>
                   </div>
                 ))}
@@ -679,7 +686,7 @@ function TripsContent() {
 
               <Link
                 href="/trips/new"
-                className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors shadow-sm"
+                className="flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-blue-600 hover:bg-blue-700 active:scale-[0.98] text-white text-sm font-bold transition-all shadow-md"
               >
                 <MapPin className="w-4 h-4" />
                 첫 여행 만들기

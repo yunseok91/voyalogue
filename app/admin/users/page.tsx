@@ -12,6 +12,7 @@ type UserRow = {
   createdAt: Timestamp | null
   tripCount: number
   suspended: boolean
+  deleted?: boolean
 }
 
 type TripItem = {
@@ -81,10 +82,11 @@ export default function AdminUsersPage() {
               createdAt:   data.createdAt ?? null,
               tripCount:   tripsSnap.size,
               suspended:   data.suspended === true,
+              deleted:     data.deleted === true,
             }
           })
         )
-        setUsers(rows)
+        setUsers(rows.filter(r => !r.deleted))
       } catch { /* silent */ } finally {
         setLoading(false)
       }
@@ -221,7 +223,8 @@ export default function AdminUsersPage() {
       for (const m of metaSnap.docs) {
         await deleteDoc(doc(db, 'users', uid, 'meta', m.id))
       }
-      await deleteDoc(doc(db, 'users', uid))
+      // 완전 삭제 대신 deleted 플래그로 교체 — Firebase Auth 세션을 가진 유저도 AuthProvider에서 즉시 차단
+      await setDoc(doc(db, 'users', uid), { deleted: true, deletedAt: serverTimestamp() })
       setUsers(prev => prev.filter(u => u.uid !== uid))
       if (expanded === uid) setExpanded(null)
       showToast('사용자가 삭제되었습니다')

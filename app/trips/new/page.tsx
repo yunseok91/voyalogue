@@ -352,6 +352,11 @@ function NewTripContent() {
       }
 
       localStorage.setItem('showServiceReview', '1')
+      localStorage.setItem('showTreasurerPrompt', '1')
+      if (!localStorage.getItem('voyagelogue_welcomed')) {
+        localStorage.setItem('voyagelogue_welcomed', '1')
+        localStorage.setItem('showWelcome', '1')
+      }
       router.push(`/trips/${ref.id}`)
     } catch {
       setLoading(false)
