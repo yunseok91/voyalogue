@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
 import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone } from 'lucide-react'
 import {
-  collection, getDoc, getDocs,
+  collection, getDoc, getDocs, onSnapshot,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -21,6 +21,18 @@ import { useScrollLock } from '@/hooks/useScrollLock'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import {
+  SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
+import { MeasuringStrategy } from '@dnd-kit/core'
+import { writeBatch } from 'firebase/firestore'
+import { GripVertical } from 'lucide-react'
 
 /* ── 타입 (플래너와 동일) ── */
 type TimeSlot = '아침' | '점심' | '저녁' | '미정'
@@ -150,7 +162,7 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap }: {
+function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap, dragHandleProps }: {
   item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number; memberIds?: string[]
   rates?: Record<string, number>
   onEdit?: (item: PlanItem) => void
@@ -158,6 +170,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
   onRate?: (id: string, v: number) => void
   mapIndex?: number
   onFocusMap?: (id: string) => void
+  dragHandleProps?: Record<string, unknown>
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showPP,  setShowPP]  = useState(false)
@@ -192,6 +205,15 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
       className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
       onClick={() => { if (item.lat && item.lng && onFocusMap) onFocusMap(item.id) }}
     >
+      {dragHandleProps && (
+        <button
+          {...dragHandleProps}
+          onClick={e => e.stopPropagation()}
+          className="flex-shrink-0 mt-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+        >
+          <GripVertical className="w-4 h-4" />
+        </button>
+      )}
       <div className="flex-1 min-w-0">
         {/* 이름 + 맵 인덱스 배지 + 카테고리 */}
         <div className="flex items-start gap-2 mb-1">
@@ -371,6 +393,21 @@ async function compressImg(file: File): Promise<Blob> {
     }
     img.src = url
   })
+}
+
+/* ── 드래그 가능한 ItemCard 래퍼 ── */
+function SortableItemCard(props: Parameters<typeof ItemCard>[0]) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: props.item.id })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  }
+  return (
+    <div ref={setNodeRef} style={style}>
+      <ItemCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  )
 }
 
 /* ── 통화별 빠른 금액 버튼 ── */
@@ -971,17 +1008,14 @@ export default function SharePage() {
   const [gate,      setGate]     = useState<Gate>('waiting')
   const [guestName, setGuestName] = useState('')
 
-  /* 코드로 trip 찾기 — shareIndex 단일 조회 */
+  /* 코드로 trip 찾기 — shareIndex 단일 조회 후 trip 문서 실시간 구독 */
   useEffect(() => {
+    let unsub: (() => void) | null = null
     const lookup = async () => {
       const idxSnap = await getDoc(doc(db, 'shareIndex', code))
       if (!idxSnap.exists()) { setNotFound(true); return }
 
       const { uid, tripId, canEdit: edit, pin } = idxSnap.data() as { uid: string; tripId: string; canEdit: boolean; pin?: string }
-      const tripSnap = await getDoc(doc(db, 'users', uid, 'trips', tripId))
-      if (!tripSnap.exists()) { setNotFound(true); return }
-
-      setTrip({ uid, id: tripId, ...(tripSnap.data() as Omit<TripMeta, 'uid' | 'id'>) })
       if (searchParams.get('notice') === '1') setShowNotice(true)
       if (pin) {
         setPinRequired(true)
@@ -989,8 +1023,18 @@ export default function SharePage() {
       } else {
         setCanEdit(edit)
       }
+
+      unsub = onSnapshot(doc(db, 'users', uid, 'trips', tripId), snap => {
+        if (!snap.exists()) { setNotFound(true); return }
+        setTrip(prev =>
+          prev
+            ? { ...prev, checklist: snap.data().checklist, members: snap.data().members }
+            : { uid, id: tripId, ...(snap.data() as Omit<TripMeta, 'uid' | 'id'>) }
+        )
+      })
     }
     lookup()
+    return () => { unsub?.() }
   }, [code])
 
   /* 인증 상태 확인 후 게이트 결정 */
@@ -1061,6 +1105,31 @@ export default function SharePage() {
 
   const activeDay    = days[activeDayIdx]
   const currentItems = activeDay ? (dayItems[activeDay.dayId] ?? []) : []
+
+  const dndSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }))
+
+  const allItemIds = useMemo(() => currentItems.map(i => i.id), [currentItems])
+
+  const handleReorder = async (activeId: string, overId: string) => {
+    if (!activeDay || !trip) return
+    const sorted  = [...currentItems].sort((a, b) => a.order - b.order)
+    const oldIdx  = sorted.findIndex(i => i.id === activeId)
+    const newIdx  = sorted.findIndex(i => i.id === overId)
+    if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return
+    const reordered = arrayMove(sorted, oldIdx, newIdx)
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: reordered.map((item, idx) => ({ ...item, order: idx })),
+    }))
+    const batch = writeBatch(db)
+    reordered.forEach((item, idx) => {
+      batch.update(
+        doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', item.id),
+        { order: idx }
+      )
+    })
+    await batch.commit().catch(() => {})
+  }
 
   const grouped = useMemo(() => {
     const g: Record<TimeSlot, PlanItem[]> = { 아침: [], 점심: [], 저녁: [], 미정: [] }
@@ -1705,24 +1774,40 @@ export default function SharePage() {
                 <p className="text-sm">이 날 일정이 없어요</p>
               </div>
             ) : (
-              TIME_SLOTS.map(slot => {
-                const slotItems = grouped[slot]
-                if (!slotItems.length) return null
-                return (
-                  <div key={slot}>
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className={`w-2 h-2 rounded-full ${SLOT_DOT[slot]}`} />
-                      <span className="text-xs font-bold text-gray-500">{slot}</span>
-                      <span className="text-[10px] text-gray-300 ml-auto">{slotItems.length}개</span>
-                    </div>
-                    <div className="flex flex-col gap-2">
-                      {slotItems.map(item => (
-                        <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
-                      ))}
-                    </div>
-                  </div>
-                )
-              })
+              <DndContext
+                sensors={dndSensors}
+                collisionDetection={closestCenter}
+                modifiers={[restrictToFirstScrollableAncestor]}
+                measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
+                onDragEnd={(e: DragEndEvent) => {
+                  const { active, over } = e
+                  if (!over || active.id === over.id) return
+                  handleReorder(String(active.id), String(over.id))
+                }}
+              >
+                <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
+                  {TIME_SLOTS.map(slot => {
+                    const slotItems = grouped[slot]
+                    if (!slotItems.length) return null
+                    return (
+                      <div key={slot}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className={`w-2 h-2 rounded-full ${SLOT_DOT[slot]}`} />
+                          <span className="text-xs font-bold text-gray-500">{slot}</span>
+                          <span className="text-[10px] text-gray-300 ml-auto">{slotItems.length}개</span>
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          {slotItems.map(item => (
+                            canEdit
+                              ? <SortableItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                              : <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </SortableContext>
+              </DndContext>
             )}
           </div>
           {/* 모바일 스크롤 힌트 — 하단 페이드 */}
