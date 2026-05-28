@@ -716,7 +716,11 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [lat,            setLat]            = useState<number | null>(defaultPlace?.lat ?? null)
   const [lng,            setLng]            = useState<number | null>(defaultPlace?.lng ?? null)
   const [coordsFromMap,  setCoordsFromMap]  = useState(!!defaultPlace)
-  const [participantIds, setParticipantIds] = useState<string[]>(members.map(m => m.id))
+  const [participantIds, setParticipantIds] = useState<string[]>(() => {
+    const ids = members.map(m => m.id)
+    if (!ids.includes(uid)) return [uid, ...ids]
+    return ids
+  })
   const [payerId,        setPayerId]        = useState<string | undefined>(() => members.find(m => m.role === 'owner')?.id)
   const [showPayer,      setShowPayer]      = useState(false)
   const [receiptFiles,    setReceiptFiles]    = useState<File[]>([])
@@ -1711,10 +1715,14 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
   const [lng,            setLng]            = useState<number>(item.lng)
   const [participantIds, setParticipantIds] = useState<string[]>(() => {
     const validIds = new Set(members.map(m => m.id))
-    if (item.participantIds) {
-      return item.participantIds.filter(id => validIds.has(id))
+    if (item.participantIds?.length) {
+      const filtered = item.participantIds.filter(id => validIds.has(id))
+      if (!filtered.includes(uid)) return [uid, ...filtered]
+      return filtered
     }
-    return members.map(m => m.id)
+    const allIds = members.map(m => m.id)
+    if (!allIds.includes(uid)) return [uid, ...allIds]
+    return allIds
   })
   const [payerId,        setPayerId]        = useState<string | undefined>(item.payerId ?? members.find(m => m.role === 'owner')?.id)
   const [showPayer,      setShowPayer]      = useState(false)
@@ -2325,7 +2333,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setDoc(doc(db, 'shareIndex', meta.viewCode), { uid, tripId, canEdit: false })
     setDoc(doc(db, 'shareIndex', meta.editCode), { uid, tripId, canEdit: true })
     if (meta.joinCode) {
-      setDoc(doc(db, 'shareIndex', meta.joinCode), { uid, tripId, canEdit: true, ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
+      setDoc(doc(db, 'shareIndex', meta.joinCode), { uid, tripId, canEdit: true, type: 'join', ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
     }
   }, [meta?.viewCode, meta?.editCode, meta?.joinCode, meta?.joinPin])
 
@@ -2843,33 +2851,25 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
     const draggedItem = sorted[oldIdx]
     const targetItem  = sorted[newIdx]
-    const newSlot     = targetItem.timeSlot
 
+    /* cross-slot: 슬롯 변경만 수행, arrayMove 금지 (교체 버그 방지) */
+    if (draggedItem.timeSlot !== targetItem.timeSlot) {
+      await handleMoveToSlot(activeId, targetItem.timeSlot as TimeSlot)
+      return
+    }
+
+    /* same-slot: 순서 변경 */
     const reordered = arrayMove(sorted, oldIdx, newIdx)
-
-    /* 낙관적 로컬 업데이트 — 즉각 반영 */
     setDayItems(prev => ({
       ...prev,
-      [activeDay.dayId]: reordered.map((item, idx) => ({
-        ...item,
-        order:    idx,
-        timeSlot: item.id === activeId ? newSlot : item.timeSlot,
-      })),
+      [activeDay.dayId]: reordered.map((item, idx) => ({ ...item, order: idx })),
     }))
-
     const batch = writeBatch(db)
     reordered.forEach((item, idx) => {
-      if (item.id === activeId && newSlot !== draggedItem.timeSlot) {
-        batch.update(
-          doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
-          { order: idx, timeSlot: newSlot }
-        )
-      } else {
-        batch.update(
-          doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
-          { order: idx }
-        )
-      }
+      batch.update(
+        doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
+        { order: idx }
+      )
     })
     await batch.commit()
   }
@@ -3010,7 +3010,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!meta || pin.length !== 4) return
     const code = meta.joinCode ?? generateCode(10)
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { joinCode: code, joinPin: pin })
-    await setDoc(doc(db, 'shareIndex', code), { uid, tripId, canEdit: true, pin })
+    await setDoc(doc(db, 'shareIndex', code), { uid, tripId, canEdit: true, type: 'join', pin })
     setMeta(prev => prev ? { ...prev, joinCode: code, joinPin: pin } : prev)
     setPinSaved(true)
     setTimeout(() => setPinSaved(false), 2000)
@@ -3022,7 +3022,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     if (!code) {
       code = generateCode(10)
       await updateDoc(doc(db, 'users', uid, 'trips', tripId), { joinCode: code })
-      await setDoc(doc(db, 'shareIndex', code), { uid, tripId, canEdit: true, ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
+      await setDoc(doc(db, 'shareIndex', code), { uid, tripId, canEdit: true, type: 'join', ...(meta.joinPin ? { pin: meta.joinPin } : {}) })
       setMeta(prev => prev ? { ...prev, joinCode: code! } : prev)
     }
     const url = `${window.location.origin}/share/${code}`
@@ -3576,20 +3576,20 @@ function PlannerContent({ tripId }: { tripId: string }) {
           </div>
           </div>{/* /overflow-x-auto */}
 
-          {/* 오른쪽 고정: 나의 여행 리포트 버튼 */}
-          <div className="flex-shrink-0 flex items-center bg-white">
-            <div className="w-px self-stretch bg-gray-100 mx-1" />
+
+          {/* 오른쪽 고정: 여행 리포트 버튼 */}
+          <div className="flex-shrink-0 flex items-center bg-white pr-3">
+            <div className="w-px self-stretch bg-gray-100 mx-3" />
             <Link
               href={`/trips/${tripId}/summary`}
-              className="flex items-center gap-1.5 mx-1.5 my-1.5 px-2.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors group"
-              title="나의 여행 리포트"
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors"
+              title="여행 리포트"
             >
               <ScrollText className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
-              <span className="text-[10px] font-bold text-violet-600 leading-tight whitespace-nowrap">
-                나의 여행<br />리포트
-              </span>
+              <span className="text-[11px] font-bold text-violet-600 whitespace-nowrap">여행 리포트</span>
             </Link>
           </div>
+
         </div>{/* /flex items-stretch */}
 
         <div className="flex lg:hidden border-t border-gray-100">
@@ -4153,6 +4153,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
             {/* 멤버 목록 */}
             <div className="px-3 sm:px-4 py-2 flex flex-col gap-1 overflow-y-auto flex-1 min-h-0">
               {(meta.members ?? []).map((m, mi) => {
+                const isRegisteredUser = m.id.length >= 15
                 const effectiveColorIdx = m.role === 'owner'
                   ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                   : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
@@ -4164,7 +4165,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     {/* 아바타 */}
                     {m.role !== 'owner' ? (
                       <div className="relative flex-shrink-0">
-                        {!m.left ? (
+                        {/* 실제 가입 유저(Firebase UID)는 개인 색상 고정 — 방장이 변경 불가 */}
+                        {!m.left && !isRegisteredUser ? (
                           <label className="cursor-pointer">
                             <input
                               type="color"
@@ -4241,7 +4243,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         )}
                       </div>
                       <p className="text-[11px] mt-0.5 text-gray-400">
-                        {m.left ? '초대 링크로 다시 참여 가능' : m.role === 'owner' ? '마이페이지에서 색상 변경' : '아바타 클릭 → 색상 변경'}
+                        {m.left ? '초대 링크로 다시 참여 가능' : m.role === 'owner' ? '마이페이지에서 색상 변경' : isRegisteredUser ? '본인이 설정한 색상 적용' : '아바타 클릭 → 색상 변경'}
                       </p>
                     </div>
 

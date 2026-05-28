@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone, Receipt } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone, Receipt, ScrollText } from 'lucide-react'
 import {
   collection, getDoc, getDocs, onSnapshot,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -93,6 +93,7 @@ type TripMeta = {
   coverPhotoURL?:       string
   coverPhotoPosition?:  number
   notice?:              string
+  dayBudgets?:          Record<string, number>
 }
 
 type PlanItem = {
@@ -109,6 +110,12 @@ type Day = { dayId: string; label: string; date: string }
 
 const SLOT_DOT: Record<TimeSlot, string> = {
   아침: 'bg-amber-400', 점심: 'bg-green-500', 저녁: 'bg-violet-500', 미정: 'bg-gray-400',
+}
+const SLOT_STYLES: Record<TimeSlot, string> = {
+  아침: 'border-amber-300 text-amber-700 bg-amber-50',
+  점심: 'border-green-300 text-green-700 bg-green-50',
+  저녁: 'border-violet-300 text-violet-700 bg-violet-50',
+  미정: 'border-gray-200 text-gray-500 bg-gray-50',
 }
 const TIME_SLOTS: TimeSlot[] = ['아침', '점심', '저녁', '미정']
 const CATEGORIES: Category[] = ['식사', '장소', '쇼핑', '교통', '기타']
@@ -959,6 +966,7 @@ export default function SharePage() {
     useRef<HTMLInputElement>(null),
     useRef<HTMLInputElement>(null),
   ]
+  const [isJoinLink,    setIsJoinLink]    = useState(false)
   const [showChecklist, setShowChecklist] = useState(false)
   const [showNotice,    setShowNotice]    = useState(false)
   const [checkInput,    setCheckInput]    = useState('')
@@ -1014,8 +1022,9 @@ export default function SharePage() {
       const idxSnap = await getDoc(doc(db, 'shareIndex', code))
       if (!idxSnap.exists()) { setNotFound(true); return }
 
-      const { uid, tripId, canEdit: edit, pin } = idxSnap.data() as { uid: string; tripId: string; canEdit: boolean; pin?: string }
+      const { uid, tripId, canEdit: edit, pin, type: linkType } = idxSnap.data() as { uid: string; tripId: string; canEdit: boolean; pin?: string; type?: string }
       if (searchParams.get('notice') === '1') setShowNotice(true)
+      if (linkType === 'join') setIsJoinLink(true)
       if (pin) {
         setPinRequired(true)
         setStoredPin(pin)
@@ -1063,6 +1072,29 @@ export default function SharePage() {
       setGate('choosing')
     }
   }, [authLoading, user, trip])
+
+  /* 멤버 개인 색상 → 여행 문서 동기화 (실제 가입 유저만, 1회) */
+  const colorSyncedRef = useRef(false)
+  useEffect(() => {
+    if (!user || !trip || colorSyncedRef.current) return
+    if (avatarColor === null && avatarHexColor === null) return
+    const member = (trip.members ?? []).find(m => m.id === user.uid && !m.left)
+    if (!member) return
+    colorSyncedRef.current = true
+
+    const desiredHex = avatarHexColor ?? undefined
+    const desiredCi  = avatarHexColor ? undefined : (typeof avatarColor === 'number' ? avatarColor : undefined)
+    if (member.hexColor === desiredHex && member.colorIndex === desiredCi) return
+
+    const updatedMembers = (trip.members ?? []).map(m => {
+      if (m.id !== user.uid) return m
+      const { hexColor: _h, colorIndex: _c, ...base } = m
+      if (desiredHex)              return { ...base, hexColor: desiredHex }
+      if (desiredCi !== undefined) return { ...base, colorIndex: desiredCi }
+      return base
+    })
+    updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { members: updatedMembers }).catch(() => {})
+  }, [user?.uid, trip?.id, avatarHexColor, avatarColor])
 
   /* 환율 */
   const tripCurrencies = useMemo(() => trip ? detectCurrencies(trip.city) : ['KRW'], [trip])
@@ -1680,7 +1712,8 @@ export default function SharePage() {
 
       {/* Day 탭 */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
-        <div className="px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+        <div className="flex items-stretch">
+        <div className="flex-1 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
           <div className="flex items-end" style={{ minWidth: days.length * 80 }}>
             {days.map((d, i) => {
               const isActive = i === activeDayIdx
@@ -1718,6 +1751,21 @@ export default function SharePage() {
             })}
           </div>
         </div>
+        {/* 나의 여행 리포트 버튼 */}
+        <div className="flex-shrink-0 flex items-center bg-white">
+          <div className="w-px self-stretch bg-gray-100 mx-1" />
+          <Link
+            href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
+            className="flex items-center gap-1.5 mx-1.5 my-1.5 px-2.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors"
+            title="나의 여행 리포트"
+          >
+            <ScrollText className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
+            <span className="text-[10px] font-bold text-violet-600 leading-tight whitespace-nowrap">
+              나의 여행<br />리포트
+            </span>
+          </Link>
+        </div>
+        </div>{/* /flex items-stretch */}
         <div className="flex lg:hidden border-t border-gray-100">
           <button onClick={() => setMobileTab('schedule')}
             className={`flex-1 py-2 text-xs font-semibold ${mobileTab === 'schedule' ? 'text-blue-600 bg-blue-50' : 'text-gray-500'}`}>일정</button>
@@ -1747,6 +1795,20 @@ export default function SharePage() {
                   <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-400">실시간</span>
                 </div>
               )}
+              {activeDay && (trip.dayBudgets ?? {})[activeDay.dayId] > 0 && (() => {
+                const budget = (trip.dayBudgets ?? {})[activeDay.dayId]
+                const pct    = Math.round(daySpent / budget * 100)
+                const { label, cls } = pct >= 100
+                  ? { label: `+${formatKRW(daySpent - budget)} 초과`, cls: 'bg-red-50 text-red-500' }
+                  : pct >= 85
+                  ? { label: `${formatKRW(budget - daySpent)} 남음`, cls: 'bg-amber-50 text-amber-600' }
+                  : { label: `${formatKRW(budget - daySpent)} 남음`, cls: 'bg-emerald-50 text-emerald-600' }
+                return (
+                  <span className={`inline-flex text-[11px] font-semibold px-2.5 py-1 rounded-full mt-1 ${cls}`}>
+                    일 예산 {pct}% · {label}
+                  </span>
+                )
+              })()}
             </div>
             {canEdit && (
               <button onClick={() => setShowAdd(true)}
@@ -1788,12 +1850,31 @@ export default function SharePage() {
                   {TIME_SLOTS.map(slot => {
                     const slotItems = grouped[slot]
                     if (!slotItems.length) return null
+                    const slotKRW = slotItems.reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
+                    const slotLocalStr = slotKRW > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                      ? formatLocal(Math.round(slotKRW / rates[primaryCurrency]), primaryCurrency)
+                      : ''
+                    const slotKRWStr = slotKRW > 0 ? formatKRW(slotKRW) : ''
                     return (
-                      <div key={slot}>
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={`w-2 h-2 rounded-full ${SLOT_DOT[slot]}`} />
-                          <span className="text-xs font-bold text-gray-500">{slot}</span>
-                          <span className="text-[10px] text-gray-300 ml-auto">{slotItems.length}개</span>
+                      <div key={slot} className="flex flex-col gap-2 mt-1">
+                        <div className="flex items-center gap-2.5 py-1.5">
+                          <div className="flex-1 h-px bg-gray-200" />
+                          <div className={`flex items-center gap-1.5 flex-shrink-0 px-2.5 py-1 rounded-full border ${SLOT_STYLES[slot]}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${SLOT_DOT[slot]}`} />
+                            <span className="text-[11px] font-bold">{slot}</span>
+                            {(slotLocalStr || slotKRWStr) && (
+                              <>
+                                <span className="text-[10px] text-emerald-600 font-semibold ml-0.5">
+                                  {slotLocalStr || slotKRWStr}
+                                </span>
+                                {slotLocalStr && slotKRWStr && (
+                                  <span className="text-[10px] text-gray-400">약 {slotKRWStr}</span>
+                                )}
+                              </>
+                            )}
+                            <span className="text-[10px] text-gray-400">{slotItems.length}개</span>
+                          </div>
+                          <div className="flex-1 h-px bg-gray-200" />
                         </div>
                         <div className="flex flex-col gap-2">
                           {slotItems.map(item => (
@@ -2346,6 +2427,55 @@ export default function SharePage() {
               >
                 닫기
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── PIN 없는 참여 링크 게이트 ── */}
+      {isJoinLink && !pinRequired && !pinUnlocked && trip && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-gray-950/70 backdrop-blur-md px-4">
+          <div className="bg-white rounded-2xl w-full max-w-[340px] shadow-2xl overflow-hidden">
+            <div className="h-20 flex items-end px-5 pb-4" style={{ background: gradientStyle(trip.gradient) }}>
+              <div>
+                <p className="font-bold text-base leading-tight text-white" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                  {trip.title || trip.city}
+                </p>
+                <p className="text-xs text-white/70 mt-0.5">
+                  {trip.startDate.replace(/-/g, '.')} – {trip.endDate.slice(5).replace('-', '.')}
+                </p>
+              </div>
+            </div>
+            <div className="px-5 py-5 flex flex-col gap-4">
+              <div>
+                <p className="text-sm font-bold text-gray-900">여행에 참여하시겠어요?</p>
+                <p className="text-xs text-gray-400 mt-0.5">아래 버튼을 눌러 여행 멤버로 등록하세요.</p>
+              </div>
+              {!user ? (
+                <button
+                  onClick={() => router.push(`/auth?redirect=/share/${code}`)}
+                  className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 24 24">
+                    <path fill="white" fillOpacity="0.9" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="white" fillOpacity="0.9" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="white" fillOpacity="0.9" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="white" fillOpacity="0.9" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  로그인 후 참여하기
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={async () => { await handleJoinTrip(); setPinUnlocked(true) }}
+                    disabled={joining}
+                    className="w-full py-3 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-bold transition-colors flex items-center justify-center gap-2"
+                  >
+                    {joining ? <Loader2 className="w-4 h-4 animate-spin" /> : '참여하기'}
+                  </button>
+                  {joinError && <p className="text-xs text-red-500 font-semibold text-center">{joinError}</p>}
+                </>
+              )}
             </div>
           </div>
         </div>
