@@ -24,6 +24,7 @@ export function NotificationBell() {
   const pathname   = usePathname()
   const [open, setOpen]         = useState(false)
   const [messages, setMessages] = useState<NotifMessage[]>([])
+  const [adminModal, setAdminModal] = useState<NotifMessage | null>(null)
   const ref = useRef<HTMLDivElement>(null)
 
   /* 실시간 알림 구독 */
@@ -54,16 +55,27 @@ export function NotificationBell() {
 
   const handleClick = async (msg: NotifMessage) => {
     if (!user) return
+    if (msg.type === 'admin') {
+      // 어드민 메시지: 드롭다운 닫고 전용 모달 열기 (읽음 처리는 확인 버튼에서)
+      setOpen(false)
+      setAdminModal(msg)
+      return
+    }
     if (!msg.read) {
       updateDoc(doc(db, 'users', user.uid, 'messages', msg.id), { read: true }).catch(() => {})
     }
-    setOpen(false)
     if (msg.tripPath) {
-      /* 쿼리 포함 경로가 다르면 이동 (같은 페이지라도 ?notice=1 등 쿼리가 있으면 이동) */
+      setOpen(false)
       const currentFull = pathname + window.location.search
       if (currentFull === msg.tripPath) return
       router.push(msg.tripPath)
     }
+  }
+
+  const handleAdminConfirm = () => {
+    if (!user || !adminModal) return
+    updateDoc(doc(db, 'users', user.uid, 'messages', adminModal.id), { read: true }).catch(() => {})
+    setAdminModal(null)
   }
 
   const handleDelete = (e: React.MouseEvent, msgId: string) => {
@@ -89,6 +101,45 @@ export function NotificationBell() {
   if (!user) return null
 
   return (
+    <>
+    {/* 운영자 메시지 모달 */}
+    {adminModal && (
+      <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-[2px] px-4">
+        <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl overflow-hidden">
+          <div className="h-1.5 bg-violet-500" />
+          <div className="flex items-start justify-between px-6 pt-5 pb-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center bg-violet-50">
+                <Megaphone className="w-5 h-5 text-violet-500" />
+              </div>
+              <div className="pt-0.5">
+                <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-1.5 bg-violet-100 text-violet-700">
+                  운영자 메시지
+                </span>
+                <h3 className="text-[15px] font-bold text-gray-900 leading-snug">{adminModal.title}</h3>
+              </div>
+            </div>
+            <button
+              onClick={() => setAdminModal(null)}
+              className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400 transition-colors flex-shrink-0 ml-2 -mt-0.5"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-6 pb-5">
+            <p className="text-sm text-gray-600 leading-[1.8] whitespace-pre-wrap">{adminModal.body}</p>
+          </div>
+          <div className="flex justify-end px-6 py-3.5 bg-gray-50 border-t border-gray-100">
+            <button
+              onClick={handleAdminConfirm}
+              className="px-6 py-2 rounded-lg text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 transition-colors"
+            >
+              확인
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(v => !v)}
@@ -129,9 +180,16 @@ export function NotificationBell() {
             <div className="divide-y divide-gray-50 max-h-80 overflow-y-auto">
               {messages.map(msg => {
                 const isTrip   = msg.type === 'trip'
+                const isAdmin  = msg.type === 'admin'
                 const isNotice = msg.type === 'notice'
                 const Icon     = isTrip ? MapPin : Megaphone
-                const iconCls  = isTrip ? 'text-blue-500 bg-blue-50' : isNotice ? 'text-amber-500 bg-amber-50' : 'text-gray-500 bg-gray-50'
+                const iconCls  = isTrip
+                  ? 'text-blue-500 bg-blue-50'
+                  : isAdmin
+                  ? 'text-violet-500 bg-violet-50'
+                  : isNotice
+                  ? 'text-amber-500 bg-amber-50'
+                  : 'text-gray-500 bg-gray-50'
                 return (
                   <div
                     key={msg.id}
@@ -150,6 +208,9 @@ export function NotificationBell() {
                           <span className="text-[10px] text-gray-400 flex-shrink-0">{formatDate(msg.createdAt)}</span>
                         </div>
                         <p className="text-[11px] text-gray-400 line-clamp-2 mt-0.5 leading-snug">{msg.body}</p>
+                        {isAdmin && (
+                          <p className="text-[10px] text-violet-400 mt-0.5">눌러서 전체 보기</p>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 flex-shrink-0 mt-0.5">
                         {!msg.read && <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
@@ -169,5 +230,6 @@ export function NotificationBell() {
         </div>
       )}
     </div>
+    </>
   )
 }

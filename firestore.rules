@@ -112,6 +112,11 @@ service cloud.firestore {
       allow read: if isAdmin();
     }
 
+    // Admin collection group read: trips (대시보드 통계용)
+    match /{path=**}/trips/{tripId} {
+      allow read: if isAdmin();
+    }
+
     // Beta / app-level config: authenticated users read, admin write
     match /config/{docId} {
       allow read:  if request.auth != null;
@@ -122,6 +127,12 @@ service cloud.firestore {
     match /deletedUsers/{uid} {
       allow read:  if request.auth != null && request.auth.uid == uid;
       allow write: if isAdmin();
+    }
+
+    // 탈퇴 요청: 본인 생성, 어드민 전체 접근
+    match /deleteRequests/{id} {
+      allow create: if request.auth != null && request.resource.data.uid == request.auth.uid;
+      allow read, update, delete: if isAdmin();
     }
 
     // Service reviews: anyone read, authenticated users create/update own, admin full access

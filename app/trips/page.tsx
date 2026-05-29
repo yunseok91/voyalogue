@@ -3,8 +3,8 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut, Copy, Loader2 } from 'lucide-react'
-import { collection, orderBy, query, where, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc } from 'firebase/firestore'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut, Copy, Loader2, Megaphone } from 'lucide-react'
+import { collection, orderBy, query, where, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc, onSnapshot } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -222,6 +222,90 @@ function AnnouncementModal() {
     </div>
   )
 }
+
+
+/* ── 운영자 메시지 팝업 ── */
+type AdminMsg = { id: string; title: string; body: string; read: boolean; type?: string }
+
+function AdminMessageModal() {
+  const { user } = useAuthStore()
+  const [queue,     setQueue]     = useState<AdminMsg[]>([])
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    if (!user) return
+    const q = query(
+      collection(db, 'users', user.uid, 'messages'),
+      orderBy('createdAt', 'asc'),
+    )
+    const unsub = onSnapshot(q, snap => {
+      const msgs = snap.docs
+        .map(d => ({ id: d.id, ...d.data() } as AdminMsg))
+        .filter(m => m.type === 'admin' && !m.read)
+      setQueue(msgs)
+    }, () => {})
+    return unsub
+  }, [user?.uid])
+
+  const visible = queue.filter(m => !dismissed.has(m.id))
+  const current = visible[0]
+  if (!current) return null
+
+  const handleConfirm = () => {
+    if (!user) return
+    updateDoc(doc(db, 'users', user.uid, 'messages', current.id), { read: true }).catch(() => {})
+  }
+
+  const handleDismiss = () => {
+    setDismissed(prev => new Set(prev).add(current.id))
+  }
+
+  return (
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 backdrop-blur-[2px] px-4">
+      <div className="w-full max-w-[420px] bg-white rounded-2xl shadow-2xl overflow-hidden">
+        <div className="h-1.5 bg-violet-500" />
+        {/* 헤더 */}
+        <div className="flex items-start gap-3 px-6 pt-5 pb-3">
+          <div className="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center bg-violet-50">
+            <Megaphone className="w-5 h-5 text-violet-500" />
+          </div>
+          <div className="pt-0.5">
+            <span className="inline-block text-[11px] font-bold px-2 py-0.5 rounded-full mb-1.5 bg-violet-100 text-violet-700">
+              운영자 메시지
+            </span>
+            <h3 className="text-[15px] font-bold text-gray-900 leading-snug">{current.title}</h3>
+          </div>
+        </div>
+        {/* 본문 */}
+        <div className="px-6 pb-5">
+          <p className="text-sm text-gray-600 leading-[1.8] whitespace-pre-wrap">{current.body}</p>
+        </div>
+        {/* 푸터 */}
+        <div className="px-6 py-4 bg-gray-50 border-t border-gray-100">
+          <p className="text-[11px] text-gray-400 text-center mb-3 leading-snug">
+            메시지를 읽으셨나요?<br />
+            <span className="text-violet-400 font-semibold">확인했어요</span>를 누르면 이 메시지를 다시 표시하지 않아요
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleDismiss}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold text-gray-500 bg-white border border-gray-200 hover:bg-gray-100 transition-colors"
+            >
+              나중에 볼게요
+            </button>
+            <button
+              onClick={handleConfirm}
+              className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 transition-colors"
+            >
+              확인했어요 ✓
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 function parseTripCountry(city: string): string {
   const parts = city.split(',').map(s => s.trim())
@@ -561,6 +645,7 @@ function TripsContent() {
       <AppNavbar active="trips" onExcel={() => setShowExcel(true)} onReport={() => setShowReport(true)} />
 
       <AnnouncementModal />
+      <AdminMessageModal />
 
       {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 

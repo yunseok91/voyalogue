@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { onAuthStateChanged, signOut, updateProfile } from 'firebase/auth'
-import { doc, setDoc, getDoc, serverTimestamp, runTransaction, increment, onSnapshot } from 'firebase/firestore'
+import { doc, setDoc, getDoc, serverTimestamp, runTransaction, increment, onSnapshot, Timestamp } from 'firebase/firestore'
 import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
@@ -118,6 +118,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email:       finalUser.email ?? '',
           photoURL:    resolvedPhoto,
           lastLoginAt: serverTimestamp(),
+          // 신규 가입·재등록: serverTimestamp / 기존 유저 중 createdAt 없는 경우: Auth metadata로 소급
+          ...(isNewUser || isReregistering
+            ? { createdAt: serverTimestamp() }
+            : !snap?.data()?.createdAt && finalUser.metadata.creationTime
+              ? { createdAt: Timestamp.fromDate(new Date(finalUser.metadata.creationTime)) }
+              : {}),
         },
         // 재등록 시: merge: false로 deleted 플래그 완전 제거 (데이터 초기화)
         { merge: !isReregistering }

@@ -271,6 +271,7 @@ export default function AdminUsersPage() {
       await addDoc(collection(db, 'users', msgModal.uid, 'messages'), {
         title: msgTitle.trim(),
         body: msgBody.trim(),
+        type: 'admin',
         read: false,
         createdAt: serverTimestamp(),
       })

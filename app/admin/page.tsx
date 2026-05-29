@@ -30,6 +30,8 @@ type Stats = {
   directTripCount: number
   pendingReports: number
   activeAnnouncements: number
+  pendingDeleteRequests: number
+  unfeaturedReviews: number
 }
 
 type DayTrend = { date: string; label: string; count: number }
@@ -40,63 +42,81 @@ function toDateStr(ts: Timestamp | null | undefined): string {
 }
 
 export default function AdminDashboard() {
-  const [stats, setStats]               = useState<Stats>({ userCount: 0, todayUsers: 0, tripCount: 0, aiTripCount: 0, directTripCount: 0, pendingReports: 0, activeAnnouncements: 0 })
+  const [stats, setStats]               = useState<Stats>({ userCount: 0, todayUsers: 0, tripCount: 0, aiTripCount: 0, directTripCount: 0, pendingReports: 0, activeAnnouncements: 0, pendingDeleteRequests: 0, unfeaturedReviews: 0 })
   const [recentUsers, setRecentUsers]   = useState<RecentUser[]>([])
   const [recentReports, setRecentReports] = useState<RecentReport[]>([])
   const [trend, setTrend]               = useState<DayTrend[]>([])
   const [loading, setLoading]           = useState(true)
+  const [error,   setError]             = useState<string | null>(null)
 
   useEffect(() => {
+    const safe = async <T,>(fn: () => Promise<T>, fallback: T, label: string): Promise<T> => {
+      try { return await fn() }
+      catch (e) { console.warn(`[admin] ${label}:`, e instanceof Error ? e.message : e); return fallback }
+    }
+
     const load = async () => {
+      setError(null)
       try {
         const today = new Date().toISOString().slice(0, 10)
 
-        const [usersSnap, reportsSnap, announcementsSnap, allTripsSnap] = await Promise.all([
-          getDocs(collection(db, 'users')),
-          getDocs(collection(db, 'reports')),
-          getDocs(collection(db, 'announcements')),
-          getDocs(collectionGroup(db, 'trips')),
-        ])
+        const [usersSnap, reportsSnap, announcementsSnap, deleteReqSnap, reviewsSnap, allTripsSnap] =
+          await Promise.all([
+            safe(() => getDocs(collection(db, 'users')),           { docs: [], size: 0 } as any, 'users'),
+            safe(() => getDocs(collection(db, 'reports')),         { docs: [], size: 0 } as any, 'reports'),
+            safe(() => getDocs(collection(db, 'announcements')),   { docs: [], size: 0 } as any, 'announcements'),
+            safe(() => getDocs(collection(db, 'deleteRequests')),  { docs: [], size: 0 } as any, 'deleteRequests'),
+            safe(() => getDocs(collection(db, 'serviceReviews')),  { docs: [], size: 0 } as any, 'serviceReviews'),
+            safe(() => getDocs(collectionGroup(db, 'trips')),      { docs: [], size: 0 } as any, 'trips'),
+          ])
 
-        const pendingReports      = reportsSnap.docs.filter(d => d.data().status === 'pending').length
-        const activeAnnouncements = announcementsSnap.docs.filter(d => d.data().active === true).length
-        const todayUsers          = usersSnap.docs.filter(d => toDateStr(d.data().createdAt) === today).length
-        const aiTripCount         = allTripsSnap.docs.filter(d => d.data().aiGenerated === true).length
-        const directTripCount     = allTripsSnap.size - aiTripCount
+        const todayUsers            = usersSnap.docs.filter((d: any) => toDateStr(d.data().createdAt) === today).length
+        const pendingReports        = reportsSnap.docs.filter((d: any) => d.data().status === 'pending').length
+        const activeAnnouncements   = announcementsSnap.docs.filter((d: any) => d.data().active === true).length
+        const pendingDeleteRequests = deleteReqSnap.docs.filter((d: any) => d.data().status === 'pending').length
+        const unfeaturedReviews     = reviewsSnap.docs.filter((d: any) => !d.data().featured).length
+        const tripCount             = allTripsSnap.size
+        const aiTripCount           = allTripsSnap.docs.filter((d: any) => d.data().aiGenerated === true).length
 
         setStats({
-          userCount:         usersSnap.size,
+          userCount: usersSnap.size,
           todayUsers,
-          tripCount:         allTripsSnap.size,
+          tripCount,
           aiTripCount,
-          directTripCount,
+          directTripCount: tripCount - aiTripCount,
           pendingReports,
           activeAnnouncements,
+          pendingDeleteRequests,
+          unfeaturedReviews,
         })
 
-        /* 최근 7일 가입 추이 */
         const days: DayTrend[] = Array.from({ length: 7 }, (_, i) => {
           const d = new Date()
           d.setDate(d.getDate() - (6 - i))
           const dateStr = d.toISOString().slice(0, 10)
-          const label = i === 6 ? '오늘' : `${d.getMonth() + 1}/${d.getDate()}`
-          const count = usersSnap.docs.filter(doc => toDateStr(doc.data().createdAt) === dateStr).length
+          const label   = i === 6 ? '오늘' : `${d.getMonth() + 1}/${d.getDate()}`
+          const count   = usersSnap.docs.filter((doc: any) => toDateStr(doc.data().createdAt) === dateStr).length
           return { date: dateStr, label, count }
         })
         setTrend(days)
 
-        const sortedUsers = usersSnap.docs
-          .map(d => ({ uid: d.id, ...d.data() } as RecentUser))
-          .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
-          .slice(0, 5)
-        setRecentUsers(sortedUsers)
-
-        const sortedReports = reportsSnap.docs
-          .map(d => ({ id: d.id, ...d.data() } as RecentReport))
-          .sort((a, b) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
-          .slice(0, 5)
-        setRecentReports(sortedReports)
-      } catch { /* silent */ } finally {
+        setRecentUsers(
+          usersSnap.docs
+            .map((d: any) => ({ uid: d.id, ...d.data() } as RecentUser))
+            .sort((a: RecentUser, b: RecentUser) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
+            .slice(0, 5)
+        )
+        setRecentReports(
+          reportsSnap.docs
+            .map((d: any) => ({ id: d.id, ...d.data() } as RecentReport))
+            .sort((a: RecentReport, b: RecentReport) => (b.createdAt?.toMillis() ?? 0) - (a.createdAt?.toMillis() ?? 0))
+            .slice(0, 5)
+        )
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : String(e)
+        console.error('Admin dashboard load error:', msg)
+        setError(msg)
+      } finally {
         setLoading(false)
       }
     }
@@ -116,6 +136,13 @@ export default function AdminDashboard() {
       <h1 className="text-2xl font-extrabold text-gray-900 mb-6" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
         대시보드
       </h1>
+
+      {error && (
+        <div className="mb-5 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex items-start gap-2">
+          <span className="text-red-500 font-bold text-sm flex-shrink-0">오류</span>
+          <p className="text-sm text-red-700 break-all">{error}</p>
+        </div>
+      )}
 
       {/* ── 사용자 통계 ── */}
       <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">사용자</p>
@@ -284,15 +311,20 @@ export default function AdminDashboard() {
       {/* 빠른 링크 */}
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {[
-          { label: '사용자 관리',   href: '/admin/users',            icon: Users,      color: 'text-blue-600',   bg: 'bg-blue-50'   },
-          { label: '신고 관리',     href: '/admin/reports',          icon: Flag,       color: 'text-red-600',    bg: 'bg-red-50'    },
-          { label: '공지 관리',     href: '/admin/announcements',    icon: Megaphone,  color: 'text-orange-600', bg: 'bg-orange-50' },
-          { label: '서비스 후기',   href: '/admin/reviews',          icon: Star,       color: 'text-amber-600',  bg: 'bg-amber-50'  },
-          { label: 'AI 질문 관리',  href: '/admin/ai-questions',     icon: Sparkles,   color: 'text-violet-600', bg: 'bg-violet-50' },
-          { label: '탈퇴 요청',     href: '/admin/delete-requests',  icon: UserPlus,   color: 'text-rose-600',   bg: 'bg-rose-50'   },
-        ].map(({ label, href, icon: Icon, color, bg }) => (
+          { label: '사용자 관리',   href: '/admin/users',            icon: Users,      color: 'text-blue-600',   bg: 'bg-blue-50',   badge: stats.todayUsers          },
+          { label: '신고 관리',     href: '/admin/reports',          icon: Flag,       color: 'text-red-600',    bg: 'bg-red-50',    badge: stats.pendingReports      },
+          { label: '공지 관리',     href: '/admin/announcements',    icon: Megaphone,  color: 'text-orange-600', bg: 'bg-orange-50', badge: 0                         },
+          { label: '서비스 후기',   href: '/admin/reviews',          icon: Star,       color: 'text-amber-600',  bg: 'bg-amber-50',  badge: stats.unfeaturedReviews   },
+          { label: 'AI 질문 관리',  href: '/admin/ai-questions',     icon: Sparkles,   color: 'text-violet-600', bg: 'bg-violet-50', badge: 0                         },
+          { label: '탈퇴 요청',     href: '/admin/delete-requests',  icon: UserPlus,   color: 'text-rose-600',   bg: 'bg-rose-50',   badge: stats.pendingDeleteRequests},
+        ].map(({ label, href, icon: Icon, color, bg, badge }) => (
           <Link key={href} href={href}
-            className="bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-3 hover:border-blue-300 hover:shadow-sm transition-all">
+            className="relative bg-white rounded-2xl border border-gray-200 p-4 flex items-center gap-3 hover:border-blue-300 hover:shadow-sm transition-all">
+            {badge > 0 && (
+              <span className="absolute -top-2 -right-2 min-w-[20px] h-5 px-1.5 bg-red-500 text-white text-[11px] font-bold rounded-full flex items-center justify-center shadow-sm z-10">
+                {badge > 99 ? '99+' : badge}
+              </span>
+            )}
             <div className={`w-8 h-8 ${bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <Icon className={`w-4 h-4 ${color}`} />
             </div>
