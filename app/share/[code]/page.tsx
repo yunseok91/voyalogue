@@ -1174,6 +1174,7 @@ export default function SharePage() {
 
   /* ── 당일 자동 선택 (여행 기간 내인 경우) ── */
   const autoSelectedRef = useRef(false)
+  const tabScrollRef    = useRef<HTMLDivElement>(null)
   const unsubsRef       = useRef<Record<string, () => void>>({})
   useEffect(() => {
     if (!days.length || autoSelectedRef.current) return
@@ -1182,6 +1183,15 @@ export default function SharePage() {
     if (idx !== -1) {
       setActiveDayIdx(idx)
       autoSelectedRef.current = true
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = tabScrollRef.current
+        if (!el) return
+        const inner = el.firstElementChild
+        const tabEl = inner?.children[idx] as HTMLElement | undefined
+        if (!tabEl) return
+        const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
+        el.scrollTo({ left: Math.max(0, center) })
+      }))
     } else if (days.length > 0) {
       autoSelectedRef.current = true
     }
@@ -1966,12 +1976,17 @@ export default function SharePage() {
       {/* Day 탭 */}
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
         <div className="flex items-stretch">
-        <div className="flex-1 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
+        <div ref={tabScrollRef} className="flex-1 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
           <div className="flex items-end" style={{ minWidth: days.length * 80 }}>
             {days.map((d, i) => {
               const isActive = i === activeDayIdx
               const isToday  = d.date === new Date().toISOString().slice(0, 10)
-              const members  = trip?.members ?? []
+              const members  = [
+                ...(trip?.members ?? []).filter(m => !m.left),
+                ...(user && !currentMember
+                  ? [{ id: user.uid, name: user.displayName ?? '나', photoURL: user.photoURL ?? undefined, role: 'member' as MemberRole, colorIndex: avatarHexColor ? undefined : (avatarColor ?? 0), hexColor: avatarHexColor ?? undefined }]
+                  : []),
+              ]
               const MAX_VISIBLE = 5
               const visible  = members.slice(0, MAX_VISIBLE)
               const overflow = members.length - MAX_VISIBLE
@@ -3064,6 +3079,24 @@ export default function SharePage() {
                   </div>
                 )
               })}
+              {/* 로그인했지만 멤버가 아닌 게스트 본인 표시 */}
+              {user && !currentMember && (
+                <div className="flex items-center gap-3 py-3">
+                  <PersonAvatar
+                    name={user.displayName ?? '나'}
+                    photoURL={user.photoURL ?? undefined}
+                    size={36}
+                    colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
+                    hexColor={avatarHexColor ?? undefined}
+                    ringColor={avatarHexColor ?? CLAY[(avatarColor ?? 0) % CLAY.length]?.base}
+                  />
+                  <span className="flex-1 text-sm font-semibold text-gray-800 truncate">
+                    {user.displayName ?? '나'}
+                    <span className="text-[11px] text-gray-400 font-normal ml-1">(나)</span>
+                  </span>
+                  <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">게스트</span>
+                </div>
+              )}
             </div>
             <div className="px-5 pb-5 pt-2">
               <button

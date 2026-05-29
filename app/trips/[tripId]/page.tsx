@@ -2340,14 +2340,25 @@ function PlannerContent({ tripId }: { tripId: string }) {
     [meta]
   )
 
-  /* ── 당일 자동 선택 (여행 기간 내인 경우에만, 아니면 전체 유지) ── */
+  /* ── 당일 자동 선택 + 탭 스크롤 (여행 기간 내인 경우에만, 아니면 전체 유지) ── */
   const autoSelectedRef = useRef(false)
   useEffect(() => {
     if (!days.length || autoSelectedRef.current) return
     autoSelectedRef.current = true
     const today = new Date().toISOString().slice(0, 10)
     const idx   = days.findIndex(d => d.date === today)
-    if (idx !== -1) setActiveDayIdx(idx)
+    if (idx !== -1) {
+      setActiveDayIdx(idx)
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        const el = dayTabsScrollRef.current
+        if (!el) return
+        const inner = el.firstElementChild
+        const tabEl = inner?.children[1 + idx] as HTMLElement | undefined // +1: "전체" 탭
+        if (!tabEl) return
+        const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
+        el.scrollTo({ left: Math.max(0, center) })
+      }))
+    }
     // 여행 기간이 아니면 -1(전체) 유지
   }, [days])
 
