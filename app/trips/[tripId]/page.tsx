@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
-  MeasuringStrategy, useDroppable, type DragEndEvent,
+  MeasuringStrategy, type DragEndEvent,
 } from '@dnd-kit/core'
 import {
   SortableContext, useSortable, verticalListSortingStrategy, arrayMove,
@@ -41,9 +41,10 @@ import { TripEditModal, type TripEditFormData } from '@/components/TripEditModal
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
 import { InfoTooltip } from '@/components/InfoTooltip'
+import { SlotDropZone } from '@/components/SlotDropZone'
+import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
 
 /* ── 타입 ── */
-type TimeSlot = '아침' | '점심' | '저녁' | '미정'
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
 
 type PlanItem = {
@@ -152,7 +153,6 @@ type Day = {
   date:  string
 }
 
-const TIME_SLOTS: TimeSlot[] = ['아침', '점심', '저녁', '미정']
 const CATEGORIES: Category[] = ['식사', '장소', '쇼핑', '교통', '기타']
 
 const CAT_COLORS: Record<Category, string> = {
@@ -177,20 +177,6 @@ const CAT_DISPLAY: Record<Category, string> = {
   쇼핑: '쇼핑',
   교통: '교통',
   기타: '기타',
-}
-
-const SLOT_STYLES: Record<TimeSlot, string> = {
-  아침: 'border-amber-300 text-amber-700 bg-amber-50',
-  점심: 'border-green-300 text-green-700 bg-green-50',
-  저녁: 'border-violet-300 text-violet-700 bg-violet-50',
-  미정: 'border-gray-200 text-gray-500 bg-gray-50',
-}
-
-const SLOT_DOT: Record<TimeSlot, string> = {
-  아침: 'bg-amber-400',
-  점심: 'bg-green-500',
-  저녁: 'bg-violet-500',
-  미정: 'bg-gray-400',
 }
 
 /* HH:MM → { label: "오전 9:30" | "오후 2:30", isPM: bool } */
@@ -289,7 +275,7 @@ function RateWidget({
         {isCustom ? '고정' : '실시간'}
       </span>
       <button
-        onClick={() => { setInput(String(displayRate)); setEditing(true) }}
+        onClick={() => { setInput(displayRate.toFixed(2)); setEditing(true) }}
         className="text-gray-300 hover:text-blue-500 transition-colors"
         title="환율 수정"
       >
@@ -555,7 +541,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         <div className="flex flex-col gap-1 flex-shrink-0">
           <button
             onClick={e => { e.stopPropagation(); onQuickEdit(item) }}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+            className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all"
             title="내역 작성"
           >
             <Receipt className="w-3 h-3" />
@@ -623,23 +609,6 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
         canEdit={canEdit}
         dragHandleProps={{ ...attributes, ...listeners }}
       />
-    </div>
-  )
-}
-
-/* ── 빈 시간대 드롭존 ── */
-function SlotDropZone({ slot }: { slot: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}` })
-  return (
-    <div
-      ref={setNodeRef}
-      className={`h-10 rounded-xl border-2 border-dashed flex items-center justify-center transition-colors ${
-        isOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'
-      }`}
-    >
-      <span className={`text-[11px] ${isOver ? 'text-blue-500 font-semibold' : 'text-gray-300'}`}>
-        {isOver ? '여기에 놓기' : '일정을 드래그하세요'}
-      </span>
     </div>
   )
 }
@@ -4751,19 +4720,26 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <div className="flex flex-col gap-2">
                   <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">이렇게 보내세요</p>
                   {settlementTransfers.map((t, ti) => {
-                    const from = (meta.members ?? []).find(m => m.id === t.from)
-                    const to   = (meta.members ?? []).find(m => m.id === t.to)
+                    const members = meta.members ?? []
+                    const fromIdx = members.findIndex(m => m.id === t.from)
+                    const toIdx   = members.findIndex(m => m.id === t.to)
+                    const from = fromIdx >= 0 ? members[fromIdx] : undefined
+                    const to   = toIdx   >= 0 ? members[toIdx]   : undefined
                     if (!from || !to) return null
-                    const fci = from.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (from.hexColor ? undefined : (from.colorIndex ?? 0))
-                    const tci = to.role   === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (to.hexColor   ? undefined : (to.colorIndex   ?? 0))
+                    const fci = from.role === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (from.hexColor ? undefined : (from.colorIndex ?? ((fromIdx % (CLAY.length - 1)) + 1)))
+                    const tci = to.role   === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (to.hexColor   ? undefined : (to.colorIndex   ?? ((toIdx   % (CLAY.length - 1)) + 1)))
+                    const fHex   = from.role === 'owner' ? (avatarHexColor ?? undefined) : from.hexColor
+                    const tHex   = to.role   === 'owner' ? (avatarHexColor ?? undefined) : to.hexColor
                     const fPhoto = from.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? from.photoURL) : from.photoURL
                     const tPhoto = to.role   === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? to.photoURL)   : to.photoURL
+                    const fRing  = fHex ?? (fci !== undefined ? CLAY[fci % CLAY.length]?.base : undefined)
+                    const tRing  = tHex ?? (tci !== undefined ? CLAY[tci % CLAY.length]?.base : undefined)
                     return (
                       <div key={ti} className="flex items-center gap-2 bg-emerald-50 border border-emerald-100 rounded-xl px-3 py-2.5">
-                        <PersonAvatar name={from.name} size={26} colorIndex={fci} hexColor={from.role === 'owner' ? (avatarHexColor ?? undefined) : from.hexColor} photoURL={fPhoto ?? undefined} ringColor={fPhoto ? (from.role === 'owner' ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base)) : (from.hexColor ?? (from.colorIndex !== undefined ? CLAY[from.colorIndex % CLAY.length]?.base : undefined))) : undefined} />
+                        <PersonAvatar name={from.name} size={26} colorIndex={fci} hexColor={fHex} photoURL={fPhoto ?? undefined} ringColor={fRing} />
                         <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{from.name}</span>
                         <span className="text-gray-400 text-xs flex-shrink-0">→</span>
-                        <PersonAvatar name={to.name} size={26} colorIndex={tci} hexColor={to.role === 'owner' ? (avatarHexColor ?? undefined) : to.hexColor} photoURL={tPhoto ?? undefined} ringColor={tPhoto ? (to.role === 'owner' ? (avatarHexColor ?? (CLAY[avatarColor ?? 0]?.base)) : (to.hexColor ?? (to.colorIndex !== undefined ? CLAY[to.colorIndex % CLAY.length]?.base : undefined))) : undefined} />
+                        <PersonAvatar name={to.name} size={26} colorIndex={tci} hexColor={tHex} photoURL={tPhoto ?? undefined} ringColor={tRing} />
                         <span className="text-xs font-semibold text-gray-700 truncate max-w-[60px]">{to.name}</span>
                         <div className="ml-auto text-right flex-shrink-0">
                           {preferredCurrency !== 'KRW' && rates[preferredCurrency] ? (

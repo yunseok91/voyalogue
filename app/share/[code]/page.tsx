@@ -11,7 +11,7 @@ import {
 import { db } from '@/lib/firebase'
 import { gradientStyle, gradientTextColor } from '@/lib/tripGradient'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
-import { detectCurrencies, CURRENCY_SYMBOLS } from '@/lib/currencyMap'
+import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate'
 import { TripMap, type MapItem } from '@/components/TripMap'
 import { useAuthStore } from '@/features/auth/store'
@@ -22,7 +22,7 @@ import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable,
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
@@ -33,9 +33,11 @@ import { restrictToFirstScrollableAncestor } from '@dnd-kit/modifiers'
 import { MeasuringStrategy } from '@dnd-kit/core'
 import { writeBatch } from 'firebase/firestore'
 import { GripVertical } from 'lucide-react'
+import { SlotDropZone } from '@/components/SlotDropZone'
+import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
+import { InfoTooltip } from '@/components/InfoTooltip'
 
 /* ── 타입 (플래너와 동일) ── */
-type TimeSlot = '아침' | '점심' | '저녁' | '미정'
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
 type MemberRole = 'owner' | 'treasurer' | 'member'
 
@@ -94,6 +96,7 @@ type TripMeta = {
   coverPhotoPosition?:  number
   notice?:              string
   dayBudgets?:          Record<string, number>
+  dayRates?:            Record<string, number>
 }
 
 type PlanItem = {
@@ -108,16 +111,6 @@ type PlanItem = {
 
 type Day = { dayId: string; label: string; date: string }
 
-const SLOT_DOT: Record<TimeSlot, string> = {
-  아침: 'bg-amber-400', 점심: 'bg-green-500', 저녁: 'bg-violet-500', 미정: 'bg-gray-400',
-}
-const SLOT_STYLES: Record<TimeSlot, string> = {
-  아침: 'border-amber-300 text-amber-700 bg-amber-50',
-  점심: 'border-green-300 text-green-700 bg-green-50',
-  저녁: 'border-violet-300 text-violet-700 bg-violet-50',
-  미정: 'border-gray-200 text-gray-500 bg-gray-50',
-}
-const TIME_SLOTS: TimeSlot[] = ['아침', '점심', '저녁', '미정']
 const CATEGORIES: Category[] = ['식사', '장소', '쇼핑', '교통', '기타']
 const CAT_COLORS: Record<Category, string> = {
   식사: 'bg-orange-100 text-orange-700', 장소: 'bg-blue-100 text-blue-700',
@@ -175,6 +168,72 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
         </span>
       )}
     </span>
+  )
+}
+
+/* ── 환율 위젯 ── */
+function RateWidget({
+  currency, liveRate, customRate, onSave, onReset,
+}: {
+  currency:    string
+  liveRate:    number
+  customRate?: number
+  onSave:      (rate: number) => void
+  onReset:     () => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [input,   setInput]   = useState('')
+  const isCustom = customRate !== undefined
+  const displayRate = customRate ?? liveRate
+  const symbol = CURRENCY_SYMBOLS[currency] ?? currency
+
+  const submit = () => {
+    const n = parseFloat(input.replace(/,/g, ''))
+    if (!isNaN(n) && n > 0) { onSave(n); setEditing(false) }
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1 mt-1" onClick={e => e.stopPropagation()}>
+        <span className="text-[11px] text-gray-500">{symbol}1 = ₩</span>
+        <input
+          type="number"
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') setEditing(false) }}
+          className="w-20 border border-blue-300 rounded-md px-1.5 py-0.5 text-xs focus:outline-none focus:border-blue-500"
+          autoFocus
+        />
+        <button onClick={submit} className="px-2 py-0.5 bg-blue-600 text-white rounded-md text-[11px] font-semibold">저장</button>
+        <button onClick={() => setEditing(false)} className="text-gray-400 hover:text-gray-600 text-[11px]">취소</button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <span className={`text-[11px] font-medium ${isCustom ? 'text-orange-600' : 'text-gray-500'}`}>
+        {symbol}1 = ₩{displayRate.toLocaleString('ko-KR', {
+          maximumFractionDigits: displayRate >= 100 ? 0 : displayRate >= 10 ? 1 : 2,
+          minimumFractionDigits: 0,
+        })}
+      </span>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isCustom ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+        {isCustom ? '고정' : '실시간'}
+      </span>
+      <button
+        onClick={() => { setInput(displayRate.toFixed(2)); setEditing(true) }}
+        className="text-gray-300 hover:text-blue-500 transition-colors"
+        title="환율 수정"
+      >
+        <Pencil className="w-2.5 h-2.5" />
+      </button>
+      {isCustom && (
+        <button onClick={onReset} className="text-[10px] text-orange-400 hover:text-orange-600 transition-colors">
+          초기화
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -324,7 +383,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
           {onEdit && (
             <button
               onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all"
             >
               <Receipt className="w-3 h-3" />
               <span>내역</span>
@@ -412,17 +471,6 @@ function SortableItemCard(props: Parameters<typeof ItemCard>[0]) {
   return (
     <div ref={setNodeRef} style={style}>
       <ItemCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
-    </div>
-  )
-}
-
-function SlotDropZone({ slot }: { slot: string }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}` })
-  return (
-    <div ref={setNodeRef} className={`h-10 rounded-xl border-2 border-dashed flex items-center justify-center transition-colors ${isOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
-      <span className={`text-[11px] ${isOver ? 'text-blue-500 font-semibold' : 'text-gray-300'}`}>
-        {isOver ? '여기에 놓기' : '일정을 드래그하세요'}
-      </span>
     </div>
   )
 }
@@ -958,6 +1006,14 @@ export default function SharePage() {
   const [trip,         setTrip]        = useState<TripMeta | null>(null)
   const [notFound,     setNotFound]    = useState(false)
   const [canEdit,      setCanEdit]     = useState(false)
+  const [editingFlight,    setEditingFlight]    = useState<FlightItem | null>(null)
+  const [editingAcc,       setEditingAcc]       = useState<AccommodationItem | null>(null)
+  const [showPayerFlight,        setShowPayerFlight]        = useState(false)
+  const [showPayerAcc,           setShowPayerAcc]           = useState(false)
+  const [showParticipantsFlight, setShowParticipantsFlight] = useState(false)
+  const [showParticipantsAcc,    setShowParticipantsAcc]    = useState(false)
+  const editFlightInputRef = useRef<HTMLInputElement>(null)
+  const editAccInputRef    = useRef<HTMLInputElement>(null)
   const [activeDayIdx, setActiveDayIdx]= useState(0)
   const [dayItems,     setDayItems]    = useState<Record<string, PlanItem[]>>({})
   const [showAdd,      setShowAdd]     = useState(false)
@@ -988,7 +1044,7 @@ export default function SharePage() {
   const [showReport,       setShowReport]       = useState(false)
   const [showMemberPopup,  setShowMemberPopup]  = useState(false)
 
-  useScrollLock(showAdd || !!editingItem || showSettlement || showReport || showMemberPopup)
+  useScrollLock(showAdd || !!editingItem || showSettlement || showReport || showMemberPopup || !!editingFlight || !!editingAcc)
 
   /* 지도 검색 / 더블클릭 → 일정 추가 (canEdit 전용) */
   const [pendingPlace,  setPendingPlace]  = useState<{ name: string; lat: number; lng: number } | undefined>(undefined)
@@ -1185,6 +1241,80 @@ export default function SharePage() {
 
   const allItemIds = useMemo(() => currentItems.map(i => i.id), [currentItems])
 
+  /* ── 고정일정 핸들러 ── */
+  const handleDeleteFlight = async (id: string) => {
+    if (!trip) return
+    const flights = (trip.flights ?? []).filter(f => f.id !== id)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { flights })
+    setTrip(prev => prev ? { ...prev, flights } : prev)
+  }
+  const handleUpdateFlight = async (updated: FlightItem) => {
+    if (!trip) return
+    const flights = (trip.flights ?? []).map(f => f.id === updated.id ? updated : f)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { flights })
+    setTrip(prev => prev ? { ...prev, flights } : prev)
+    setEditingFlight(null)
+  }
+  const handleDeleteAccommodation = async (id: string) => {
+    if (!trip) return
+    const accommodations = (trip.accommodations ?? []).filter(a => a.id !== id)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { accommodations })
+    setTrip(prev => prev ? { ...prev, accommodations } : prev)
+  }
+  const handleUpdateAccommodation = async (updated: AccommodationItem) => {
+    if (!trip) return
+    const accommodations = (trip.accommodations ?? []).map(a => a.id === updated.id ? updated : a)
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { accommodations })
+    setTrip(prev => prev ? { ...prev, accommodations } : prev)
+    setEditingAcc(null)
+  }
+
+  useEffect(() => {
+    if (!editingFlight) return
+    let ac: google.maps.places.Autocomplete | null = null
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!editFlightInputRef.current) return
+      ac = new google.maps.places.Autocomplete(editFlightInputRef.current, { fields: ['name', 'geometry'], types: ['airport'] })
+      ac.addListener('place_changed', () => {
+        const p = ac!.getPlace()
+        if (!p.name) return
+        const lat = p.geometry?.location?.lat()
+        const lng = p.geometry?.location?.lng()
+        setEditingFlight(prev => prev ? { ...prev, name: p.name!, ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}) } : prev)
+      })
+    }).catch(() => {})
+    return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingFlight?.id])
+
+  useEffect(() => {
+    setShowPayerFlight(!!editingFlight?.payerId)
+    setShowParticipantsFlight(!!(editingFlight?.participantIds?.length))
+  }, [editingFlight?.id])
+
+  useEffect(() => {
+    if (!editingAcc) return
+    let ac: google.maps.places.Autocomplete | null = null
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      if (!editAccInputRef.current) return
+      ac = new google.maps.places.Autocomplete(editAccInputRef.current, { fields: ['name', 'geometry'], types: ['lodging'] })
+      ac.addListener('place_changed', () => {
+        const p = ac!.getPlace()
+        if (!p.name) return
+        const lat = p.geometry?.location?.lat()
+        const lng = p.geometry?.location?.lng()
+        setEditingAcc(prev => prev ? { ...prev, name: p.name!, ...(lat !== undefined && lng !== undefined ? { lat, lng } : {}) } : prev)
+      })
+    }).catch(() => {})
+    return () => { if (ac) google.maps.event.clearInstanceListeners(ac) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingAcc?.id])
+
+  useEffect(() => {
+    setShowPayerAcc(!!editingAcc?.payerId)
+    setShowParticipantsAcc(!!(editingAcc?.participantIds?.length))
+  }, [editingAcc?.id])
+
   const handleMoveToSlot = async (activeId: string, targetSlot: TimeSlot) => {
     if (!activeDay || !trip) return
     const item = currentItems.find(i => i.id === activeId)
@@ -1264,6 +1394,16 @@ export default function SharePage() {
     () => Object.values(dayItems).flat().reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
     [dayItems, rates]
   )
+
+  const settlementFixedKRW = useMemo(() => {
+    const flightsKRW = (trip?.flights ?? []).reduce(
+      (s, f) => s + (f.price && f.includeInSettlement ? toKRW(f.price, f.currency ?? 'KRW', rates) : 0), 0
+    )
+    const accKRW = (trip?.accommodations ?? []).reduce(
+      (s, a) => s + (a.price && a.includeInSettlement ? toKRW(a.price, a.currency ?? 'KRW', rates) : 0), 0
+    )
+    return flightsKRW + accKRW
+  }, [trip?.flights, trip?.accommodations, rates])
   const perPersonSpent = useMemo(
     () => Object.values(dayItems).flat().reduce(
       (s, i) => s + toKRW(i.price, i.currency, rates) / (i.participants || trip?.people || 1),
@@ -1272,39 +1412,51 @@ export default function SharePage() {
     [dayItems, rates, trip]
   )
 
+  const effectiveRates = useMemo(() => {
+    if (!trip || primaryCurrency === 'KRW' || !activeDay) return rates
+    const custom = (trip.dayRates ?? {})[activeDay.dayId]
+    return custom ? { ...rates, [primaryCurrency]: custom } : rates
+  }, [rates, trip, activeDay, primaryCurrency])
+
   const daySpent = useMemo(
-    () => currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
-    [currentItems, rates]
+    () => currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, effectiveRates), 0),
+    [currentItems, effectiveRates]
   )
 
   const daySpentMap = useMemo(() => {
     const map: Record<string, number> = {}
     days.forEach(d => {
-      map[d.dayId] = (dayItems[d.dayId] ?? []).reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
+      const custom = trip && primaryCurrency !== 'KRW' ? (trip.dayRates ?? {})[d.dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      map[d.dayId] = (dayItems[d.dayId] ?? []).reduce((s, i) => s + toKRW(i.price, i.currency, r), 0)
     })
     return map
-  }, [dayItems, rates, days])
+  }, [dayItems, rates, trip, primaryCurrency, days])
 
   const memberSpent = useMemo(() => {
     if (!trip?.members?.length) return {} as Record<string, number>
     const result: Record<string, number> = {}
     trip.members.forEach(m => { result[m.id] = 0 })
-    Object.values(dayItems).flat().forEach(item => {
-      const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
-      if (!krw || krw <= 0) return
-      const allIds   = item.participantIds ?? []
-      const validIds = allIds.filter(id => result[id] !== undefined)
-      if (allIds.length > 0) {
-        const divisor = validIds.length > 0 ? validIds.length : allIds.length
-        const share = krw / divisor
-        validIds.forEach(id => { result[id] += share })
-      } else {
-        const share = krw / trip.members.length
-        trip.members.forEach(m => { result[m.id] += share })
-      }
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      const custom = trip && primaryCurrency !== 'KRW' ? (trip.dayRates ?? {})[dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      items.forEach(item => {
+        const krw = toKRW(item.price || 0, item.currency || 'KRW', r)
+        if (!krw || krw <= 0) return
+        const allIds   = item.participantIds ?? []
+        const validIds = allIds.filter(id => result[id] !== undefined)
+        if (allIds.length > 0) {
+          const divisor = validIds.length > 0 ? validIds.length : allIds.length
+          const share = krw / divisor
+          validIds.forEach(id => { result[id] += share })
+        } else {
+          const share = krw / trip.members.length
+          trip.members.forEach(m => { result[m.id] += share })
+        }
+      })
     })
     return result
-  }, [dayItems, rates, trip])
+  }, [dayItems, rates, trip, primaryCurrency])
 
   const hasUnevenParticipants = useMemo(() => {
     const amounts = Object.values(memberSpent)
@@ -1319,10 +1471,14 @@ export default function SharePage() {
     const result: Record<string, number> = {}
     trip.members.forEach(m => { result[m.id] = 0 })
     const ownerIdForPaid = trip.members.find(m => m.role === 'owner')?.id ?? ''
-    Object.values(dayItems).flat().forEach(item => {
-      const pid = item.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(item.price || 0, item.currency || 'KRW', rates)
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      const custom = trip && primaryCurrency !== 'KRW' ? (trip.dayRates ?? {})[dayId] : undefined
+      const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
+      items.forEach(item => {
+        const pid = item.payerId ?? ownerIdForPaid
+        if (result[pid] === undefined) return
+        result[pid] += toKRW(item.price || 0, item.currency || 'KRW', r)
+      })
     });
     (trip.flights ?? []).forEach(f => {
       if (!f.price || !f.includeInSettlement) return
@@ -1337,7 +1493,7 @@ export default function SharePage() {
       result[pid] += toKRW(a.price, a.currency ?? 'KRW', rates)
     })
     return result
-  }, [dayItems, rates, trip])
+  }, [dayItems, rates, trip, primaryCurrency])
 
   /* 결제 집계 대상 항목 수 */
   const paidItemCount = useMemo(() => {
@@ -1541,6 +1697,14 @@ export default function SharePage() {
       doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId),
       { [`ratings.${user.uid}`]: stars }
     )
+  }
+
+  const handleSetDayRate = async (dayId: string, rate: number | null) => {
+    if (!trip) return
+    const next = { ...(trip.dayRates ?? {}) }
+    if (rate === null || rate <= 0) delete next[dayId]
+    else next[dayId] = rate
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { dayRates: next })
   }
 
   const handleLeaveTrip = async () => {
@@ -1807,8 +1971,37 @@ export default function SharePage() {
             {days.map((d, i) => {
               const isActive = i === activeDayIdx
               const isToday  = d.date === new Date().toISOString().slice(0, 10)
+              const members  = trip?.members ?? []
+              const MAX_VISIBLE = 5
+              const visible  = members.slice(0, MAX_VISIBLE)
+              const overflow = members.length - MAX_VISIBLE
+              const overlap  = members.length <= 3 ? -4 : -6
               return (
                 <div key={d.dayId} className="flex flex-col items-center flex-shrink-0 pt-2" style={{ minWidth: 76, marginRight: 4 }}>
+                  {/* 멤버 아바타 행: 활성 탭만, 비활성은 높이 유지 */}
+                  <div className="flex items-center justify-center mb-2" style={{ height: 22 }}>
+                    {isActive && visible.length > 0 && (
+                      <>
+                        {visible.map((m, mi) => {
+                          const mHex  = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
+                          const mCi   = m.role === 'owner'
+                            ? (avatarHexColor ? undefined : (avatarColor ?? 0))
+                            : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
+                          const mRing = mHex ?? (mCi !== undefined ? CLAY[mCi % CLAY.length]?.base : undefined)
+                          return (
+                            <div key={m.id} className="flex-shrink-0 rounded-full" style={{ marginLeft: mi === 0 ? 0 : overlap, zIndex: visible.length - mi }}>
+                              <PersonAvatar name={m.name} photoURL={m.photoURL} colorIndex={mCi} hexColor={mHex} size={18} ringColor={mRing} />
+                            </div>
+                          )
+                        })}
+                        {overflow > 0 && (
+                          <div className="flex-shrink-0 w-[18px] h-[18px] rounded-full bg-gray-100 ring-[1.5px] ring-white flex items-center justify-center text-[8px] font-bold text-gray-500" style={{ marginLeft: overlap, zIndex: 0 }}>
+                            +{overflow}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                   <button
                     onClick={() => setActiveDayIdx(i)}
                     className={`w-full pb-3 text-center border-b-2 transition-colors ${
@@ -1840,18 +2033,16 @@ export default function SharePage() {
             })}
           </div>
         </div>
-        {/* 나의 여행 리포트 버튼 */}
-        <div className="flex-shrink-0 flex items-center bg-white">
-          <div className="w-px self-stretch bg-gray-100 mx-1" />
+        {/* 여행 리포트 버튼 */}
+        <div className="flex-shrink-0 flex items-center bg-white pr-3">
+          <div className="w-px self-stretch bg-gray-100 mx-3" />
           <Link
             href={`/trips/${trip.id}/summary?owner=${trip.uid}`}
-            className="flex items-center gap-1.5 mx-1.5 my-1.5 px-2.5 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors"
-            title="나의 여행 리포트"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-violet-50 hover:bg-violet-100 transition-colors"
+            title="여행 리포트"
           >
             <ScrollText className="w-3.5 h-3.5 text-violet-500 flex-shrink-0" />
-            <span className="text-[10px] font-bold text-violet-600 leading-tight whitespace-nowrap">
-              나의 여행<br />리포트
-            </span>
+            <span className="text-[11px] font-bold text-violet-600 whitespace-nowrap">여행 리포트</span>
           </Link>
         </div>
         </div>{/* /flex items-stretch */}
@@ -1872,18 +2063,36 @@ export default function SharePage() {
               <h2 className="text-sm font-bold text-gray-900">{activeDay?.label} · {activeDay ? formatDate(activeDay.date) : ''}</h2>
               <p className="text-xs text-gray-400 mt-0.5">
                 {currentItems.length > 0 ? `${currentItems.length}개 일정` : '일정을 확인하세요'}
-                {daySpent > 0 && ` · ${primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                  ? formatLocal(Math.round(daySpent / rates[primaryCurrency]), primaryCurrency)
+                {daySpent > 0 && ` · ${primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency]
+                  ? formatLocal(Math.round(daySpent / effectiveRates[primaryCurrency]), primaryCurrency)
                   : formatKRW(daySpent)}`}
               </p>
-              {primaryCurrency !== 'KRW' && rates[primaryCurrency] > 0 && (
-                <div className="flex items-center gap-1.5 mt-1">
-                  <span className="text-[11px] font-medium text-gray-500">
-                    {CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}1 = ₩{rates[primaryCurrency].toLocaleString('ko-KR', { maximumFractionDigits: 2 })}
-                  </span>
-                  <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold bg-gray-100 text-gray-400">실시간</span>
-                </div>
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && canEdit && (
+                <RateWidget
+                  currency={primaryCurrency}
+                  liveRate={rates[primaryCurrency]}
+                  customRate={(trip?.dayRates ?? {})[activeDay.dayId]}
+                  onSave={rate => handleSetDayRate(activeDay.dayId, rate)}
+                  onReset={() => handleSetDayRate(activeDay.dayId, null)}
+                />
               )}
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && !canEdit && (() => {
+                const isCustom = !!(trip?.dayRates ?? {})[activeDay.dayId]
+                const r = effectiveRates[primaryCurrency]
+                return (
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className={`text-[11px] font-medium ${isCustom ? 'text-orange-600' : 'text-gray-500'}`}>
+                      {CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}1 = ₩{r.toLocaleString('ko-KR', {
+                        maximumFractionDigits: r >= 100 ? 0 : r >= 10 ? 1 : 2,
+                        minimumFractionDigits: 0,
+                      })}
+                    </span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${isCustom ? 'bg-orange-100 text-orange-600' : 'bg-gray-100 text-gray-400'}`}>
+                      {isCustom ? '고정' : '실시간'}
+                    </span>
+                  </div>
+                )
+              })()}
               {activeDay && (trip.dayBudgets ?? {})[activeDay.dayId] > 0 && (() => {
                 const budget = (trip.dayBudgets ?? {})[activeDay.dayId]
                 const pct    = Math.round(daySpent / budget * 100)
@@ -1900,10 +2109,13 @@ export default function SharePage() {
               })()}
             </div>
             {canEdit && (
-              <button onClick={() => setShowAdd(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
-                <Plus className="w-3.5 h-3.5" /> 추가
-              </button>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setShowAdd(true)}
+                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> 추가
+                </button>
+                <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />
+              </div>
             )}
           </div>
           <div className="relative flex-1 overflow-hidden">
@@ -1915,6 +2127,12 @@ export default function SharePage() {
                 accommodations={trip.accommodations ?? []}
                 activeDay={activeDay}
                 days={days}
+                {...(canEdit ? {
+                  onEditFlight:  f => setEditingFlight({ ...f, payerId: f.payerId ?? (trip.members.find(m => m.role === 'owner')?.id ?? '') }),
+                  onDeleteFlight: handleDeleteFlight,
+                  onEditAcc:     a => setEditingAcc({ ...a, payerId: a.payerId ?? (trip.members.find(m => m.role === 'owner')?.id ?? '') }),
+                  onDeleteAcc:   handleDeleteAccommodation,
+                } : {})}
               />
             )}
 
@@ -2176,6 +2394,14 @@ export default function SharePage() {
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
                 <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
+                {primaryCurrency !== 'KRW' && (
+                  <p className="text-[11px] text-blue-500 mt-0.5">
+                    {Object.keys(trip?.dayRates ?? {}).length > 0
+                      ? '날짜별 고정 환율 기준 계산 · 미고정 날은 현재 환율 적용'
+                      : '현재 환율 기준 계산 (참고용) · 실제 결제 시 환율과 다를 수 있음'
+                    }
+                  </p>
+                )}
               </div>
               <button
                 onClick={() => setShowSettlement(false)}
@@ -2342,21 +2568,85 @@ export default function SharePage() {
                 })}
               </div>
 
-              {/* 합계 */}
-              <div className="pt-1 border-t border-gray-100 flex items-center justify-between">
-                <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                  <Users className="w-3 h-3" />합계
-                </span>
-                <div className="text-right">
-                  <span className="text-xs font-bold text-gray-700 block">
-                    {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                      ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
-                      : formatKRW(totalSpent)
-                    }
+              {/* 금액 내역 breakdown — 비행기·숙소 고정 비용 있을 때만 표시 */}
+              <div className="mt-1 pt-3 border-t border-gray-100 flex flex-col gap-2">
+                {settlementFixedKRW > 0 && (
+                  <>
+                    <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider mb-0.5">금액 내역</p>
+
+                    {/* 일정 합계 */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5">
+                        <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[9px]">📋</span>
+                        일정 합계
+                      </span>
+                      <div className="text-right">
+                        <span className="text-[12px] font-semibold text-gray-700 block">{formatKRW(totalSpent)}</span>
+                        {primaryCurrency !== 'KRW' && rates[primaryCurrency] && totalSpent > 0 && (
+                          <p className="text-[10px] text-gray-400">약 {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
+                        )}
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {/* 비행기 */}
+                {(trip?.flights ?? []).filter(f => f.includeInSettlement && f.price).map(f => {
+                  const currency = f.currency ?? 'KRW'
+                  const krw = toKRW(f.price!, currency, rates)
+                  const isKRW = currency === 'KRW'
+                  return (
+                    <div key={f.id} className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <Plane className="w-2.5 h-2.5 text-sky-600" />
+                        </span>
+                        <span className="truncate">{f.name}</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-sky-600 block">{formatKRW(krw)}</span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[currency] ?? currency}{f.price!.toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 숙소 */}
+                {(trip?.accommodations ?? []).filter(a => a.includeInSettlement && a.price).map(a => {
+                  const currency = a.currency ?? 'KRW'
+                  const krw = toKRW(a.price!, currency, rates)
+                  const isKRW = currency === 'KRW'
+                  return (
+                    <div key={a.id} className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                          <BedDouble className="w-2.5 h-2.5 text-amber-600" />
+                        </span>
+                        <span className="truncate">{a.name}</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-amber-600 block">{formatKRW(krw)}</span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[currency] ?? currency}{a.price!.toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  )
+                })}
+
+                {/* 총합계 */}
+                <div className="pt-2.5 mt-0.5 border-t border-gray-200 flex items-center justify-between">
+                  <span className="text-[12px] font-bold text-gray-700 flex items-center gap-1">
+                    <Users className="w-3.5 h-3.5" /> 합계
                   </span>
-                  {primaryCurrency !== 'KRW' && (
-                    <span className="text-[11px] text-gray-400">{formatKRW(totalSpent)}</span>
-                  )}
+                  <div className="text-right">
+                    <span className="text-sm font-bold text-gray-900 block">
+                      {formatKRW(totalSpent + settlementFixedKRW)}
+                    </span>
+                    {primaryCurrency !== 'KRW' && rates[primaryCurrency] && (totalSpent + settlementFixedKRW) > 0 && (
+                      <span className="text-[11px] text-gray-400">
+                        약 {formatLocal(Math.round((totalSpent + settlementFixedKRW) / rates[primaryCurrency]), primaryCurrency)}
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
             </div>
@@ -2465,6 +2755,262 @@ export default function SharePage() {
                 <p className="text-sm text-gray-400">아직 공지사항이 없어요.</p>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 비행기 수정 모달 ── */}
+      {editingFlight && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingFlight(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto overflow-x-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">비행기 수정</h3>
+              <button onClick={() => setEditingFlight(null)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">항공명 (공항 검색)</label>
+              <input ref={editFlightInputRef} type="text" value={editingFlight.name}
+                onChange={e => setEditingFlight({ ...editingFlight, name: e.target.value })}
+                placeholder="공항명 검색..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">종류</label>
+              <div className="flex gap-2">
+                {(['inbound', 'outbound'] as const).map(t => (
+                  <button key={t} type="button" onClick={() => setEditingFlight({ ...editingFlight, type: t })}
+                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold border transition-colors ${editingFlight.type === t ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-200 text-gray-600'}`}>
+                    {t === 'inbound' ? '입국' : '출국'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">날짜</label>
+              <select value={editingFlight.dayId} onChange={e => setEditingFlight({ ...editingFlight, dayId: e.target.value })}
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[11px] font-semibold text-gray-500">출발 시간</label>
+                <input type="time" value={editingFlight.departTime} onChange={e => setEditingFlight({ ...editingFlight, departTime: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
+              </div>
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[11px] font-semibold text-gray-500">도착 시간</label>
+                <input type="time" value={editingFlight.arriveTime} onChange={e => setEditingFlight({ ...editingFlight, arriveTime: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</label>
+              <div className="flex gap-2">
+                <select value={editingFlight.currency ?? primaryCurrency} onChange={e => setEditingFlight({ ...editingFlight, currency: e.target.value })}
+                  className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {[primaryCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== primaryCurrency)].map(c => (
+                    <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                  ))}
+                </select>
+                <input type="number" placeholder="0" value={editingFlight.price ?? ''}
+                  onChange={e => setEditingFlight({ ...editingFlight, price: Number(e.target.value) || undefined })}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+              {!!editingFlight.price && (
+                <label className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer select-none">
+                  <input type="checkbox" checked={editingFlight.includeInSettlement !== false}
+                    onChange={e => setEditingFlight({ ...editingFlight, includeInSettlement: e.target.checked })}
+                    className="w-4 h-4 rounded accent-blue-600 flex-shrink-0" />
+                  <span className="text-[12px] font-medium text-gray-700">정산에 포함</span>
+                </label>
+              )}
+              {!!editingFlight.price && editingFlight.includeInSettlement !== false && (trip?.members ?? []).filter(m => !m.left).length > 1 && (() => {
+                const activeMembers = (trip?.members ?? []).filter(m => !m.left)
+                return (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <button type="button" onClick={() => setShowParticipantsFlight(v => !v)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                        <span>참여 인원 <span className="text-gray-400">(미선택 시 전원)</span>
+                          {(editingFlight.participantIds?.length ?? 0) > 0 && <span className="ml-1.5 font-semibold text-blue-600">{editingFlight.participantIds!.length}명</span>}
+                        </span>
+                        <span className="text-gray-400 text-[10px]">{showParticipantsFlight ? '▲' : '▼'}</span>
+                      </button>
+                      {showParticipantsFlight && (
+                        <div className="flex gap-2 flex-wrap px-1">
+                          {activeMembers.map(m => {
+                            const selected = (editingFlight.participantIds ?? []).includes(m.id)
+                            return (
+                              <button key={m.id} type="button"
+                                onClick={() => { const ids = editingFlight.participantIds ?? []; const newIds = selected ? ids.filter(id => id !== m.id) : [...ids, m.id]; setEditingFlight({ ...editingFlight, participantIds: newIds.length > 0 ? newIds : undefined }) }}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                                <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <button type="button" onClick={() => setShowPayerFlight(v => !v)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                        <span>결제자 <span className="text-gray-400">(선택)</span>
+                          {editingFlight.payerId && (() => { const m = activeMembers.find(m => m.id === editingFlight.payerId); return m ? <span className="ml-1.5 font-semibold text-emerald-600">{m.name}</span> : null })()}
+                        </span>
+                        <span className="text-gray-400 text-[10px]">{showPayerFlight ? '▲' : '▼'}</span>
+                      </button>
+                      {showPayerFlight && (
+                        <div className="flex gap-2 flex-wrap px-1">
+                          {activeMembers.map(m => {
+                            const selected = editingFlight.payerId === m.id
+                            return (
+                              <button key={m.id} type="button" onClick={() => setEditingFlight({ ...editingFlight, payerId: selected ? undefined : m.id })}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                                <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+            <button onClick={() => handleUpdateFlight(editingFlight)}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">저장</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 숙소 수정 모달 ── */}
+      {editingAcc && (
+        <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          onClick={() => setEditingAcc(null)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-md mx-0 sm:mx-4 shadow-2xl p-6 flex flex-col gap-4 max-h-[90dvh] overflow-y-auto overflow-x-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-bold text-gray-900">숙소 수정</h3>
+              <button onClick={() => setEditingAcc(null)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400"><X className="w-4 h-4" /></button>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">숙소명 (숙소 검색)</label>
+              <input ref={editAccInputRef} type="text" value={editingAcc.name}
+                onChange={e => setEditingAcc({ ...editingAcc, name: e.target.value })}
+                placeholder="호텔·숙소명 검색..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[12px] font-semibold text-gray-600">체크인 날짜</label>
+                <select value={editingAcc.checkInDayId} onChange={e => setEditingAcc({ ...editingAcc, checkInDayId: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[12px] font-semibold text-gray-600">체크인 시간</label>
+                <input type="time" value={editingAcc.checkInTime} onChange={e => setEditingAcc({ ...editingAcc, checkInTime: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[12px] font-semibold text-gray-600">체크아웃 날짜</label>
+                <select value={editingAcc.checkOutDayId} onChange={e => setEditingAcc({ ...editingAcc, checkOutDayId: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {days.map(d => <option key={d.dayId} value={d.dayId}>{d.label} · {d.date.slice(5).replace('-', '/')}</option>)}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1 min-w-0">
+                <label className="text-[12px] font-semibold text-gray-600">체크아웃 시간</label>
+                <input type="time" value={editingAcc.checkOutTime} onChange={e => setEditingAcc({ ...editingAcc, checkOutTime: e.target.value })}
+                  className="w-full max-w-full min-w-0 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all appearance-none" />
+              </div>
+            </div>
+            <div className="flex flex-col gap-1">
+              <label className="text-[12px] font-semibold text-gray-600">예상 비용 (선택)</label>
+              <div className="flex gap-2">
+                <select value={editingAcc.currency ?? primaryCurrency} onChange={e => setEditingAcc({ ...editingAcc, currency: e.target.value })}
+                  className="px-3 py-3 rounded-xl border border-gray-200 text-sm text-gray-700 outline-none focus:border-blue-500 bg-white">
+                  {[primaryCurrency, ...Object.keys(CURRENCY_SYMBOLS).filter(c => c !== primaryCurrency)].map(c => (
+                    <option key={c} value={c}>{CURRENCY_SYMBOLS[c] ?? c} {c} {CURRENCY_NAMES[c] ? `· ${CURRENCY_NAMES[c]}` : ''}</option>
+                  ))}
+                </select>
+                <input type="number" placeholder="0" value={editingAcc.price ?? ''}
+                  onChange={e => setEditingAcc({ ...editingAcc, price: Number(e.target.value) || undefined })}
+                  className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              </div>
+              {!!editingAcc.price && (
+                <label className="flex items-center gap-3 px-3.5 py-2.5 bg-gray-50 rounded-xl border border-gray-200 cursor-pointer select-none">
+                  <input type="checkbox" checked={editingAcc.includeInSettlement !== false}
+                    onChange={e => setEditingAcc({ ...editingAcc, includeInSettlement: e.target.checked })}
+                    className="w-4 h-4 rounded accent-blue-600 flex-shrink-0" />
+                  <span className="text-[12px] font-medium text-gray-700">정산에 포함</span>
+                </label>
+              )}
+              {!!editingAcc.price && editingAcc.includeInSettlement !== false && (trip?.members ?? []).filter(m => !m.left).length > 1 && (() => {
+                const activeMembers = (trip?.members ?? []).filter(m => !m.left)
+                return (
+                  <>
+                    <div className="flex flex-col gap-1.5">
+                      <button type="button" onClick={() => setShowParticipantsAcc(v => !v)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                        <span>참여 인원 <span className="text-gray-400">(미선택 시 전원)</span>
+                          {(editingAcc.participantIds?.length ?? 0) > 0 && <span className="ml-1.5 font-semibold text-blue-600">{editingAcc.participantIds!.length}명</span>}
+                        </span>
+                        <span className="text-gray-400 text-[10px]">{showParticipantsAcc ? '▲' : '▼'}</span>
+                      </button>
+                      {showParticipantsAcc && (
+                        <div className="flex gap-2 flex-wrap px-1">
+                          {activeMembers.map(m => {
+                            const selected = (editingAcc.participantIds ?? []).includes(m.id)
+                            return (
+                              <button key={m.id} type="button"
+                                onClick={() => { const ids = editingAcc.participantIds ?? []; const newIds = selected ? ids.filter(id => id !== m.id) : [...ids, m.id]; setEditingAcc({ ...editingAcc, participantIds: newIds.length > 0 ? newIds : undefined }) }}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                                <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <button type="button" onClick={() => setShowPayerAcc(v => !v)}
+                        className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                        <span>결제자 <span className="text-gray-400">(선택)</span>
+                          {editingAcc.payerId && (() => { const m = activeMembers.find(m => m.id === editingAcc.payerId); return m ? <span className="ml-1.5 font-semibold text-emerald-600">{m.name}</span> : null })()}
+                        </span>
+                        <span className="text-gray-400 text-[10px]">{showPayerAcc ? '▲' : '▼'}</span>
+                      </button>
+                      {showPayerAcc && (
+                        <div className="flex gap-2 flex-wrap px-1">
+                          {activeMembers.map(m => {
+                            const selected = editingAcc.payerId === m.id
+                            return (
+                              <button key={m.id} type="button" onClick={() => setEditingAcc({ ...editingAcc, payerId: selected ? undefined : m.id })}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                                <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                                <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )
+              })()}
+            </div>
+            <button onClick={() => handleUpdateAccommodation(editingAcc)}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">저장</button>
           </div>
         </div>
       )}
