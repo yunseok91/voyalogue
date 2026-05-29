@@ -303,7 +303,7 @@ export default function LandingPage() {
         {/* bg glow */}
         <div className="absolute right-0 top-1/2 -translate-y-1/2 w-[800px] h-[800px] rounded-full bg-blue-600/6 blur-3xl pointer-events-none" />
 
-        <div className="w-full flex flex-col lg:flex-row">
+        <div className="w-full max-w-[1440px] mx-auto flex flex-col lg:flex-row">
 
           {/* Left copy — 절반 너비, 패딩 유지 */}
           <motion.div
@@ -371,6 +371,7 @@ export default function LandingPage() {
                 height: '140%',
                 transform: 'translate(-50%, -50%) scale(0.714)',
                 border: 'none',
+                pointerEvents: 'none',
               }}
               title="Voyalogue 3D"
             />
@@ -511,12 +512,12 @@ export default function LandingPage() {
       </section>
 
       {/* ── 광고 1 — Features 하단 / How it works 상단 ── */}
-      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4 bg-white">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4 bg-[#F9FAFB]">
         <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
       </div>
 
       {/* ── How it works ──────────────────────────────────────────────────── */}
-      <section id="how" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-[#F9FAFB]">
+      <section id="how" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
           <div className="flex flex-col items-center text-center gap-4 mb-12 sm:mb-16">
             <Tag color="bg-green-100 text-green-700">How it works</Tag>
