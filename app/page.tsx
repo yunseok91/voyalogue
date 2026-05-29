@@ -267,9 +267,6 @@ export default function LandingPage() {
             </div>
           ) : (
             <div className="hidden md:flex items-center gap-4">
-              <Link href="/auth" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">
-                로그인
-              </Link>
               <Link href="/auth"
                 className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-[18px] transition-colors">
                 무료로 시작하기

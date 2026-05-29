@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Globe, ArrowLeft } from 'lucide-react'
 import { motion } from 'motion/react'
-import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider } from 'firebase/auth'
+import { signInWithPopup, signInWithRedirect, getRedirectResult, GoogleAuthProvider, signOut } from 'firebase/auth'
 import { auth } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
@@ -20,8 +20,9 @@ function AuthPageInner() {
   const suspendedParam = searchParams.get('suspended')
 
   const { user, loading: authLoading } = useAuthStore()
-  const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState('')
+  const [loading,     setLoading]     = useState(false)
+  const [error,       setError]       = useState('')
+  const [switching,   setSwitching]   = useState(false)
 
   /* 리디렉트 로그인 결과 처리 (Safari 등 팝업 차단 브라우저 대응) */
   useEffect(() => {
@@ -31,15 +32,17 @@ function AuthPageInner() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  /* 이미 로그인된 경우 바로 리다이렉트 */
+  /* 이미 로그인된 경우: switching 모드가 아닐 때만 바로 리다이렉트 */
   useEffect(() => {
-    if (!authLoading && user) router.replace(redirectTo)
-  }, [user, authLoading, router, redirectTo])
+    if (!authLoading && user && !switching) router.replace(redirectTo)
+  }, [user, authLoading, router, redirectTo, switching])
 
   const handleGoogle = async () => {
     setError('')
     setLoading(true)
+    setSwitching(true)
     try {
+      await signOut(auth).catch(() => {})
       await signInWithPopup(auth, googleProvider)
       router.push(redirectTo)
     } catch (err: unknown) {
@@ -160,6 +163,36 @@ function AuthPageInner() {
             </div>
           )}
 
+          {/* 이미 로그인된 경우: 현재 계정 표시 */}
+          {user && !authLoading && (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5">
+                {user.photoURL
+                  ? <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full flex-shrink-0" referrerPolicy="no-referrer" />
+                  : <div className="w-9 h-9 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
+                      {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
+                    </div>
+                }
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">{user.displayName ?? '사용자'}</p>
+                  <p className="text-xs text-gray-400 truncate">{user.email}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => router.push(redirectTo)}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 rounded-xl text-[15px] font-bold text-white transition-colors"
+              >
+                이 계정으로 계속하기
+              </button>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="text-xs text-gray-400">다른 계정으로 로그인</span>
+                <div className="flex-1 h-px bg-gray-200" />
+              </div>
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleGoogle}
@@ -175,7 +208,7 @@ function AuthPageInner() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
                   </svg>
-                  Google 계정으로 계속하기
+                  {user ? '다른 Google 계정으로 로그인' : 'Google 계정으로 계속하기'}
                 </>
             }
           </button>
