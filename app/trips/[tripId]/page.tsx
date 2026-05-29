@@ -3200,17 +3200,37 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const deleteCheckItem = async (id: string) => {
     if (!meta) return
+    const label = checkItems.find(c => c.id === id)?.label ?? ''
     const checklist = checkItems.filter(c => c.id !== id)
     setMeta({ ...meta, checklist })
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '방장'}이(가) 체크리스트를 삭제했습니다`,
+      body:     `${meta.title || meta.city} · ${label}`,
+      tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
+    })
   }
 
   const saveCheckEdit = async (id: string) => {
     if (!checkEditVal.trim() || !meta) return
-    const checklist = checkItems.map(c => c.id === id ? { ...c, label: checkEditVal.trim() } : c)
+    const label = checkEditVal.trim()
+    const checklist = checkItems.map(c => c.id === id ? { ...c, label } : c)
     setMeta({ ...meta, checklist })
     setCheckEditId(null)
     await updateDoc(doc(db, 'users', uid, 'trips', tripId), { checklist })
+    notifyTripMembers({
+      ownerUid: uid,
+      members:  meta.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '방장'}이(가) 체크리스트를 수정했습니다`,
+      body:     `${meta.title || meta.city} · ${label}`,
+      tripPath: `/trips/${tripId}`,
+      viewCode: meta.viewCode,
+    })
   }
 
   const loadChecklistDefaults = async (type: 'domestic' | 'overseas') => {

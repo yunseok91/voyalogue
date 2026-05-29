@@ -618,29 +618,89 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
           totalPinned++
         })
 
-        if (pinned.length > 1) {
-          const poly = new google.maps.Polyline({
-            path:          pinned.map(i => ({ lat: i.lat, lng: i.lng })),
-            geodesic:      true,
-            strokeColor:   polylineColor,
-            strokeOpacity: polylineAlpha,
-            strokeWeight:  polylineWeight,
-            map:           mapRef.current!,
-            zIndex:        isActive ? 10 : 1,
-          })
-          if (isActive) {
-            poly.set('icons', [{
-              icon: {
-                path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                fillColor:   polylineColor,
-                fillOpacity: 1,
-                strokeColor: polylineColor,
-                scale:       3,
-              },
-              offset: '100%',
-            }])
+        if (!isActive) {
+          /* 비활성 Day: 단일 회색 선 */
+          if (pinned.length > 1) {
+            const poly = new google.maps.Polyline({
+              path:          pinned.map(i => ({ lat: i.lat, lng: i.lng })),
+              geodesic:      true,
+              strokeColor:   '#CBD5E1',
+              strokeOpacity: 0.2,
+              strokeWeight:  1.5,
+              map:           mapRef.current!,
+              zIndex:        1,
+            })
+            dayPolylinesRef.current.set(group.dayId, poly)
           }
-          dayPolylinesRef.current.set(group.dayId, poly)
+        } else if (showAll) {
+          /* 전체 일정 모드: Day 고유 색상 단일 선 */
+          if (pinned.length > 1) {
+            const poly = new google.maps.Polyline({
+              path:          pinned.map(i => ({ lat: i.lat, lng: i.lng })),
+              geodesic:      true,
+              strokeColor:   group.color,
+              strokeOpacity: 0.85,
+              strokeWeight:  3,
+              icons: [{
+                icon: {
+                  path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                  fillColor:   group.color,
+                  fillOpacity: 1,
+                  strokeColor: group.color,
+                  scale:       3,
+                },
+                offset: '100%',
+              }],
+              map:    mapRef.current!,
+              zIndex: 10,
+            })
+            dayPolylinesRef.current.set(group.dayId, poly)
+          }
+        } else {
+          /* 개별 Day 활성: 슬롯 색상 + 슬롯 경계를 자연스럽게 잇는 폴리라인
+             같은 슬롯 내 아이템끼리는 해당 슬롯 색으로, 슬롯이 바뀌는 지점에서는
+             이전 슬롯 색으로 다음 슬롯 첫 번째 아이템까지 선을 이어줌 */
+          if (pinned.length >= 2) {
+            let batchStart = 0
+            for (let i = 1; i <= pinned.length; i++) {
+              const isEnd = i === pinned.length
+              const slotChanged = isEnd || pinned[i].timeSlot !== pinned[batchStart].timeSlot
+
+              if (slotChanged) {
+                const slotColor = SLOT_COLORS[pinned[batchStart].timeSlot] ?? '#94A3B8'
+                const path = pinned.slice(batchStart, i).map(x => ({ lat: x.lat, lng: x.lng }))
+
+                if (!isEnd) {
+                  path.push({ lat: pinned[i].lat, lng: pinned[i].lng })
+                }
+
+                if (path.length >= 2) {
+                  const poly = new google.maps.Polyline({
+                    path,
+                    geodesic:      true,
+                    strokeColor:   slotColor,
+                    strokeOpacity: 0.85,
+                    strokeWeight:  3,
+                    icons: [{
+                      icon: {
+                        path:        google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                        fillColor:   slotColor,
+                        fillOpacity: 1,
+                        strokeColor: slotColor,
+                        scale:       3,
+                      },
+                      offset: '100%',
+                    }],
+                    map:    mapRef.current!,
+                    zIndex: 10,
+                  })
+                  dayPolylinesRef.current.set(`${group.dayId}_batch_${batchStart}`, poly)
+                }
+
+                batchStart = i
+              }
+            }
+          }
         }
       })
 

@@ -22,7 +22,7 @@ import { FixedScheduleSection } from '@/components/FixedScheduleSection'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
 import {
-  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors, useDroppable,
   type DragEndEvent,
 } from '@dnd-kit/core'
 import {
@@ -412,6 +412,17 @@ function SortableItemCard(props: Parameters<typeof ItemCard>[0]) {
   return (
     <div ref={setNodeRef} style={style}>
       <ItemCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+    </div>
+  )
+}
+
+function SlotDropZone({ slot }: { slot: string }) {
+  const { setNodeRef, isOver } = useDroppable({ id: `slot:${slot}` })
+  return (
+    <div ref={setNodeRef} className={`h-10 rounded-xl border-2 border-dashed flex items-center justify-center transition-colors ${isOver ? 'border-blue-300 bg-blue-50' : 'border-gray-200'}`}>
+      <span className={`text-[11px] ${isOver ? 'text-blue-500 font-semibold' : 'text-gray-300'}`}>
+        {isOver ? '여기에 놓기' : '일정을 드래그하세요'}
+      </span>
     </div>
   )
 }
@@ -1107,6 +1118,7 @@ export default function SharePage() {
 
   /* ── 당일 자동 선택 (여행 기간 내인 경우) ── */
   const autoSelectedRef = useRef(false)
+  const unsubsRef       = useRef<Record<string, () => void>>({})
   useEffect(() => {
     if (!days.length || autoSelectedRef.current) return
     const today = new Date().toISOString().slice(0, 10)
@@ -1119,20 +1131,52 @@ export default function SharePage() {
     }
   }, [days])
 
-  /* 아이템 1회 로드 */
+  /* 아이템 1회 로드 (전체 Day 초기값) */
   useEffect(() => {
     if (!trip || !days.length) return
     Promise.all(
       days.map(day =>
         getDocs(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items'))
-          .then(snap => ({ dayId: day.dayId, items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[] }))
+          .then(snap => ({
+            dayId: day.dayId,
+            items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            fromCache: snap.metadata.fromCache,
+            empty: snap.empty,
+          }))
       )
     ).then(results => {
-      const merged: Record<string, PlanItem[]> = {}
-      results.forEach(r => { merged[r.dayId] = r.items })
-      setDayItems(merged)
+      setDayItems(prev => {
+        const next = { ...prev }
+        results.forEach(r => {
+          if (r.empty && r.fromCache) return
+          next[r.dayId] = r.items
+        })
+        return next
+      })
     }).catch(() => {})
-  }, [trip, days.length])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trip?.uid, trip?.id, days.length])
+
+  /* 활성 Day 실시간 구독 */
+  useEffect(() => {
+    if (!trip || !days.length) return
+    const day = days[activeDayIdx]
+    if (!day) return
+
+    Object.values(unsubsRef.current).forEach(u => u())
+    unsubsRef.current = {}
+
+    const col = collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items')
+    const unsub = onSnapshot(col, snap => {
+      if (snap.empty && snap.metadata.fromCache) return
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
+      setDayItems(prev => ({ ...prev, [day.dayId]: items }))
+    })
+    unsubsRef.current[day.dayId] = unsub
+
+    return () => { Object.values(unsubsRef.current).forEach(u => u()) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDayIdx, trip?.uid, trip?.id])
 
   const activeDay    = days[activeDayIdx]
   const currentItems = activeDay ? (dayItems[activeDay.dayId] ?? []) : []
@@ -1141,12 +1185,39 @@ export default function SharePage() {
 
   const allItemIds = useMemo(() => currentItems.map(i => i.id), [currentItems])
 
+  const handleMoveToSlot = async (activeId: string, targetSlot: TimeSlot) => {
+    if (!activeDay || !trip) return
+    const item = currentItems.find(i => i.id === activeId)
+    if (!item || item.timeSlot === targetSlot) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i =>
+        i.id === activeId ? { ...i, timeSlot: targetSlot } : i
+      ),
+    }))
+    await updateDoc(
+      doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', activeId),
+      { timeSlot: targetSlot }
+    ).catch(() => {})
+  }
+
   const handleReorder = async (activeId: string, overId: string) => {
     if (!activeDay || !trip) return
     const sorted  = [...currentItems].sort((a, b) => a.order - b.order)
     const oldIdx  = sorted.findIndex(i => i.id === activeId)
     const newIdx  = sorted.findIndex(i => i.id === overId)
     if (oldIdx === -1 || newIdx === -1 || oldIdx === newIdx) return
+
+    const draggedItem = sorted[oldIdx]
+    const targetItem  = sorted[newIdx]
+
+    /* cross-slot: 슬롯 변경만 수행, arrayMove 금지 (교체 버그 방지) */
+    if (draggedItem.timeSlot !== targetItem.timeSlot) {
+      await handleMoveToSlot(activeId, targetItem.timeSlot as TimeSlot)
+      return
+    }
+
+    /* same-slot: 순서 변경 */
     const reordered = arrayMove(sorted, oldIdx, newIdx)
     setDayItems(prev => ({
       ...prev,
@@ -1578,16 +1649,34 @@ export default function SharePage() {
   }
   const deleteCheckItem = async (id: string) => {
     if (!trip) return
+    const label = checkItems.find(c => c.id === id)?.label ?? ''
     const checklist = checkItems.filter(c => c.id !== id)
     setTrip(prev => prev ? { ...prev, checklist } : prev)
     await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '총무'}이(가) 체크리스트를 삭제했습니다`,
+      body:     `${trip.title || trip.city} · ${label}`,
+      tripPath: `/share/${code}`,
+    })
   }
   const saveCheckEdit = async (id: string) => {
     if (!checkEditVal.trim() || !trip) { setCheckEditId(null); return }
-    const checklist = checkItems.map(c => c.id === id ? { ...c, label: checkEditVal.trim() } : c)
+    const label = checkEditVal.trim()
+    const checklist = checkItems.map(c => c.id === id ? { ...c, label } : c)
     setTrip(prev => prev ? { ...prev, checklist } : prev)
     setCheckEditId(null)
     await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { checklist }).catch(() => {})
+    notifyTripMembers({
+      ownerUid: trip.uid,
+      members:  trip.members ?? [],
+      actorUid: user?.uid ?? null,
+      title:    `${user?.displayName ?? '총무'}이(가) 체크리스트를 수정했습니다`,
+      body:     `${trip.title || trip.city} · ${label}`,
+      tripPath: `/share/${code}`,
+    })
   }
 
   /* ── 대표 초대링크 참여 ── */
@@ -1843,13 +1932,18 @@ export default function SharePage() {
                 onDragEnd={(e: DragEndEvent) => {
                   const { active, over } = e
                   if (!over || active.id === over.id) return
-                  handleReorder(String(active.id), String(over.id))
+                  const overId = String(over.id)
+                  if (overId.startsWith('slot:')) {
+                    handleMoveToSlot(String(active.id), overId.replace('slot:', '') as TimeSlot)
+                  } else {
+                    handleReorder(String(active.id), overId)
+                  }
                 }}
               >
                 <SortableContext items={allItemIds} strategy={verticalListSortingStrategy}>
                   {TIME_SLOTS.map(slot => {
                     const slotItems = grouped[slot]
-                    if (!slotItems.length) return null
+                    if (slot === '미정' && !slotItems.length) return null
                     const slotKRW = slotItems.reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
                     const slotLocalStr = slotKRW > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency]
                       ? formatLocal(Math.round(slotKRW / rates[primaryCurrency]), primaryCurrency)
@@ -1877,6 +1971,11 @@ export default function SharePage() {
                           <div className="flex-1 h-px bg-gray-200" />
                         </div>
                         <div className="flex flex-col gap-2">
+                          {slotItems.length === 0 && slot !== '미정' && (
+                            canEdit
+                              ? <SlotDropZone slot={slot} />
+                              : <div className="flex items-center justify-center py-3 rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-300">일정 없음</div>
+                          )}
                           {slotItems.map(item => (
                             canEdit
                               ? <SortableItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />

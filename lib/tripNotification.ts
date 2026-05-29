@@ -1,7 +1,7 @@
 import { collection, doc, writeBatch, serverTimestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 
-type Member = { id: string; role: string }
+type Member = { id: string; role: string; left?: boolean }
 
 /**
  * 여행 멤버들에게 벨 알림 기록
@@ -58,6 +58,7 @@ export async function notifyTripMembers({
   const memberPath = memberPathOverride ?? (viewCode ? `/share/${viewCode}` : (tripPath ?? null))
   for (const m of members) {
     if (m.role === 'owner') continue
+    if (m.left) continue
     if (!m.id || m.id.length < 15) continue
     if (m.id === actorUid && !notifySelf) continue
     const ref = doc(collection(db, 'users', m.id, 'messages'))
