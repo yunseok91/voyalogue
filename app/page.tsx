@@ -614,6 +614,34 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── FAQ ───────────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-[#F9FAFB]">
+        <div className="max-w-[1440px] mx-auto">
+          <div className="flex flex-col items-center text-center gap-4 mb-12 sm:mb-16">
+            <Tag color="bg-purple-50 text-purple-600">FAQ</Tag>
+            <h2 className="text-4xl xl:text-[44px] font-extrabold text-gray-900"
+              style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              자주 묻는 질문
+            </h2>
+          </div>
+          <div className="max-w-3xl mx-auto flex flex-col gap-4">
+            {[
+              { q: 'Voyalogue는 무료인가요?', a: '네, 현재 베타 기간 동안 모든 기능을 완전 무료로 사용할 수 있습니다. Google 계정만 있으면 바로 시작할 수 있습니다.' },
+              { q: '여행 일정을 친구와 함께 편집할 수 있나요?', a: '초대 링크를 공유하면 친구가 멤버로 참여해 일정을 함께 편집할 수 있습니다. 보기 전용 공유 링크를 따로 발급해 특정 인원에게만 공유하는 것도 가능합니다.' },
+              { q: '어떤 통화를 지원하나요?', a: 'KRW(원), USD(달러), EUR(유로), JPY(엔), CNY(위안) 등 주요 통화를 지원합니다. 실시간 환율이 자동 적용되며, 날짜별로 환율을 직접 설정할 수도 있습니다.' },
+              { q: 'AI 일정 생성은 어떻게 작동하나요?', a: '목적지, 여행 기간, 여행 스타일을 입력하면 AI가 날짜별 추천 코스를 자동으로 작성해드립니다. 생성된 초안을 기반으로 자유롭게 수정해 나만의 일정을 완성하세요.' },
+              { q: '모바일에서도 잘 되나요?', a: '네, 모바일 브라우저에 최적화되어 있어 별도 앱 설치 없이 스마트폰으로도 편리하게 이용할 수 있습니다.' },
+              { q: '일정 데이터는 안전하게 보관되나요?', a: 'Google Firebase를 통해 데이터가 암호화·저장됩니다. 회원 탈퇴 시 모든 개인 데이터는 즉시 삭제됩니다.' },
+            ].map(item => (
+              <div key={item.q} className="bg-white rounded-2xl border border-gray-200 px-6 py-5">
+                <h3 className="text-sm font-bold text-gray-900 mb-2">Q. {item.q}</h3>
+                <p className="text-sm text-gray-500 leading-relaxed">A. {item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* ── Reviews ───────────────────────────────────────────────────────── */}
       <section id="reviews" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
@@ -679,7 +707,9 @@ export default function LandingPage() {
             </span>
           </div>
           <p className="text-xs text-gray-400">© 2026 Voyalogue Inc. All rights reserved.</p>
-          <nav className="flex gap-6">
+          <nav className="flex flex-wrap justify-center gap-6">
+            <Link href="/about" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">서비스 소개</Link>
+            <Link href="/guide" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">여행 가이드</Link>
             <Link href="/privacy" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">개인정보처리방침</Link>
             <Link href="/terms" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">이용약관</Link>
             <Link href="/contact" className="text-xs text-gray-500 hover:text-gray-900 transition-colors">문의하기</Link>
