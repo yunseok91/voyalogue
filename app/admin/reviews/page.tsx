@@ -119,7 +119,7 @@ export default function AdminReviewsPage() {
                   {r.text ? (
                     <p className="text-sm text-gray-600 leading-relaxed">"{r.text}"</p>
                   ) : (
-                    <p className="text-xs text-gray-300 italic">텍스트 후기 없음</p>
+                    <p className="text-xs text-gray-400 italic">텍스트 후기 없음</p>
                   )}
                   {r.featured && (
                     <span className="inline-block mt-2 text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full">

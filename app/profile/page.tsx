@@ -38,6 +38,64 @@ const CURRENCIES = [
 ]
 
 /* ── 섹션 래퍼 ── */
+const YEAR_PREVIEW = 5
+
+function YearGroup({ year, trips, onNavigate }: {
+  year: number
+  trips: TripSummary[]
+  onNavigate: (id: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const shown = expanded ? trips : trips.slice(0, YEAR_PREVIEW)
+  const hidden = trips.length - YEAR_PREVIEW
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-1">
+        <p className="text-xs font-bold text-gray-400">{year}</p>
+        <div className="flex-1 h-px bg-gray-100" />
+        <span className="text-[11px] text-gray-400">{trips.length}개</span>
+      </div>
+      <div className="flex flex-col divide-y divide-gray-100">
+        {shown.map(t => {
+          const city = t.city.split(',')[0].trim()
+          const mo = t.startDate ? t.startDate.slice(5, 7).replace(/^0/, '') + '월' : ''
+          const nightStr = t.nights > 0 ? `${t.nights}박` : '당일'
+          return (
+            <button
+              key={t.tripId}
+              onClick={() => onNavigate(t.tripId)}
+              className="flex items-center gap-3 py-2.5 hover:bg-blue-50/40 transition-colors text-left w-full"
+            >
+              <div
+                className="w-8 h-8 rounded-lg flex-shrink-0 overflow-hidden shadow-sm"
+                style={{ background: gradientStyle(t.gradient) }}
+              >
+                {t.coverPhotoURL && (
+                  <img src={t.coverPhotoURL} alt="" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                )}
+              </div>
+              <span className="text-[13px] font-bold text-gray-900 w-[68px] flex-shrink-0 truncate">{city}</span>
+              <span className="text-[12px] text-gray-500 flex-1 truncate">{t.title || ''}</span>
+              <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 flex-shrink-0 tabular-nums whitespace-nowrap">
+                {[mo, nightStr].filter(Boolean).join(' · ')}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+      {trips.length > YEAR_PREVIEW && (
+        <button
+          onClick={() => setExpanded(v => !v)}
+          className="mt-1 ml-2 text-[12px] text-gray-400 hover:text-blue-500 transition-colors"
+        >
+          {expanded ? '접기 ↑' : `+${hidden}개 더보기`}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden mb-4">
@@ -76,7 +134,7 @@ function LinkRow({ icon, label, onClick }: { icon: React.ReactNode; label: strin
 }
 
 type Stats = { total: number; nights: number; cities: number; countries: number }
-type TripSummary = { tripId: string; city: string; country: string; startDate: string; endDate: string; nights: number; gradient: string }
+type TripSummary = { tripId: string; city: string; country: string; startDate: string; endDate: string; nights: number; gradient: string; title?: string; coverPhotoURL?: string }
 
 function ProfileContent() {
   const { user, setUser, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor, setPreferredCurrency } = useAuthStore()
@@ -263,7 +321,7 @@ function ProfileContent() {
       getDocs(collection(db, 'users', user.uid, 'trips')),
       getDocs(collection(db, 'users', user.uid, 'invitedTrips')),
     ]).then(([ownSnap, invSnap]) => {
-      type RawTrip = { tripId: string; nights?: number; city?: string; country?: string; startDate?: string; endDate?: string; gradient?: string }
+      type RawTrip = { tripId: string; nights?: number; city?: string; country?: string; startDate?: string; endDate?: string; gradient?: string; title?: string; coverPhotoURL?: string }
       const own = ownSnap.docs.map(d => ({ tripId: d.id, ...d.data() } as RawTrip))
       const nights    = own.reduce((s, t) => s + (t.nights ?? 0), 0)
       const cities    = new Set(own.map(t => (t.city ?? '').split(',')[0].trim()).filter(Boolean)).size
@@ -275,7 +333,7 @@ function ProfileContent() {
         const sd   = t.startDate ?? ''
         const year = sd ? parseInt(sd.slice(0, 4)) : new Date().getFullYear()
         if (!byYear.has(year)) byYear.set(year, [])
-        byYear.get(year)!.push({ tripId: t.tripId, city: t.city ?? '', country: t.country ?? '', startDate: sd, endDate: t.endDate ?? '', nights: t.nights ?? 0, gradient: t.gradient ?? '#3B82F6,#1D4ED8' })
+        byYear.get(year)!.push({ tripId: t.tripId, city: t.city ?? '', country: t.country ?? '', startDate: sd, endDate: t.endDate ?? '', nights: t.nights ?? 0, gradient: t.gradient ?? '#3B82F6,#1D4ED8', title: t.title, coverPhotoURL: t.coverPhotoURL })
       })
       const sorted = Array.from(byYear.entries())
         .sort(([a], [b]) => b - a)
@@ -522,31 +580,7 @@ function ProfileContent() {
             </div>
             <div className="px-5 sm:px-6 py-5 flex flex-col gap-6">
               {tripsByYear.map(({ year, trips }) => (
-                <div key={year}>
-                  <div className="flex items-center gap-2 mb-3">
-                    <p className="text-xs font-bold text-gray-400">{year}</p>
-                    <div className="flex-1 h-px bg-gray-100" />
-                    <span className="text-[11px] text-gray-300">{trips.length}개</span>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {trips.map(t => {
-                      const mo = t.startDate ? t.startDate.slice(5, 7).replace(/^0/, '') + '월' : ''
-                      return (
-                        <button
-                          key={t.tripId}
-                          onClick={() => router.push(`/trips/${t.tripId}`)}
-                          className="flex flex-col items-start px-3.5 py-2.5 rounded-2xl text-white shadow-sm transition-all hover:opacity-90 hover:scale-[1.03] active:scale-[0.97]"
-                          style={{ background: gradientStyle(t.gradient) }}
-                        >
-                          <span className="text-sm font-extrabold leading-tight">{t.city.split(',')[0]}</span>
-                          <span className="text-[11px] font-medium opacity-80 mt-0.5">
-                            {[mo, t.nights > 0 && `${t.nights}박`].filter(Boolean).join(' · ')}
-                          </span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
+                <YearGroup key={year} year={year} trips={trips} onNavigate={id => router.push(`/trips/${id}`)} />
               ))}
             </div>
           </div>

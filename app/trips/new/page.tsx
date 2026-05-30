@@ -759,7 +759,7 @@ function NewTripContent() {
                               <div className="flex flex-col items-end w-10 flex-shrink-0">
                                 <span className="text-xs text-gray-500">만원</span>
                                 {hasTotalBudget && maxMan !== undefined && val === 0 && remaining > 0 && (
-                                  <span className="text-[9px] text-gray-300">최대{maxMan}만</span>
+                                  <span className="text-[9px] text-gray-400">최대{maxMan}만</span>
                                 )}
                               </div>
                             </div>

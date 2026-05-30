@@ -130,7 +130,7 @@ export function ServiceRatingModal({ onClose }: Props) {
               className="w-full h-20 px-3 py-2.5 border border-gray-200 rounded-xl text-sm resize-none outline-none focus:border-blue-400 transition-colors"
               maxLength={200}
             />
-            <p className="text-right text-[11px] text-gray-300 -mt-2">{text.length}/200</p>
+            <p className="text-right text-[11px] text-gray-400 -mt-2">{text.length}/200</p>
 
             {/* 데이터 보존 정책 안내 */}
             <p className="text-[11px] text-gray-400 leading-relaxed bg-gray-50 rounded-xl px-3 py-2.5">

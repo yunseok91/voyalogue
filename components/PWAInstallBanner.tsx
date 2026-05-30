@@ -12,10 +12,12 @@ function detectMode(): Mode {
   if (typeof window === 'undefined') return null
   // 이미 설치됨
   if (window.matchMedia('(display-mode: standalone)').matches) return null
+  // PC 제외 — 터치 미지원 또는 화면 너비 1024px 이상
+  const isMobile = window.innerWidth < 1024 && ('ontouchstart' in window || navigator.maxTouchPoints > 0)
+  if (!isMobile) return null
   const ua = navigator.userAgent
   const isIos = /iphone|ipad|ipod/i.test(ua) && !/crios|fxios/i.test(ua)
   if (isIos) return 'ios'
-  // Android Chrome — beforeinstallprompt 이벤트가 있으면 android로 처리
   return 'android'
 }
 

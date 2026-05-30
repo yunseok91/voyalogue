@@ -141,7 +141,7 @@ export default function AdminAnnouncementsPage() {
                   </div>
                   <p className="text-sm font-semibold text-gray-900 truncate">{a.title}</p>
                   <p className="text-xs text-gray-500 mt-0.5 line-clamp-2">{a.body}</p>
-                  <p className="text-[11px] text-gray-300 mt-1">
+                  <p className="text-[11px] text-gray-400 mt-1">
                     {a.createdAt ? new Date(a.createdAt.toMillis()).toLocaleDateString('ko') : ''}
                   </p>
                 </div>

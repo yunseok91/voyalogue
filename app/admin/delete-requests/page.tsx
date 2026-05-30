@@ -166,7 +166,7 @@ export default function DeleteRequestsPage() {
                   </div>
                   <p className="text-sm font-semibold text-gray-900">{r.displayName || '(이름 없음)'}</p>
                   <p className="text-xs text-gray-400">{r.email}</p>
-                  <p className="text-[11px] text-gray-300 mt-0.5">
+                  <p className="text-[11px] text-gray-400 mt-0.5">
                     {r.requestedAt ? new Date(r.requestedAt.toMillis()).toLocaleString('ko') : '-'}
                     <span className="ml-1.5 text-gray-200">UID: {r.uid.slice(0, 10)}…</span>
                   </p>

@@ -119,7 +119,7 @@ export function InAppBrowserGate({ children }: { children: React.ReactNode }) {
         </div>
       </div>
 
-      <p className="text-[11px] text-gray-300 mt-8">Voyalogue</p>
+      <p className="text-[11px] text-gray-400 mt-8">Voyalogue</p>
     </div>
   )
 }

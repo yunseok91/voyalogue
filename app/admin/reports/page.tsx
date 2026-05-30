@@ -212,7 +212,7 @@ export default function AdminReportsPage() {
                           <p className="text-[11px] text-gray-400">대상: {r.targetId.slice(0, 10)}…</p>
                         )}
                         {r.createdAt && (
-                          <p className="text-[11px] text-gray-300">
+                          <p className="text-[11px] text-gray-400">
                             {new Date(r.createdAt.toMillis()).toLocaleDateString('ko')}
                           </p>
                         )}
