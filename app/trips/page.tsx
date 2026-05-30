@@ -18,6 +18,7 @@ import { generateCode } from '@/lib/inviteCode'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { ServiceRatingModal } from '@/components/ServiceRatingModal'
+import { PWAInstallBanner } from '@/components/PWAInstallBanner'
 
 /* ── 타입 ── */
 type TripStatus  = 'ongoing' | 'upcoming' | 'done'
@@ -646,6 +647,7 @@ function TripsContent() {
 
       <AnnouncementModal />
       <AdminMessageModal />
+      <PWAInstallBanner />
 
       {showReview && <ServiceRatingModal onClose={() => setShowReview(false)} />}
 

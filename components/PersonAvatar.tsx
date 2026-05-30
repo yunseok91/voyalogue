@@ -54,7 +54,7 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
   }
 
   const outerShadow = ringColor
-    ? `0 0 0 2.5px white, 0 0 0 5px ${ringColor}`
+    ? `0 0 0 1.5px ${ringColor}`
     : undefined
 
   const showPhoto = !!photoURL && !imgFailed
