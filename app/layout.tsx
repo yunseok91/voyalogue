@@ -5,6 +5,8 @@ import { InAppBrowserGate } from '@/components/InAppBrowserGate'
 import { GoogleAnalytics } from '@/components/GoogleAnalytics'
 import { OnboardingBanner } from '@/components/OnboardingBanner'
 
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://voyalogue.vercel.app'
+
 export const metadata: Metadata = {
   title: {
     default: 'Voyalogue — 스마트 여행 플래너',
@@ -14,12 +16,21 @@ export const metadata: Metadata = {
   keywords: ['여행 플래너', '여행 일정', '여행 계획', '해외여행', '국내여행', '일정 관리', '여행 앱'],
   authors: [{ name: 'Voyalogue' }],
   creator: 'Voyalogue',
+  metadataBase: new URL(BASE_URL),
   openGraph: {
     type: 'website',
     locale: 'ko_KR',
     siteName: 'Voyalogue',
     title: 'Voyalogue — 스마트 여행 플래너',
     description: '친구와 함께하는 여행 플래너. 여행 일정, 지도, 예산을 한 곳에서 관리하세요.',
+    url: BASE_URL,
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'Voyalogue' }],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Voyalogue — 스마트 여행 플래너',
+    description: '친구와 함께하는 여행 플래너. 여행 일정, 지도, 예산을 한 곳에서 관리하세요.',
+    images: ['/opengraph-image'],
   },
   robots: {
     index: true,
@@ -34,9 +45,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
-        {/* 계정 소유권 인증용 — 사이트 전체 필요 */}
         <meta name="google-adsense-account" content="ca-pub-6889911728160635" />
-        {/* 광고 스크립트는 랜딩 페이지(app/page.tsx)에만 개별 로드 */}
+        <meta name="theme-color" content="#1D4ED8" />
+        <meta name="mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="Voyalogue" />
       </head>
       <body>
         {/*
