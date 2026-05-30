@@ -27,20 +27,33 @@ export function useOnboarding() {
     if (localStorage.getItem(LS_DONE_KEY)) return          // 이미 완료
     if (localStorage.getItem(LS_KEY) !== null) return      // 이미 진행 중 (lazy로 처리됨)
 
-    // 신규 유저 — Firestore 확인
+    // 신규 여부 — Firestore 확인
     getDoc(doc(db, 'users', user.uid))
       .then(snap => {
-        if (snap.data()?.onboardingDone) {
+        const data = snap.data()
+        if (data?.onboardingDone) {
+          // 명시적으로 완료된 유저
           localStorage.setItem(LS_DONE_KEY, '1')
           setHintStep(0)
-        } else {
-          localStorage.setItem(LS_KEY, '1')
-          setHintStep(1)
+          return
         }
-      })
-      .catch(() => {
+        // 계정 생성일이 24시간 이상 지난 유저 → 기존 유저로 판단해 완료 처리
+        const createdAt = data?.createdAt?.toMillis?.()
+        const isExisting = createdAt && Date.now() - createdAt > 24 * 60 * 60 * 1000
+        if (isExisting) {
+          localStorage.setItem(LS_DONE_KEY, '1')
+          updateDoc(doc(db, 'users', user.uid), { onboardingDone: true }).catch(() => {})
+          setHintStep(0)
+          return
+        }
+        // 진짜 신규 유저
         localStorage.setItem(LS_KEY, '1')
         setHintStep(1)
+      })
+      .catch(() => {
+        // 네트워크 오류 시 온보딩 미표시 (기존 유저 오판 방지)
+        localStorage.setItem(LS_DONE_KEY, '1')
+        setHintStep(0)
       })
   }, [user?.uid])
 

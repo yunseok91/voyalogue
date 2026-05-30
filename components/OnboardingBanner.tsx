@@ -29,8 +29,12 @@ export function OnboardingBanner() {
 
   if (!user || hintStep === 0 || onboardingPaused) return null
 
-  const isOnNewPage      = pathname === '/trips/new'
+  const isOnTripsPage      = pathname === '/trips'
+  const isOnNewPage        = pathname === '/trips/new'
   const isOnTripDetailPage = /^\/trips\/[^/]+$/.test(pathname) && pathname !== '/trips/new'
+
+  // 온보딩은 /trips 계열 페이지에서만 표시
+  if (!isOnTripsPage && !isOnNewPage && !isOnTripDetailPage) return null
 
   // trips/new 페이지에서는 steps 2-5만, trip detail 페이지에서는 steps 6-9만 표시
   if (isOnNewPage      && hintStep >= TRIP_PAGE_STEPS_START) return null
