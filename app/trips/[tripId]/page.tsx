@@ -43,6 +43,7 @@ import { TripNavbar } from '@/components/TripNavbar'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { SlotDropZone } from '@/components/SlotDropZone'
 import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
+import { LottoGame } from '@/components/LottoGame'
 
 /* ── 타입 ── */
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
@@ -180,6 +181,17 @@ const CAT_DISPLAY: Record<Category, string> = {
 }
 
 /* HH:MM → { label: "오전 9:30" | "오후 2:30", isPM: bool } */
+function LottoIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+      <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+      <circle cx="8.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+    </svg>
+  )
+}
+
 function parseItemTime(hhmm: string): { label: string; isPM: boolean } {
   const [hStr, mStr] = hhmm.split(':')
   const h = parseInt(hStr, 10)
@@ -2088,6 +2100,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   })
   const [showWelcome,          setShowWelcome]          = useState(false)
   const [showTreasurerPrompt,  setShowTreasurerPrompt]  = useState(false)
+  const [showLotto,            setShowLotto]            = useState(false)
   const [pendingTreasurer,     setPendingTreasurer]     = useState(false)
 
   // 웰컴/총무 모달이 열려있는 동안 온보딩 콜아웃 숨김
@@ -2294,6 +2307,26 @@ function PlannerContent({ tripId }: { tripId: string }) {
       }
     }
     load()
+  }, [uid, tripId])
+
+  /* ── lotto 실시간 감지 ── */
+  const [lottoActive, setLottoActive] = useState(false)
+  useEffect(() => {
+    if (!uid || !tripId) return
+    const unsub = onSnapshot(doc(db, 'users', uid, 'trips', tripId), snap => {
+      const data = snap.data()
+      const lotto = data?.lotto
+      const valid = lotto && lotto.status && Array.isArray(lotto.participants) && lotto.participants.includes(uid)
+      if (valid) {
+        setLottoActive(true)
+        // 방장은 바로 팝업 오픈, 멤버는 배너만 표시
+        if (lotto.hostUid === uid) setShowLotto(true)
+      } else {
+        setLottoActive(false)
+        setShowLotto(false)
+      }
+    })
+    return unsub
   }, [uid, tripId])
 
   /* ── shareIndex 지연 등록 (기존 여행 마이그레이션 포함) ── */
@@ -3383,6 +3416,46 @@ function PlannerContent({ tripId }: { tripId: string }) {
         </div>
       )}
 
+      {/* ── 총무 뽑기 입장 배너 (방장 제외 멤버) ── */}
+      {lottoActive && !showLotto && meta && (
+        <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-violet-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
+            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+              <LottoIcon className="w-5 h-5 text-violet-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900">총무 뽑기 시작!</p>
+              <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
+            </div>
+            <button
+              onClick={() => setShowLotto(true)}
+              className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors flex-shrink-0"
+            >
+              입장하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 총무 뽑기 게임 ── */}
+      {showLotto && meta && (
+        <LottoGame
+          tripId={tripId}
+          ownerUid={uid}
+          myUid={uid}
+          members={(meta.members ?? []).filter(m => !m.left).map(m => ({
+            id:         m.id,
+            name:       m.name,
+            photoURL:   m.photoURL,
+            colorIndex: m.colorIndex,
+            hexColor:   m.hexColor,
+            role:       m.role,
+          }))}
+          onClose={() => setShowLotto(false)}
+          onAssign={setTreasurer}
+        />
+      )}
+
       {/* ── 총무 지정 프롬프트 ── */}
       {showTreasurerPrompt && (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 pb-8 sm:pb-4" style={{ background: 'rgba(0,0,0,0.45)' }}>
@@ -4194,7 +4267,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             ringColor={ringC}
                           />
                         )}
-                        {!m.left && (
+                        {!m.left && m.id.length > 10 && (
                           <button
                             type="button"
                             onClick={() => setTreasurer(m.id)}
@@ -4342,6 +4415,22 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </button>
                 </div>
               </div>
+
+              {/* 총무 뽑기 — 방장 + 2명 이상일 때 */}
+              {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (
+                <button
+                  onClick={() => setShowLotto(true)}
+                  className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors group"
+                >
+                  <div className="w-8 h-8 rounded-xl bg-violet-100 group-hover:bg-violet-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                    <LottoIcon className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="text-xs font-bold text-violet-700">총무 뽑기</p>
+                    <p className="text-[11px] text-violet-400">랜덤 게임으로 총무를 정해요</p>
+                  </div>
+                </button>
+              )}
 
               {/* 뷰어 링크 */}
               <button onClick={() => copyLink('view')}

@@ -36,6 +36,7 @@ import { GripVertical } from 'lucide-react'
 import { SlotDropZone } from '@/components/SlotDropZone'
 import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
 import { InfoTooltip } from '@/components/InfoTooltip'
+import { LottoGame } from '@/components/LottoGame'
 
 /* ── 타입 (플래너와 동일) ── */
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
@@ -97,6 +98,7 @@ type TripMeta = {
   notice?:              string
   dayBudgets?:          Record<string, number>
   dayRates?:            Record<string, number>
+  lotto?:               Record<string, unknown>
 }
 
 type PlanItem = {
@@ -1043,6 +1045,12 @@ export default function SharePage() {
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
   const [showReport,       setShowReport]       = useState(false)
   const [showMemberPopup,  setShowMemberPopup]  = useState(false)
+  const [showLotto,        setShowLotto]        = useState(false)
+
+  /* 방장이 게임 종료(lotto 제거) 시 멤버 팝업 강제 닫기 */
+  useEffect(() => {
+    if (!(trip?.lotto && (trip.lotto as any).status)) setShowLotto(false)
+  }, [trip?.lotto])
 
   useScrollLock(showAdd || !!editingItem || showSettlement || showReport || showMemberPopup || !!editingFlight || !!editingAcc)
 
@@ -1101,10 +1109,11 @@ export default function SharePage() {
 
       unsub = onSnapshot(doc(db, 'users', uid, 'trips', tripId), snap => {
         if (!snap.exists()) { setNotFound(true); return }
+        const data = snap.data()
         setTrip(prev =>
           prev
-            ? { ...prev, checklist: snap.data().checklist, members: snap.data().members }
-            : { uid, id: tripId, ...(snap.data() as Omit<TripMeta, 'uid' | 'id'>) }
+            ? { ...prev, checklist: data.checklist, members: data.members, lotto: data.lotto }
+            : { uid, id: tripId, ...(data as Omit<TripMeta, 'uid' | 'id'>) }
         )
       })
     }
@@ -3032,6 +3041,51 @@ export default function SharePage() {
 
       {showReport && user && (
         <ReportModal user={user} onClose={() => setShowReport(false)} />
+      )}
+
+      {/* ── 총무 뽑기 입장 배너 (멤버용) ── */}
+      {trip?.lotto && (trip.lotto as any).status && !showLotto && user && Array.isArray((trip.lotto as any).participants) && (trip.lotto as any).participants.includes(user.uid) && (
+        <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-violet-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
+            <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
+              <svg className="w-5 h-5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                <circle cx="12" cy="12" r="1.5" fill="currentColor" stroke="none" />
+                <circle cx="8.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
+                <circle cx="15.5" cy="14.5" r="1" fill="currentColor" stroke="none" />
+              </svg>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900">총무 뽑기 시작!</p>
+              <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
+            </div>
+            <button
+              onClick={() => setShowLotto(true)}
+              className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors flex-shrink-0"
+            >
+              입장하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 총무 뽑기 게임 모달 (멤버용) ── */}
+      {showLotto && trip && user && (
+        <LottoGame
+          tripId={trip.id}
+          ownerUid={trip.uid}
+          myUid={user.uid}
+          members={(trip.members ?? []).filter(m => !m.left).map(m => ({
+            id:         m.id,
+            name:       m.name,
+            photoURL:   m.photoURL,
+            colorIndex: m.colorIndex,
+            hexColor:   m.hexColor,
+            role:       m.role,
+          }))}
+          onClose={() => setShowLotto(false)}
+          onAssign={() => {/* 멤버는 총무 지정 권한 없음 */}}
+        />
       )}
 
       {/* 멤버 목록 팝업 */}

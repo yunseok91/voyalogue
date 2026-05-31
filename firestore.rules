@@ -75,6 +75,12 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['flights', 'accommodations']) &&
         resource.data.editCode is string &&
         exists(/databases/$(database)/documents/shareIndex/$(resource.data.editCode));
+      // 총무 뽑기(lotto): 멤버가 자신의 ready 상태 및 vote 업데이트 허용
+      allow update: if request.auth != null &&
+        request.auth.uid != uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lotto']) &&
+        resource.data.viewCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
     }
 
     // Member invite codes: public read, owner write
