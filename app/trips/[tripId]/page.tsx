@@ -4416,8 +4416,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </div>
               </div>
 
-              {/* 총무 뽑기 — 방장 + 2명 이상일 때 */}
-              {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (
+              {/* 총무 뽑기 — 방장 + 2명 이상 + 여행 종료 전 */}
+              {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (!meta.endDate || new Date(meta.endDate) >= new Date(new Date().toDateString())) && (
                 <button
                   onClick={() => setShowLotto(true)}
                   className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors group"

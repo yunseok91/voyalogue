@@ -319,7 +319,7 @@ export function LottoGame({ tripId, ownerUid, myUid, members, onClose, onAssign 
 
           {/* 게임 선택 (방장만) */}
           {lotto.status === 'selecting' && isHost && (
-            <GameSelector onSelect={handleSelectGame} onBack={() => updateDoc(tripRef, { 'lotto.status': 'waiting' })} />
+            <GameSelector onSelect={handleSelectGame} onBack={() => updateDoc(tripRef, { 'lotto.status': 'waiting' })} participantCount={lotto.participants.length} />
           )}
           {lotto.status === 'selecting' && !isHost && (
             <div className="text-center py-8 flex flex-col items-center gap-3">
