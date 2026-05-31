@@ -2091,7 +2091,7 @@ export default function SharePage() {
                   ? formatLocal(Math.round(daySpent / effectiveRates[primaryCurrency]), primaryCurrency)
                   : formatKRW(daySpent)}`}
               </p>
-              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && canEdit && (
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && (canEdit || isTreasurer) && (
                 <RateWidget
                   currency={primaryCurrency}
                   liveRate={rates[primaryCurrency]}
@@ -2100,7 +2100,7 @@ export default function SharePage() {
                   onReset={() => handleSetDayRate(activeDay.dayId, null)}
                 />
               )}
-              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && !canEdit && (() => {
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && !canEdit && !isTreasurer && (() => {
                 const isCustom = !!(trip?.dayRates ?? {})[activeDay.dayId]
                 const r = effectiveRates[primaryCurrency]
                 return (

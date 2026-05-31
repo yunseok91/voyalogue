@@ -875,10 +875,10 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
         </div>
       ) : (
         /* 단일 Day 모드 또는 기본 — 아침/점심/저녁/미정 범례 */
-        <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-3 py-2 shadow-sm border border-gray-100 flex items-center gap-3">
+        <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm rounded-xl px-2.5 py-1.5 shadow-sm border border-gray-100 flex items-center gap-1.5 max-w-[calc(50%-16px)]">
           {Object.entries(SLOT_COLORS).map(([slot, color]) => (
-            <span key={slot} className="flex items-center gap-1 text-[11px] font-semibold text-gray-600">
-              <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+            <span key={slot} className="flex items-center gap-0.5 text-[10px] font-semibold text-gray-600 whitespace-nowrap">
+              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: color }} />
               {slot}
             </span>
           ))}

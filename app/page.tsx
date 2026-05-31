@@ -208,6 +208,9 @@ export default function LandingPage() {
   }
 
   const displayedReviews = liveReviews ?? REVIEWS
+  const avgRating = displayedReviews.length
+    ? (displayedReviews.reduce((s, r) => s + r.stars, 0) / displayedReviews.length).toFixed(1)
+    : '5.0'
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
@@ -335,19 +338,35 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-3">
               {user ? (
                 <Link href="/trips"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-[26px] text-[15px] transition-colors shadow-lg shadow-blue-600/20">
                   내 여행 시작하기
                 </Link>
               ) : (
                 <Link href="/auth"
-                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-[26px] text-[15px] transition-colors">
-                  새 일정 만들기
+                  className="inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-[26px] text-[15px] transition-colors shadow-lg shadow-blue-600/20">
+                  무료로 시작하기
                 </Link>
               )}
               <button onClick={() => scrollTo('demo')}
                 className="inline-flex items-center justify-center gap-2 px-7 py-3.5 border border-gray-300 text-gray-700 font-medium rounded-[26px] text-[15px] hover:bg-gray-50 transition-colors">
                 ▶&nbsp;&nbsp;데모 보기
               </button>
+            </div>
+
+            {/* 소셜 프루프 마이크로카피 */}
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-gray-400">
+              {[
+                '완전 무료',
+                'Google 계정으로 10초 가입',
+                '신용카드 불필요',
+              ].map(item => (
+                <span key={item} className="flex items-center gap-1.5">
+                  <svg className="w-3.5 h-3.5 text-green-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                  {item}
+                </span>
+              ))}
             </div>
           </motion.div>
 
@@ -381,10 +400,22 @@ export default function LandingPage() {
       </section>
 
       {/* ── Trust strip ───────────────────────────────────────────────────── */}
-      <section className="bg-[#F9FAFB] border-y border-gray-200 py-7">
-        <p className="text-center text-[15px] font-semibold text-gray-400">
-          지금 베타 오픈 — 무료로 사용해보세요
-        </p>
+      <section className="bg-[#F9FAFB] border-y border-gray-200 py-8">
+        <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12">
+          <div className="grid grid-cols-3 divide-x divide-gray-200">
+            {[
+              { icon: '🆓', title: '완전 무료', sub: '베타 기간 모든 기능 무료' },
+              { icon: '⚡', title: '10초 가입', sub: 'Google 계정으로 바로 시작' },
+              { icon: '👥', title: '실시간 공유', sub: '친구와 함께 편집·확인' },
+            ].map(item => (
+              <div key={item.title} className="flex flex-col items-center gap-1 px-4 py-1 text-center">
+                <span className="text-xl">{item.icon}</span>
+                <span className="text-sm font-bold text-gray-700">{item.title}</span>
+                <span className="text-xs text-gray-400 hidden sm:block">{item.sub}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       {/* ── Features ──────────────────────────────────────────────────────── */}
@@ -603,13 +634,68 @@ export default function LandingPage() {
             </div>
 
             {/* Map area */}
-            <div className="flex-1 relative min-h-[380px]">
+            <div className="relative h-[380px] lg:flex-1 lg:h-auto overflow-hidden">
               <TripMap
                 city="파리, 프랑스"
                 items={[]}
                 dayGroups={DEMO_DAY_GROUPS}
               />
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Reviews ───────────────────────────────────────────────────────── */}
+      <section id="reviews" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
+        <div className="max-w-[1440px] mx-auto">
+          <div className="flex flex-col items-center text-center gap-4 mb-16">
+            <Tag color="bg-orange-50 text-orange-600">Reviews</Tag>
+            <h2 className="text-4xl xl:text-[40px] font-extrabold text-gray-900"
+              style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+              여행자들의 솔직한 후기
+            </h2>
+            {/* 종합 평점 */}
+            <div className="flex items-center gap-3 mt-1">
+              <Stars count={5} />
+              <span className="text-base font-extrabold text-gray-800">{avgRating}</span>
+              <span className="text-sm text-gray-400">/ 5.0 · {displayedReviews.length}개 후기</span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+            {displayedReviews.map((r, i) => (
+              <div key={'id' in r ? r.id : r.name + i} className="bg-[#F9FAFB] rounded-2xl p-7 border border-gray-200 flex flex-col gap-5">
+                <Stars count={r.stars} />
+                <p className="text-sm text-gray-700 leading-relaxed flex-1">"{r.text}"</p>
+                <p className="text-xs font-semibold text-gray-400">
+                  {maskName(r.name)}{'trip' in r ? ` · ${r.trip}` : ''}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          {/* 후기 섹션 내 CTA */}
+          <div className="flex flex-col items-center gap-3 mt-14">
+            {user ? (
+              <div className="flex flex-col items-center gap-2">
+                <p className="text-sm text-gray-500">직접 경험해보셨나요?</p>
+                <button
+                  onClick={() => setShowRating(true)}
+                  className="px-6 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  ✍️ 후기 남기기
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col items-center gap-3">
+                <p className="text-sm text-gray-500">지금 바로 사용해보세요</p>
+                <Link href="/auth"
+                  className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-[22px] transition-colors shadow-md shadow-blue-600/20">
+                  무료로 시작하기
+                </Link>
+                <p className="text-xs text-gray-400">신용카드 불필요 · Google 계정으로 10초 가입</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -642,31 +728,6 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── Reviews ───────────────────────────────────────────────────────── */}
-      <section id="reviews" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
-        <div className="max-w-[1440px] mx-auto">
-          <div className="flex flex-col items-center text-center gap-4 mb-16">
-            <Tag color="bg-orange-50 text-orange-600">Reviews</Tag>
-            <h2 className="text-4xl xl:text-[40px] font-extrabold text-gray-900"
-              style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              여행자들의 솔직한 후기
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
-            {displayedReviews.map((r, i) => (
-              <div key={'id' in r ? r.id : r.name + i} className="bg-[#F9FAFB] rounded-2xl p-7 border border-gray-200 flex flex-col gap-5">
-                <Stars count={r.stars} />
-                <p className="text-sm text-gray-700 leading-relaxed flex-1">"{r.text}"</p>
-                <p className="text-xs font-semibold text-gray-400">
-                  {maskName(r.name)}{'trip' in r ? ` · ${r.trip}` : ''}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* ── 광고 2 — 리뷰 하단 / CTA 상단 ── */}
       <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12 py-4 bg-white">
         <AdUnit slot={process.env.NEXT_PUBLIC_ADSENSE_SLOT ?? ''} format="horizontal" className="rounded-xl overflow-hidden" />
@@ -683,6 +744,11 @@ export default function LandingPage() {
           <p className="text-base text-slate-400">
             가입 후 30초, 첫 번째 여행 일정을 바로 만들 수 있습니다.
           </p>
+          {/* 종합 평점 — CTA 섹션 */}
+          <div className="flex items-center gap-2">
+            <Stars count={5} />
+            <span className="text-sm text-slate-400">{avgRating} · {displayedReviews.length}개 후기</span>
+          </div>
           {user ? (
             <Link href="/trips"
               className="inline-flex items-center gap-2 mt-2 px-9 py-4 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-[26px] text-base transition-colors shadow-lg shadow-blue-600/25">

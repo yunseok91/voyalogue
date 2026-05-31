@@ -139,6 +139,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
   const [loading,       setLoading]       = useState(true)
   const [itemsLoading,  setItemsLoading]  = useState(true)
 
+  const [selectedBar,   setSelectedBar]   = useState<number | null>(null)
   const [overallRating, setOverallRating] = useState(0)
   const [review,        setReview]        = useState('')
   const [submitted,     setSubmitted]     = useState(false)
@@ -736,30 +737,62 @@ function SummaryContent({ tripId }: { tripId: string }) {
 
             return (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-6">
-                  <BarChart2 className="w-4 h-4 text-blue-500" />
-                  <h2 className="text-sm font-bold text-gray-900">일별 지출</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <BarChart2 className="w-4 h-4 text-blue-500" />
+                    <h2 className="text-sm font-bold text-gray-900">일별 지출</h2>
+                  </div>
+                  {/* 선택된 바 금액 표시 */}
+                  {selectedBar !== null && dayCatSummary[selectedBar] && (
+                    <div className="flex items-center gap-2 animate-fade-in">
+                      <span className="text-[11px] font-bold text-gray-500">D{selectedBar + 1}</span>
+                      <span className="text-sm font-extrabold text-gray-900">
+                        {dayCatSummary[selectedBar].total > 0
+                          ? formatKRW(dayCatSummary[selectedBar].total)
+                          : '지출 없음'}
+                      </span>
+                      <button
+                        onClick={() => setSelectedBar(null)}
+                        className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-300 transition-colors"
+                      >
+                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* 바 차트 */}
-                <div className="flex items-end gap-2 sm:gap-3" style={{ height: 180 }}>
+                {/* 바 차트 — 일수 많을 때 스크롤 가능 */}
+                <div className="overflow-x-auto">
+                <div
+                  className="flex items-end gap-2"
+                  style={{ height: 180, minWidth: `${dayCatSummary.length * 44}px` }}
+                >
                   {dayCatSummary.map((d, i) => {
                     const barRatio = d.total > 0 ? d.total / maxVal : 0
                     const barH     = barRatio > 0 ? Math.max(barRatio * 148, 16) : 4
-                    // 최대 카테고리 (바 색상 기준)
                     const topCat = CHART_CATS.reduce<string>((best, cat) =>
                       (d.cats[cat] ?? 0) > (d.cats[best] ?? 0) ? cat : best, CHART_CATS[0])
+                    const isSelected = selectedBar === i
 
                     return (
-                      <div key={i} className="flex-1 flex flex-col items-center justify-end gap-1.5" style={{ height: 180 }}>
-                        {/* 금액 레이블 */}
-                        <span className="text-[9px] sm:text-[10px] font-semibold text-gray-500 text-center leading-tight px-0.5 truncate w-full text-center">
+                      <div
+                        key={i}
+                        className="flex-1 min-w-[36px] flex flex-col items-center justify-end gap-1.5 cursor-pointer"
+                        style={{ height: 180 }}
+                        onClick={() => setSelectedBar(isSelected ? null : i)}
+                      >
+                        {/* 금액 레이블 — 선택 시 강조 */}
+                        <span className={`text-[9px] sm:text-[10px] font-semibold text-center leading-tight px-0.5 truncate w-full text-center transition-colors ${
+                          isSelected ? 'text-blue-600' : 'text-gray-400'
+                        }`}>
                           {d.total > 0 ? formatKRW(d.total) : ''}
                         </span>
 
-                        {/* 스택 바 */}
+                        {/* 스택 바 — 선택 시 링 */}
                         <div
-                          className="w-full rounded-t-xl overflow-hidden flex flex-col-reverse transition-all duration-500"
+                          className={`w-full rounded-t-xl overflow-hidden flex flex-col-reverse transition-all duration-300 ${
+                            isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''
+                          }`}
                           style={{ height: barH, minHeight: d.total > 0 ? 16 : 4 }}
                         >
                           {d.total === 0 ? (
@@ -781,13 +814,15 @@ function SummaryContent({ tripId }: { tripId: string }) {
 
                         {/* 날짜 레이블 */}
                         <div className="flex flex-col items-center">
-                          <span className="text-[10px] sm:text-[11px] font-bold text-gray-700">
+                          <span className={`text-[10px] sm:text-[11px] font-bold transition-colors ${
+                            isSelected ? 'text-blue-600' : 'text-gray-700'
+                          }`}>
                             D{i + 1}
                           </span>
                           {d.total > 0 && (
                             <div
                               className="w-1.5 h-1.5 rounded-full mt-0.5"
-                              style={{ backgroundColor: CHART_HEX[topCat] }}
+                              style={{ backgroundColor: isSelected ? '#3B82F6' : CHART_HEX[topCat] }}
                             />
                           )}
                         </div>
@@ -795,6 +830,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
                     )
                   })}
                 </div>
+                </div>{/* overflow-x-auto */}
 
                 {/* 카테고리 범례 */}
                 <div className="flex items-center gap-3 sm:gap-4 mt-5 pt-4 border-t border-gray-100 flex-wrap">
