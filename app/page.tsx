@@ -15,9 +15,9 @@ import { TripMap, type DayGroup, DAY_COLORS } from '@/components/TripMap'
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const NAV_LINKS = [
-  { label: '기능', href: '#features' },
-  { label: '사용법', href: '#how' },
-  { label: '후기', href: '#reviews' },
+  { label: '서비스 소개', href: '#features' },
+  { label: '사용 가이드', href: '#how' },
+  { label: '사용자 리뷰', href: '#reviews' },
 ]
 
 const FEATURES = [
