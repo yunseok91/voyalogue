@@ -15,65 +15,90 @@ import { TripMap, type DayGroup, DAY_COLORS } from '@/components/TripMap'
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const NAV_LINKS = [
-  { label: '여행지 탐색', href: '#features' },
-  { label: '일정 만들기', href: '#how' },
-  { label: '커뮤니티', href: '#reviews' },
+  { label: '기능', href: '#features' },
+  { label: '사용법', href: '#how' },
+  { label: '후기', href: '#reviews' },
 ]
 
 const FEATURES = [
   {
-    icon: '✨',
+    iconPath: (
+      <svg className="w-5 h-5 text-violet-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z"/>
+        <path d="M18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z"/>
+      </svg>
+    ),
     bg: 'bg-violet-50',
-    title: 'AI가 짜주는 맞춤 일정',
-    desc: '취향·예산·인원·교통수단을 입력하면 AI가 최적의 여행 일정을 자동으로 생성해 드립니다. 단 1분이면 완성.',
+    title: 'AI 일정 초안',
+    desc: '목적지·기간·인원만 입력하면 하루 코스가 나와요. 마음에 안 드는 건 바로 수정하면 됩니다.',
   },
   {
-    icon: '🗺️',
+    iconPath: (
+      <svg className="w-5 h-5 text-teal-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 6.75V15m6-6v8.25m.503 3.498l4.875-2.437c.381-.19.622-.58.622-1.006V4.82c0-.836-.88-1.38-1.628-1.006l-3.869 1.934c-.317.159-.69.159-1.006 0L9.503 3.252a1.125 1.125 0 00-1.006 0L3.622 5.689C3.24 5.88 3 6.27 3 6.695V19.18c0 .836.88 1.38 1.628 1.006l3.869-1.934c.317-.159.69-.159 1.006 0l4.994 2.497c.317.158.69.158 1.006 0z"/>
+      </svg>
+    ),
     bg: 'bg-teal-50',
-    title: '지도로 보는 전체 동선',
-    desc: '국내는 카카오맵, 해외는 구글맵. 장소를 추가할 때마다 지도에 핀이 그려지고 날짜별 경로를 한눈에 확인할 수 있어요.',
+    title: '지도 위 동선 확인',
+    desc: '장소를 추가하는 순간 지도에 핀이 찍혀요. 동선이 너무 멀거나 겹치는지 한눈에 보입니다.',
   },
   {
-    icon: '👥',
+    iconPath: (
+      <svg className="w-5 h-5 text-orange-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+      </svg>
+    ),
     bg: 'bg-orange-50',
-    title: '친구와 함께 계획하기',
-    desc: '초대 링크로 일행을 불러 함께 일정을 보고 수정하세요. 실시간으로 함께 편집하고 완성된 일정을 공유할 수 있어요.',
+    title: '링크 하나로 같이 짜기',
+    desc: '초대 링크 보내면 친구도 바로 들어와서 같이 편집해요. 카톡 대신 여기서 정하면 됩니다.',
   },
   {
-    icon: '👑',
+    iconPath: (
+      <svg className="w-5 h-5 text-amber-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12a2.25 2.25 0 00-2.25-2.25H15a3 3 0 11-6 0H5.25A2.25 2.25 0 003 12m18 0v6a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 18v-6m18 0V9M3 12V9m18 0a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 9m18 0V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v3"/>
+      </svg>
+    ),
     bg: 'bg-amber-50',
-    title: '총무 기능으로 정산 끝',
-    desc: '그룹 여행의 골칫거리, 돈 계산. 총무를 지정하면 여행 경비를 한 곳에서 관리하고 1인당 정산 금액을 자동으로 계산해드려요.',
+    title: '총무가 정산까지',
+    desc: '총무 한 명이 지출 입력하면 1인당 금액이 자동으로 나와요. 여행 끝나고 돈 얘기 안 해도 됩니다.',
   },
   {
-    icon: '📊',
+    iconPath: (
+      <svg className="w-5 h-5 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+      </svg>
+    ),
     bg: 'bg-blue-50',
-    title: '예산 & 지출 한눈에',
-    desc: '여행 예산을 설정하고 지출을 실시간으로 기록하세요. 날짜별 소비 현황과 남은 예산을 대시보드에서 바로 확인할 수 있어요.',
+    title: '예산 쓸 때마다 기록',
+    desc: '얼마 썼는지 그때그때 기록하면 남은 예산이 보여요. 날짜별로 얼마 썼는지도 확인됩니다.',
   },
   {
-    icon: '⭐',
+    iconPath: (
+      <svg className="w-5 h-5 text-yellow-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/>
+      </svg>
+    ),
     bg: 'bg-yellow-50',
-    title: '장소별 별점으로 기록',
-    desc: '방문한 장소마다 별점과 메모를 남겨보세요. 여행이 끝나면 최고의 순간만 모은 나만의 여행 리포트가 자동으로 완성됩니다.',
+    title: '여행 끝나면 리포트',
+    desc: '갔던 곳마다 별점 남기면 여행 리포트가 만들어져요. 어떤 하루가 제일 좋았는지 돌아볼 수 있어요.',
   },
 ]
 
 const STEPS = [
   {
     n: '1',
-    title: '도시 선택',
-    desc: '가고 싶은 나라·도시를 검색하고 여행 기간과 함께하는 인원을 설정하세요.',
+    title: '어디 갈지 정하기',
+    desc: '도시 검색해서 날짜·인원 설정하면 끝이에요. 여러 여행을 따로 관리할 수 있어요.',
   },
   {
     n: '2',
-    title: '장소 추가',
-    desc: '아침·점심·저녁별로 가고 싶은 장소를 검색해 추가하세요. 지도에서 동선이 자동으로 그려집니다.',
+    title: '장소 하나씩 넣기',
+    desc: '아침·점심·저녁 슬롯에 가고 싶은 곳 검색해서 추가하면 지도에 바로 반영돼요.',
   },
   {
     n: '3',
-    title: '공유 & 출발',
-    desc: '완성된 일정을 초대 링크로 친구에게 공유하세요. 이제 여행만 즐기면 됩니다.',
+    title: '링크 보내고 출발',
+    desc: '친구한테 링크 하나 보내면 같이 볼 수 있어요. 일정은 여기 있으니 이제 짐만 싸세요.',
   },
 ]
 
@@ -115,20 +140,20 @@ const DEMO_DAY_GROUPS: DayGroup[] = [
 const REVIEWS = [
   {
     name: '김지수',
-    trip: '파리 5일 여행',
-    text: '일정 짜는 게 이렇게 쉬운 적이 없었어요. 지도에서 바로 동선이 보여서 너무 편했습니다!',
+    trip: '파리 5일',
+    text: '구글맵이랑 노션이랑 카톡 다 열어놓고 짜다가 이거 쓰니까 훨씬 편했어요. 지도 보면서 동선 맞추는 게 직관적이에요.',
     stars: 5,
   },
   {
     name: '박민준',
-    trip: '제주도 3일 여행',
-    text: '아침·점심·저녁 구분이 정말 유용해요. 지도에서 동선이 바로 보여서 겹치는 일정 없이 짤 수 있었어요.',
+    trip: '제주도 3일',
+    text: '아침 점심 저녁 슬롯으로 나눠서 넣으니까 하루가 너무 빡빡해지는 걸 방지할 수 있었어요.',
     stars: 5,
   },
   {
     name: '이현아',
-    trip: '오사카 4일 여행',
-    text: '친구 4명이 같이 편집하면서 일정 짰는데 충돌 없이 너무 잘 됐어요. 앞으로도 쓸 것 같아요.',
+    trip: '오사카 4일',
+    text: '여럿이 같이 쓰는 게 신기했어요. 각자 가고 싶은 곳 추가해서 합치는 식으로 쓰니까 의견 충돌도 없었고.',
     stars: 5,
   },
 ]
@@ -315,24 +340,27 @@ export default function LandingPage() {
             transition={{ duration: 0.55, ease: 'easeOut' }}>
 
             <div className="inline-flex">
-              <span className="px-4 py-1.5 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold">
-                ✈&nbsp;&nbsp;Smart Travel Planner
+              <span className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-blue-50 text-blue-600 text-xs font-semibold">
+                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2c-.5.1-.9.6-.8 1.1l1 4.5c.1.4.4.7.8.8l3.5.5 1 3.4c.1.4.4.7.8.8l4.5 1c.5.1 1-.3 1.1-.8z"/>
+                </svg>
+                여행 플래너
               </span>
             </div>
 
             <div className="flex flex-col gap-0">
               <h1 className="text-4xl sm:text-5xl xl:text-[72px] font-extrabold text-gray-900 leading-[1.1]"
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                나만의 완벽한<br />여행 계획,
+                여행 일정은
               </h1>
               <h2 className="text-4xl sm:text-5xl xl:text-[72px] font-extrabold text-blue-600 leading-[1.1]"
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                가장 쉽게.
+                같이 짜야죠.
               </h2>
             </div>
 
             <p className="text-lg text-gray-500 leading-relaxed max-w-[480px]">
-              복잡한 일정 짜기는 이제 그만. 항공권부터 숙소, 일별<br className="hidden sm:block" />코스까지 한 번에 계획하세요.
+              지도로 보는 동선, 링크 하나로 공유, 정산까지.<br className="hidden sm:block" />여행 앱이 이래도 되나 싶을 거예요.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-3">
@@ -404,12 +432,24 @@ export default function LandingPage() {
         <div className="max-w-[1440px] mx-auto px-4 sm:px-8 lg:px-12">
           <div className="grid grid-cols-3 divide-x divide-gray-200">
             {[
-              { icon: '🆓', title: '완전 무료', sub: '베타 기간 모든 기능 무료' },
-              { icon: '⚡', title: '10초 가입', sub: 'Google 계정으로 바로 시작' },
-              { icon: '👥', title: '실시간 공유', sub: '친구와 함께 편집·확인' },
+              {
+                icon: <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>,
+                title: '완전 무료',
+                sub: '베타 기간 모든 기능 무료'
+              },
+              {
+                icon: <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>,
+                title: '10초 가입',
+                sub: 'Google 계정으로 바로 시작'
+              },
+              {
+                icon: <svg className="w-4 h-4 text-blue-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>,
+                title: '링크로 공유',
+                sub: '친구와 함께 편집·확인'
+              },
             ].map(item => (
-              <div key={item.title} className="flex flex-col items-center gap-1 px-4 py-1 text-center">
-                <span className="text-xl">{item.icon}</span>
+              <div key={item.title} className="flex flex-col items-center gap-1.5 px-4 py-1 text-center">
+                <div className="w-7 h-7 rounded-full bg-blue-50 flex items-center justify-center">{item.icon}</div>
                 <span className="text-sm font-bold text-gray-700">{item.title}</span>
                 <span className="text-xs text-gray-400 hidden sm:block">{item.sub}</span>
               </div>
@@ -422,24 +462,24 @@ export default function LandingPage() {
       <section id="features" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
           <div className="flex flex-col items-center text-center gap-4 mb-16">
-            <Tag color="bg-blue-50 text-blue-600">Features</Tag>
+            <Tag color="bg-blue-50 text-blue-600">기능</Tag>
             <h2 className="text-4xl xl:text-[44px] font-extrabold text-gray-900"
               style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              여행 준비가 즐거워집니다
+              이런 것들이 됩니다
             </h2>
             <p className="text-base text-gray-500 max-w-[780px]">
-              Voyalogue와 함께라면 스트레스 없이 완벽한 일정을 세울 수 있습니다.
+              일정 짜는 것부터 여행 끝나고 정리하는 것까지 한 곳에서 다 됩니다.
             </p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
             {FEATURES.map(f => (
               <div key={f.title}
-                className="bg-white rounded-[20px] p-8 border border-gray-200 hover:shadow-md transition-shadow flex flex-col gap-5">
-                <div className={`w-12 h-12 rounded-xl ${f.bg} flex items-center justify-center text-2xl`}>
-                  {f.icon}
+                className="bg-white rounded-[20px] p-7 border border-gray-100 hover:border-gray-200 hover:shadow-md transition-all flex flex-col gap-4">
+                <div className={`w-10 h-10 rounded-xl ${f.bg} flex items-center justify-center`}>
+                  {f.iconPath}
                 </div>
-                <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                <h3 className="text-base font-bold text-gray-900">
                   {f.title}
                 </h3>
                 <p className="text-sm text-gray-500 leading-relaxed">{f.desc}</p>
@@ -461,20 +501,21 @@ export default function LandingPage() {
               </div>
               <h2 className="text-4xl xl:text-[44px] font-extrabold text-gray-900 leading-tight"
                 style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                몇 가지 질문에 답하면<br />AI가 일정을 완성해요
+                어디 갈지 정했으면<br />일정은 AI한테 맡겨요
               </h2>
               <p className="text-base text-gray-500 leading-relaxed max-w-[480px]">
-                여행지, 기간, 인원, 취향만 입력하세요. Gemini AI가 식사 · 관광 · 이동을 고려해 하루하루 최적의 코스를 짜드립니다.
+                여행지, 기간, 인원, 취향 입력하면 Gemini AI가 하루하루 코스 초안을 만들어줘요. 마음에 드는 것만 남기고 수정하면 됩니다.
               </p>
               <ul className="flex flex-col gap-3">
                 {[
-                  '✈️  목적지와 여행 기간 설정',
-                  '🎯  취향 · 예산 · 교통수단 선택',
-                  '🗓️  AI가 날짜별 코스 자동 완성',
-                  '📍  지도에서 전체 동선 바로 확인',
+                  { icon: <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2c-.5.1-.9.6-.8 1.1l1 4.5c.1.4.4.7.8.8l3.5.5 1 3.4c.1.4.4.7.8.8l4.5 1c.5.1 1-.3 1.1-.8z"/></svg>, text: '목적지와 여행 기간 입력' },
+                  { icon: <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/></svg>, text: '취향·예산·교통수단 선택' },
+                  { icon: <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>, text: 'AI가 날짜별 코스 초안 작성' },
+                  { icon: <svg className="w-4 h-4 text-blue-500 flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>, text: '지도에서 동선 확인 후 조정' },
                 ].map(item => (
-                  <li key={item} className="flex items-center gap-2.5 text-sm text-gray-700">
-                    <span>{item}</span>
+                  <li key={item.text} className="flex items-center gap-2.5 text-sm text-gray-700">
+                    {item.icon}
+                    <span>{item.text}</span>
                   </li>
                 ))}
               </ul>
@@ -551,13 +592,13 @@ export default function LandingPage() {
       <section id="how" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
           <div className="flex flex-col items-center text-center gap-4 mb-12 sm:mb-16">
-            <Tag color="bg-green-100 text-green-700">How it works</Tag>
+            <Tag color="bg-green-100 text-green-700">사용법</Tag>
             <h2 className="text-4xl xl:text-[44px] font-extrabold text-gray-900"
               style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              3분 만에 완성되는 여행 계획
+              이렇게 쓰면 됩니다
             </h2>
             <p className="text-base text-gray-500 max-w-[720px]">
-              복잡한 과정은 없습니다. 단 세 단계로 완벽한 일정을 만드세요.
+              세 단계면 일정 완성이에요. 어렵지 않아요.
             </p>
           </div>
 
@@ -615,7 +656,11 @@ export default function LandingPage() {
                     <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 ${
                       item.type === 'flight' ? 'bg-sky-500' : item.type === 'hotel' ? 'bg-amber-700' : item.active ? 'bg-blue-600' : 'bg-gray-400'
                     }`}>
-                      {item.type === 'flight' ? '✈' : item.type === 'hotel' ? '🏠' : item.n}
+                      {item.type === 'flight'
+                        ? <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M17.8 19.2L16 11l3.5-3.5C21 6 21 4 19 2c-2-2-4-2-5.5-.5L10 5 1.8 6.2c-.5.1-.9.6-.8 1.1l1 4.5c.1.4.4.7.8.8l3.5.5 1 3.4c.1.4.4.7.8.8l4.5 1c.5.1 1-.3 1.1-.8z"/></svg>
+                        : item.type === 'hotel'
+                        ? <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                        : item.n}
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-gray-900">{item.name} · {item.time}</p>
@@ -649,10 +694,10 @@ export default function LandingPage() {
       <section id="reviews" className="py-16 sm:py-28 px-4 sm:px-8 lg:px-12 bg-white">
         <div className="max-w-[1440px] mx-auto">
           <div className="flex flex-col items-center text-center gap-4 mb-16">
-            <Tag color="bg-orange-50 text-orange-600">Reviews</Tag>
+            <Tag color="bg-orange-50 text-orange-600">후기</Tag>
             <h2 className="text-4xl xl:text-[40px] font-extrabold text-gray-900"
               style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-              여행자들의 솔직한 후기
+              써본 사람들 얘기
             </h2>
             {/* 종합 평점 */}
             <div className="flex items-center gap-3 mt-1">
@@ -681,9 +726,12 @@ export default function LandingPage() {
                 <p className="text-sm text-gray-500">직접 경험해보셨나요?</p>
                 <button
                   onClick={() => setShowRating(true)}
-                  className="px-6 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-2 px-6 py-2.5 rounded-full border border-gray-300 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors"
                 >
-                  ✍️ 후기 남기기
+                  <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                  </svg>
+                  후기 남기기
                 </button>
               </div>
             ) : (
@@ -739,10 +787,10 @@ export default function LandingPage() {
         <div className="relative max-w-[880px] mx-auto flex flex-col items-center text-center gap-6">
           <h2 className="text-4xl xl:text-[52px] font-extrabold text-white leading-tight"
             style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-            지금 무료로 시작하세요.
+            한번 써보세요.
           </h2>
           <p className="text-base text-slate-400">
-            가입 후 30초, 첫 번째 여행 일정을 바로 만들 수 있습니다.
+            Google 계정으로 10초면 시작할 수 있어요. 무료입니다.
           </p>
           {/* 종합 평점 — CTA 섹션 */}
           <div className="flex items-center gap-2">

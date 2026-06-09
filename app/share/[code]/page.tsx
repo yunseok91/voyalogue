@@ -384,19 +384,21 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         <div className="flex flex-col gap-1 flex-shrink-0">
           {onEdit && (
             <button
+              onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-bold text-emerald-600 bg-emerald-50 active:bg-emerald-100 rounded-lg transition-all"
             >
-              <Receipt className="w-3 h-3" />
+              <Receipt className="w-3.5 h-3.5" />
               <span>내역</span>
             </button>
           )}
           {onEdit && (
             <button
+              onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-all"
+              className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-semibold text-gray-400 active:text-gray-700 active:bg-gray-100 rounded-lg transition-all"
             >
-              <Edit2 className="w-3 h-3" />
+              <Edit2 className="w-3.5 h-3.5" />
               <span>수정</span>
             </button>
           )}
