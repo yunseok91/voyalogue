@@ -123,7 +123,7 @@ export default function AboutPage() {
         <div className="bg-blue-600 rounded-2xl p-8 sm:p-12 text-white">
           <h2 className="text-xl font-extrabold mb-2" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>문의 및 피드백</h2>
           <p className="text-blue-100 text-sm leading-relaxed mb-4">
-            서비스 이용 중 불편한 점이나 개선 제안이 있으시면 언제든지 문의해주세요.
+            서비스 이용 중 불편한 점이나 개선 제안이 있으시면 언제든지 문의해주세요.<br></br>
             사용자 의견을 바탕으로 더 좋은 서비스를 만들어나가겠습니다.
           </p>
           <a href="mailto:lyuns1105@gmail.com"

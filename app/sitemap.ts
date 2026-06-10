@@ -70,6 +70,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'monthly',
       priority: 0.7,
     },
+    // 신규 가이드 15개
+    ...([
+      'osaka-travel', 'tokyo-travel', 'danang-travel', 'bali-travel',
+      'bangkok-travel', 'jeju-travel', 'travel-exchange-tips', 'cheap-flights',
+      'sim-card-guide', 'travel-insurance', 'duty-free-guide',
+      'group-travel-settlement', 'group-travel-planning', 'couple-travel-budget',
+    ].map(slug => ({
+      url: `${BASE_URL}/guide/${slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.8,
+    }))),
     {
       url: `${BASE_URL}/auth`,
       lastModified: new Date(),

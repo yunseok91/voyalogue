@@ -606,13 +606,8 @@ export default function LandingPage() {
             {STEPS.map((s, i) => (
               <div key={s.n} className="flex flex-col gap-5">
                 <div className="bg-white rounded-[20px] p-8 border border-gray-200 flex flex-col gap-5 h-full">
-                  <div className="flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-full bg-blue-600 text-white text-base font-bold flex items-center justify-center flex-shrink-0">
-                      {s.n}
-                    </div>
-                    {i < 2 && (
-                      <span className="hidden md:block ml-auto text-2xl text-gray-300 pr-2">→</span>
-                    )}
+                  <div className="w-9 h-9 rounded-full bg-blue-600 text-white text-base font-bold flex items-center justify-center flex-shrink-0">
+                    {s.n}
                   </div>
                   <h3 className="text-xl font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
                     {s.title}
