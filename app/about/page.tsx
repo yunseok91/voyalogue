@@ -67,7 +67,7 @@ export default function AboutPage() {
             <div className="w-5 h-5 rounded-full bg-blue-600" />
             <span className="font-bold text-gray-900" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>Voyalogue</span>
           </Link>
-          <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">← 홈으로</Link>
+          <Link href="/" className="text-sm text-gray-500 hover:text-gray-900 transition-colors">홈으로</Link>
         </div>
       </header>
 
