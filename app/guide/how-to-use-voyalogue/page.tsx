@@ -107,6 +107,46 @@ export default function HowToUseVoyaloguePage() {
             ))}
           </div>
 
+          <div className="mt-10 flex flex-col gap-8">
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">총무 기능 — 여행 정산이 이렇게 편해진다</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>여럿이 여행하면 돈 정산이 제일 번거롭다. 누가 얼마 냈는지, 항공권은 어떻게 나누는지, 현지에서 쓴 돈은 어떻게 합산하는지 — 이걸 엑셀로 하거나 카카오톡으로 공유하면 금방 복잡해진다. Voyalogue의 총무 기능은 이 과정을 많이 단순하게 만들어준다.</p>
+                <p><strong className="text-gray-800">총무 지정 방법:</strong> 여행 멤버 목록에서 총무 역할을 맡을 사람에게 총무 권한을 부여하면 된다. 총무는 지출 내역을 직접 입력하고 수정할 수 있다. 총무 뽑기 기능(폭탄 돌리기, 달리기 레이스, 투표 등 미니게임 방식)으로 재미있게 총무를 정할 수도 있다.</p>
+                <p><strong className="text-gray-800">정산 방식:</strong> 날짜별로 지출을 입력하면 1인당 금액이 자동으로 계산된다. 항공권이나 숙소 같은 고정 비용도 정산에 포함시킬 수 있고, 특정 멤버만 참여한 항목(일부가 가지 않은 투어 등)은 참여자만 분담하도록 설정할 수 있다. 해외 여행이라면 날짜별 환율을 직접 설정해 더 정확하게 계산할 수 있다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">여행 리포트 — 다녀온 여행을 정리하는 방법</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>여행을 다녀오고 나면 어떤 하루가 제일 좋았는지, 어디서 얼마를 썼는지 기억이 희미해진다. 여행 중 별점을 남겨두면 여행 리포트에서 이걸 정리해서 볼 수 있다.</p>
+                <p><strong className="text-gray-800">별점 남기기:</strong> 일정 항목마다 별점(1~5점)을 남길 수 있다. 함께 여행한 멤버들도 각자 별점을 남기면 평균 별점으로 표시된다. 나중에 리포트에서 베스트 장소 순위를 볼 수 있다.</p>
+                <p><strong className="text-gray-800">여행 리포트 내용:</strong> 총 지출 및 1인당 지출, 카테고리별(식사·관광·교통·쇼핑) 지출 비율, 날짜별 지출 그래프, 방문한 장소 별점 순위, 날짜별 하이라이트 등이 자동으로 정리된다. 여행 후 공유하기에도 좋다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">자주 묻는 질문</h2>
+              <div className="flex flex-col gap-5">
+                {[
+                  { q: '멤버가 직접 일정을 편집할 수 있나요?', a: '초대 링크 방식에 따라 다릅니다. 편집 권한이 있는 링크로 합류한 멤버는 일정을 직접 수정할 수 있어요. 보기 전용 링크로 합류하면 조회만 가능합니다.' },
+                  { q: '여행 중에 스마트폰으로 바로 쓸 수 있나요?', a: '네, 모바일 브라우저에 최적화되어 있어 앱 설치 없이도 스마트폰에서 편리하게 사용할 수 있습니다. 홈 화면에 추가해두면 앱처럼 빠르게 접근할 수 있어요.' },
+                  { q: '여러 여행을 동시에 관리할 수 있나요?', a: '가능합니다. 여행 목록에서 여러 개의 여행을 만들어 각각 관리할 수 있어요. 과거 여행도 기록으로 남겨두고 나중에 다시 볼 수 있습니다.' },
+                  { q: '인터넷이 없을 때도 일정을 볼 수 있나요?', a: '현재는 인터넷 연결이 필요합니다. 해외에서는 유심이나 포켓 와이파이를 이용해 연결을 유지하는 것을 권장해요.' },
+                  { q: 'Voyalogue는 무료인가요?', a: '베타 기간 동안 모든 기능을 무료로 사용할 수 있습니다. Google 계정만 있으면 바로 시작할 수 있어요.' },
+                ].map(item => (
+                  <div key={item.q} className="border border-gray-100 rounded-xl px-5 py-4">
+                    <p className="text-sm font-bold text-gray-900 mb-1.5">Q. {item.q}</p>
+                    <p className="text-sm text-gray-500 leading-relaxed">A. {item.a}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+          </div>
+
           <div className="mt-12 pt-8 border-t border-gray-100 bg-blue-50 rounded-xl p-5">
             <p className="text-sm font-bold text-gray-900 mb-1">지금 바로 시작해보세요</p>
             <p className="text-sm text-gray-500 mb-3">Google 계정만 있으면 무료로 시작할 수 있습니다. 첫 여행 일정을 AI로 자동 생성해보세요.</p>

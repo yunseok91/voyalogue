@@ -95,6 +95,38 @@ export default function JapanTravelPage() {
             </section>
 
             <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🌸 언제 가는 게 좋을까</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p><strong className="text-gray-800">벚꽃 시즌 (3월 말~4월 초):</strong> 일본 여행 성수기 중에서도 가장 인기 많은 시기다. 도쿄 기준으로 보통 3월 25일~4월 5일 사이가 만개 기간인데, 해마다 조금씩 다르다. 우에노 공원, 메구로강, 치도리가후치 주변이 벚꽃 명소로 유명하다. 단, 이 시기엔 항공권과 숙소 가격이 평소보다 2~3배 뛰고 예약도 금방 마감되니 최소 두 달 전엔 잡아야 한다.</p>
+                <p><strong className="text-gray-800">여름 (7~8월):</strong> 솔직히 일본 여름은 굉장히 덥고 습하다. 도쿄 기준 낮 최고 기온이 35도를 넘는 날도 많고, 체감은 더 높다. 그래도 불꽃놀이 축제(하나비 대회), 여름 마쓰리(축제), 유카타 입고 다니는 분위기가 있어서 이 시기만의 매력이 있다. 체력이 된다면 나름 특별한 경험이 가능하다.</p>
+                <p><strong className="text-gray-800">가을 단풍 (11월):</strong> 벚꽃 다음으로 인기 많은 시기다. 교토의 단풍이 특히 유명한데, 기요미즈데라, 난젠지, 아라시야마 일대가 붉게 물드는 11월 중순~하순이 절정이다. 이 시기 교토는 사람이 너무 많아 주요 명소 앞에서 줄을 꽤 서야 한다.</p>
+                <p><strong className="text-gray-800">겨울 (12~2월):</strong> 비수기라 항공권과 숙소가 상대적으로 저렴하다. 삿포로 눈 축제(2월), 온천 여행을 즐기기 좋은 시기다. 도쿄·오사카는 영하까지 내려가지 않아 두꺼운 패딩 하나면 충분하다. 홋카이도 쪽은 다른 이야기지만.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🍜 일본에서 꼭 먹어봐야 할 것들</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>일본 음식의 수준이 높다는 건 두말할 것도 없는데, 처음 가는 사람이 어디서 뭘 먹어야 할지 막막할 수 있다. 유명 맛집보다 오히려 동네 중견 가게들이 훨씬 맛있는 경우가 많다.</p>
+                <p><strong className="text-gray-800">라멘:</strong> 지역마다 스타일이 다르다. 도쿄는 간장 기반 소유 라멘, 삿포로는 미소 라멘, 하카타(후쿠오카)는 돼지뼈 육수 돈코츠 라멘이 유명하다. 한 그릇에 1,000~1,400엔 정도. 줄이 길어도 보통 30분 이내라 기다릴 만하다. 자판기로 식권 뽑는 방식이 많으니 영어 버튼이나 사진을 찾아보자.</p>
+                <p><strong className="text-gray-800">편의점 음식:</strong> 과소평가하기 쉬운데, 일본 편의점(세븐일레븐, 로손, 패밀리마트)의 음식은 진짜 수준급이다. 주먹밥(오니기리) 한 개에 150~200엔, 따뜻한 만두나 어묵도 100~200엔 수준이다. 아침식사로 편의점 활용하면 하루 식비를 크게 줄일 수 있다.</p>
+                <p><strong className="text-gray-800">이자카야:</strong> 저녁에 동네 이자카야 한 번은 꼭 가보길 추천한다. 혼자 가도 어색하지 않고, 맥주 한 잔에 야키토리(닭꼬치) 몇 개 시켜놓으면 2,000~3,000엔으로 만족스러운 저녁이 된다. 관광지 근처보다 주택가 골목 이자카야가 훨씬 저렴하고 현지 분위기도 난다.</p>
+                <p><strong className="text-gray-800">주의할 점:</strong> 일본 식당은 테이블에 앉으면 물과 오시보리(물수건)가 나오는데 이건 무료다. 그리고 식사 중 팁은 주지 않는다. 오히려 팁을 놓고 나오면 쫓아나와서 돌려주는 경우도 있다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🎌 알아두면 편한 일본 생활 팁</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p><strong className="text-gray-800">현금은 필수:</strong> 일본은 2025년에도 현금 사용 비중이 생각보다 높다. 작은 식당, 신사, 지방 가게 중에 카드를 아예 안 받는 곳이 있다. 세븐일레븐 ATM에서 해외 카드로 엔화 인출이 가능한데, 수수료가 비교적 낮은 편이다. 20,000~30,000엔 정도는 현금으로 준비해두자.</p>
+                <p><strong className="text-gray-800">온천(오후로) 에티켓:</strong> 온천이나 목욕탕에 처음 가면 헷갈릴 수 있다. 들어가기 전에 반드시 몸을 씻어야 하고, 수건을 물에 담그면 안 된다. 타투가 있으면 입장 제한하는 곳이 많으니 미리 확인하자.</p>
+                <p><strong className="text-gray-800">쓰레기통이 없다:</strong> 일본 거리에 쓰레기통이 거의 없다. 편의점에서 산 음식 쓰레기는 편의점 쓰레기통에 버릴 수 있고, 아니면 숙소로 가져가야 한다. 길거리에서 먹으면서 걷는 것도 일부 관광지를 제외하고는 자제하는 편이다.</p>
+                <p><strong className="text-gray-800">신사 예절:</strong> 신사 입구 도리이를 통과할 땐 가볍게 고개를 숙이는 게 예의다. 물 뜨는 곳(데미즈야)에서 손을 씻는 순서도 있는데 몰라도 크게 문제없다. 소원을 비는 곳에서 박수를 치는 건 일반적인 모습이라 같이 해봐도 좋다.</p>
+                <p><strong className="text-gray-800">전철에서:</strong> 일본 전철에서는 통화는 삼가고 음식도 먹지 않는 게 기본이다. 조용한 분위기에 익숙해지면 오히려 편하다. 혼잡한 시간대(오전 7~9시, 오후 6~8시)엔 탑승객이 엄청나니 이 시간대 이동은 최대한 피하자.</p>
+              </div>
+            </section>
+
+            <section>
               <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">📱 유용한 앱 & 팁</h2>
               <ul className="text-sm text-gray-600 leading-relaxed flex flex-col gap-2">
                 <li>• <strong className="text-gray-800">Google Maps</strong> — 일본 대중교통 경로 안내, 실시간 운행 정보 제공</li>

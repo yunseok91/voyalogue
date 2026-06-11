@@ -95,6 +95,45 @@ export default function EuropeTravelPage() {
             </section>
 
             <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🇬🇧 런던, 영국 (3~4일)</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>런던은 유럽 여행 중 물가가 가장 비싼 도시 중 하나다. 밥 한 끼에 15~25파운드(25,000~42,000원)는 기본으로 생각해야 하고, 교통비도 만만치 않다. 그래도 대영박물관, 내셔널 갤러리, 테이트 모던 같은 주요 박물관이 무료라는 게 큰 장점이다.</p>
+                <p><strong className="text-gray-800">필수 명소:</strong> 빅벤과 웨스트민스터 다리, 타워브리지, 버킹엄 궁전 근위병 교대식(오전 11시, 매일은 아님), 코벤트 가든, 노팅힐 포토벨로 마켓(토요일). 해리포터 스튜디오 투어는 런던 외곽에 있는데 미리 예약 안 하면 입장권 구하기 힘드니 계획이 있다면 출발 전에 예약해두자.</p>
+                <p><strong className="text-gray-800">교통:</strong> 오이스터 카드(Oyster Card)나 비자/마스터카드 컨택트리스 결제가 가능하다. 하루 최대 금액이 정해져 있어 여러 번 타도 일정 금액 이상은 안 나온다. 지하철(튜브)보다 버스가 시내 구경하기는 훨씬 좋다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🇨🇿 동유럽도 고려해보자 (프라하, 부다페스트)</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>예산이 빠듯하거나 서유럽에서 느끼는 관광지화된 분위기가 싫다면 동유럽을 강력 추천한다. 물가가 파리의 절반 이하고, 유럽 분위기는 충분히 느낄 수 있다.</p>
+                <p><strong className="text-gray-800">프라하:</strong> 체코 수도. 구시가지 광장과 천문 시계탑, 프라하 성, 카를 다리가 핵심이다. 관광지인데도 밥 한 끼에 10,000~15,000원이면 먹을 수 있고, 체코 맥주는 물보다 싸다는 말이 있을 정도로 저렴하다. 2박 3일이면 주요 명소는 다 돌 수 있다.</p>
+                <p><strong className="text-gray-800">부다페스트:</strong> 헝가리 수도. 다뉴브 강을 사이에 두고 부다 지구와 페스트 지구로 나뉜다. 국회의사당 야경이 압도적이고, 세체니 온천이 유명하다. 루인 바(Ruin Bar)라는 독특한 분위기의 술집 문화도 흥미롭다. 프라하보다도 물가가 더 저렴하다.</p>
+                <p>두 도시는 야간 버스나 기차로 연결되어 있어 묶어서 여행하기 좋다. 빈(오스트리아)을 중간에 끼우면 3개국 루트도 가능하다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">📅 유럽 여행 최적 시기</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p><strong className="text-gray-800">봄 (4~5월):</strong> 날씨도 좋고 성수기 직전이라 가격이 합리적이다. 특히 5월은 유럽 여행의 황금 시기라 불릴 만큼 날씨와 가격 모두 균형이 잘 맞다. 단, 5월 초 황금연휴(한국 공휴일) 기간엔 한국인 여행자가 몰려 항공권이 비싸진다.</p>
+                <p><strong className="text-gray-800">여름 (6~8월):</strong> 성수기다. 날씨는 좋지만 모든 게 비싸고 붐빈다. 줄 서는 시간만 몇 시간씩 걸리는 경우도 생긴다. 유럽 대부분 지역이 건조한 더위라 한국 여름보다는 덜 불쾌하다. 7~8월 여행이라면 주요 명소 입장권은 반드시 사전 예약하자.</p>
+                <p><strong className="text-gray-800">가을 (9~10월):</strong> 개인적으로 제일 추천하는 시기다. 성수기가 막 끝나 가격이 내려가고, 날씨도 쾌적하다. 유럽 음식 축제나 와인 수확 시즌 이벤트도 가을에 많다.</p>
+                <p><strong className="text-gray-800">겨울 (11~2월):</strong> 비수기라 항공과 숙소가 싸다. 하지만 일조 시간이 짧고 날씨가 흐린 날이 많아 야외 관광에는 불리하다. 대신 크리스마스 마켓(12월)이 열리는 시기라 독일, 오스트리아 쪽은 이 시즌만의 분위기가 있다.</p>
+              </div>
+            </section>
+
+            <section>
+              <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">🛡️ 소매치기 예방, 이렇게 하면 된다</h2>
+              <div className="text-sm text-gray-600 leading-relaxed flex flex-col gap-3">
+                <p>유럽 여행에서 소매치기 걱정을 안 할 수는 없다. 특히 바르셀로나, 로마, 파리, 프라하는 소매치기가 활발한 도시로 알려져 있다. 겁먹을 필요는 없지만 기본 대비는 해두자.</p>
+                <p><strong className="text-gray-800">실전 예방법:</strong> 귀중품(여권, 현금, 스마트폰)은 앞주머니나 몸 앞쪽 크로스백에 넣자. 배낭을 앞으로 메거나, 지퍼를 잠그고 다녀야 한다. 지하철에서 문이 닫히기 직전 타거나 내리는 사람을 특히 조심하자. 좁은 관광지, 에스컬레이터, 혼잡한 시장에서도 조심이 필요하다.</p>
+                <p><strong className="text-gray-800">여권 관리:</strong> 여권은 숙소 금고나 배낭 깊숙한 곳에 보관하고, 외출 시엔 여권 사본(사진 찍어두기)과 신분증 역할을 대신할 카드를 갖고 다니는 것도 방법이다. 유럽 대부분 국가에서 신분증 제시 요청이 있을 수 있으니 여권 없이 다닐 경우 사본이라도 있어야 한다.</p>
+                <p><strong className="text-gray-800">만약 도난당했다면:</strong> 현지 경찰서에 폴리스 리포트(신고서)를 받아야 여행자보험 청구가 가능하다. 여권을 분실했다면 해당 국가 주재 한국 대사관이나 영사관에 연락해 임시 여권을 발급받을 수 있다.</p>
+              </div>
+            </section>
+
+            <section>
               <h2 className="text-lg font-bold text-gray-900 mb-4 pb-2 border-b border-gray-100">💡 유럽 여행 핵심 팁</h2>
               <ul className="text-sm text-gray-600 leading-relaxed flex flex-col gap-2">
                 <li>• <strong className="text-gray-800">여행자 보험:</strong> 유럽은 의료비가 비쌉니다. 출발 전 반드시 여행자 보험에 가입하세요.</li>
