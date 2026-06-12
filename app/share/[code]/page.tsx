@@ -994,7 +994,7 @@ export default function SharePage() {
   const { code } = useParams<{ code: string }>()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { user, loading: authLoading, preferredCurrency, avatarColor, avatarHexColor, setAvatarColor, setAvatarHexColor } = useAuthStore()
+  const { user, resolvedPhotoURL, loading: authLoading, preferredCurrency, avatarColor, avatarHexColor, setAvatarColor, setAvatarHexColor } = useAuthStore()
 
   /* 유저 색상 로드 (AppNavbar 없는 이 페이지 직접 접근 시 null 방지) */
   useEffect(() => {
@@ -3140,7 +3140,7 @@ export default function SharePage() {
                 <div className="flex items-center gap-3 py-3">
                   <PersonAvatar
                     name={user.displayName ?? '나'}
-                    photoURL={user.photoURL ?? undefined}
+                    photoURL={resolvedPhotoURL || undefined}
                     size={36}
                     colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                     hexColor={avatarHexColor ?? undefined}

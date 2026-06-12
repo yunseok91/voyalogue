@@ -19,7 +19,7 @@ function AuthPageInner() {
   const errorParam   = searchParams.get('error')
   const suspendedParam = searchParams.get('suspended')
 
-  const { user, loading: authLoading } = useAuthStore()
+  const { user, resolvedPhotoURL, loading: authLoading } = useAuthStore()
   const [loading,     setLoading]     = useState(false)
   const [error,       setError]       = useState('')
   const [switching,   setSwitching]   = useState(false)
@@ -167,8 +167,8 @@ function AuthPageInner() {
           {user && !authLoading && (
             <div className="flex flex-col gap-3">
               <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3.5">
-                {user.photoURL
-                  ? <img src={user.photoURL} alt="" className="w-9 h-9 rounded-full flex-shrink-0" referrerPolicy="no-referrer" />
+                {resolvedPhotoURL
+                  ? <img src={resolvedPhotoURL} alt="" className="w-9 h-9 rounded-full flex-shrink-0" referrerPolicy="no-referrer" />
                   : <div className="w-9 h-9 rounded-full bg-blue-200 flex items-center justify-center flex-shrink-0 text-blue-700 font-bold text-sm">
                       {(user.displayName ?? user.email ?? '?')[0].toUpperCase()}
                     </div>

@@ -194,7 +194,7 @@ export default function LandingPage() {
   const [mobileOpen,    setMobileOpen]    = useState(false)
   const [showRating,    setShowRating]    = useState(false)
   const [liveReviews,   setLiveReviews]   = useState<LiveReview[] | null>(null)
-  const { user } = useAuthStore()
+  const { user, resolvedPhotoURL } = useAuthStore()
 
   useEffect(() => {
     getDocs(query(
@@ -282,9 +282,9 @@ export default function LandingPage() {
               </button>
               <Link href="/trips"
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-[18px] transition-colors">
-                {user.photoURL ? (
+                {resolvedPhotoURL ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={user.photoURL} alt="" className="w-5 h-5 rounded-full object-cover" />
+                  <img src={resolvedPhotoURL} alt="" referrerPolicy="no-referrer" className="w-5 h-5 rounded-full object-cover" />
                 ) : (
                   <div className="w-5 h-5 rounded-full bg-white/30 flex items-center justify-center text-xs font-bold">
                     {(user.displayName ?? user.email ?? '?').charAt(0).toUpperCase()}
