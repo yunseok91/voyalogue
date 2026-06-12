@@ -554,7 +554,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
           <button
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onQuickEdit(item) }}
-            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-bold text-emerald-600 bg-emerald-50 active:bg-emerald-100 rounded-lg transition-all"
+            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 rounded-lg transition-all"
             title="내역 작성"
           >
             <Receipt className="w-3.5 h-3.5" />
@@ -563,7 +563,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
           <button
             onPointerDown={e => e.stopPropagation()}
             onClick={e => { e.stopPropagation(); onEdit(item) }}
-            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-semibold text-gray-400 active:text-gray-700 active:bg-gray-100 rounded-lg transition-all"
+            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
             title="수정"
           >
             <Edit2 className="w-3.5 h-3.5" />

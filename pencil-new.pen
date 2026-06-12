@@ -14268,6 +14268,1048 @@
               ]
             }
           ]
+        },
+        {
+          "type": "text",
+          "id": "WD9Ha",
+          "x": 5200,
+          "y": 1000,
+          "fill": "#374151",
+          "content": "① 빈 상태 (Empty State)",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "w1DZPq",
+          "x": 5200,
+          "y": 1030,
+          "clip": true,
+          "width": 390,
+          "height": 844,
+          "fill": "#F8FAFC",
+          "layout": "vertical",
+          "children": [
+            {
+              "type": "frame",
+              "id": "Y4sps",
+              "width": "fill_container",
+              "height": 60,
+              "fill": "#FFFFFF",
+              "stroke": {
+                "thickness": {
+                  "bottom": 1
+                },
+                "fill": "#E5E7EB"
+              },
+              "padding": [
+                0,
+                16
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "oF2eG",
+                  "width": 40,
+                  "height": 40,
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "k0HrV",
+                      "type": "ref",
+                      "ref": "GEmFd",
+                      "width": 20,
+                      "height": 20,
+                      "fill": "#6B7280"
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "Fov8n",
+                  "fill": "#111827",
+                  "content": "내 여행",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                },
+                {
+                  "type": "frame",
+                  "id": "nDVvE",
+                  "width": 60,
+                  "height": 40,
+                  "gap": 12,
+                  "justifyContent": "end",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "id": "adLOV",
+                      "type": "ref",
+                      "ref": "GEmFd",
+                      "width": 20,
+                      "height": 20,
+                      "fill": "#6B7280"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "dsTlH",
+                      "width": 30,
+                      "height": 30,
+                      "fill": "#DBEAFE",
+                      "cornerRadius": 15,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "seLUg",
+                          "fill": "#1D4ED8",
+                          "content": "나",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "g85CJm",
+              "width": "fill_container",
+              "height": "fill_container",
+              "layout": "vertical",
+              "gap": 20,
+              "padding": [
+                24,
+                16
+              ],
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "Tw06s",
+                  "width": "fill_container",
+                  "fill": {
+                    "type": "gradient",
+                    "gradientType": "linear",
+                    "enabled": true,
+                    "rotation": 225,
+                    "size": {
+                      "height": 1
+                    },
+                    "colors": [
+                      {
+                        "color": "#2563EB",
+                        "position": 0
+                      },
+                      {
+                        "color": "#1e3a8a",
+                        "position": 1
+                      }
+                    ]
+                  },
+                  "cornerRadius": 20,
+                  "layout": "vertical",
+                  "gap": 14,
+                  "padding": [
+                    28,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "UmXjX",
+                      "width": 56,
+                      "height": 56,
+                      "fill": "#FFFFFF26",
+                      "cornerRadius": 28,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "OfVl7",
+                          "type": "ref",
+                          "ref": "fouLf",
+                          "width": 28,
+                          "height": 28,
+                          "fill": "#FFFFFF"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "pXFqg",
+                      "fill": "#FFFFFF",
+                      "content": "첫 여행을 계획해보세요!",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 20,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "o2uZyE",
+                      "fill": "#FFFFFFB3",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "AI가 맞춤 일정을 자동으로 만들어드려요",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "normal"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "SPlQ7",
+                      "width": "fill_container",
+                      "gap": 10,
+                      "justifyContent": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "c0s5ty",
+                          "fill": "#FFFFFF",
+                          "cornerRadius": 50,
+                          "padding": [
+                            10,
+                            20
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "SOSvQ",
+                              "fill": "#1D4ED8",
+                              "content": "✨ AI로 일정 생성",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "700"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "frame",
+                          "id": "BkjQm",
+                          "fill": "#FFFFFF26",
+                          "cornerRadius": 50,
+                          "stroke": {
+                            "thickness": 1,
+                            "fill": "#FFFFFF50"
+                          },
+                          "padding": [
+                            10,
+                            20
+                          ],
+                          "justifyContent": "center",
+                          "alignItems": "center",
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "nWXhU",
+                              "fill": "#FFFFFF",
+                              "content": "직접 만들기",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "600"
+                            }
+                          ]
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "YJ0yx",
+                  "width": "fill_container",
+                  "gap": 10,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "CvmQT",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 14,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": [
+                        14,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "GYZRJ",
+                          "fill": "#000000",
+                          "content": "🗺️",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 22,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "ikovk",
+                          "fill": "#374151",
+                          "content": "여행 가이드",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "Bd9ie",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 14,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": [
+                        14,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "XKH4B",
+                          "fill": "#000000",
+                          "content": "💰",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 22,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "aHmCH",
+                          "fill": "#374151",
+                          "content": "예산 팁",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "HTu30",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 14,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": [
+                        14,
+                        10
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "P37ih1",
+                          "fill": "#000000",
+                          "content": "🧳",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 22,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Q5SsSN",
+                          "fill": "#374151",
+                          "content": "짐 싸기",
+                          "textAlign": "center",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "600"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "PtElU",
+                  "width": "fill_container",
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "F28Qp",
+                      "fill": "#111827",
+                      "content": "여행 팁",
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "text",
+                      "id": "ZpGpr",
+                      "fill": "#6B7280",
+                      "content": "더보기 →",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "UsSj2",
+                  "width": "fill_container",
+                  "gap": 12,
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "HtCif",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 14,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": [
+                        16,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "QefC0",
+                          "fill": "#000000",
+                          "content": "💰",
+                          "fontFamily": "Inter",
+                          "fontSize": 24,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "mdYAt",
+                          "fill": "#111827",
+                          "content": "예산 절약 팁",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "I0uZnB",
+                          "fill": "#9CA3AF",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "항공권은 2~3개월 전 구매",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "NTJ2o",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 14,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "layout": "vertical",
+                      "gap": 6,
+                      "padding": [
+                        16,
+                        14
+                      ],
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "X8pqrw",
+                          "fill": "#000000",
+                          "content": "🧳",
+                          "fontFamily": "Inter",
+                          "fontSize": 24,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "XnI7J",
+                          "fill": "#111827",
+                          "content": "짐 싸는 법",
+                          "fontFamily": "Inter",
+                          "fontSize": 13,
+                          "fontWeight": "700"
+                        },
+                        {
+                          "type": "text",
+                          "id": "Y5YP3",
+                          "fill": "#9CA3AF",
+                          "textGrowth": "fixed-width",
+                          "width": "fill_container",
+                          "content": "기내 반입 규정 꼭 확인",
+                          "fontFamily": "Inter",
+                          "fontSize": 11,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "text",
+                  "id": "D8As39",
+                  "fill": "#B0B7C3",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "아직 여행이 없어요. 위에서 새 여행을 만들어보세요!",
+                  "textAlign": "center",
+                  "fontFamily": "Inter",
+                  "fontSize": 12,
+                  "fontWeight": "normal"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "text",
+          "id": "JHhZP",
+          "x": 5640,
+          "y": 1000,
+          "name": "② 일정 내보내기 (Export Modal)",
+          "fill": "#374151",
+          "content": "② 일정 내보내기 (Export Modal)",
+          "fontFamily": "Inter",
+          "fontSize": 13,
+          "fontWeight": "700"
+        },
+        {
+          "type": "frame",
+          "id": "t3Po9",
+          "x": 5640,
+          "y": 1030,
+          "name": "Frame",
+          "clip": true,
+          "width": 390,
+          "height": 844,
+          "fill": "#111827",
+          "layout": "none",
+          "children": [
+            {
+              "type": "rectangle",
+              "id": "WEevj",
+              "x": 0,
+              "y": 0,
+              "fill": "#00000066",
+              "width": 390,
+              "height": 844
+            },
+            {
+              "type": "frame",
+              "id": "lGX4e",
+              "x": 0,
+              "y": 0,
+              "width": 390,
+              "height": 60,
+              "fill": "#FFFFFF",
+              "padding": [
+                0,
+                16
+              ],
+              "justifyContent": "space_between",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "text",
+                  "id": "pWMGw",
+                  "fill": "#111827",
+                  "content": "내 여행",
+                  "fontFamily": "Inter",
+                  "fontSize": 17,
+                  "fontWeight": "700"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "l2rwkP",
+              "x": 16,
+              "y": 76,
+              "width": 358,
+              "height": 90,
+              "fill": {
+                "type": "gradient",
+                "gradientType": "linear",
+                "enabled": true,
+                "rotation": 135,
+                "size": {
+                  "height": 1
+                },
+                "colors": [
+                  {
+                    "color": "#3B82F6",
+                    "position": 0
+                  },
+                  {
+                    "color": "#1e40af",
+                    "position": 1
+                  }
+                ]
+              },
+              "cornerRadius": 16,
+              "layout": "vertical",
+              "gap": 4,
+              "padding": 16,
+              "children": [
+                {
+                  "type": "text",
+                  "id": "ewETa",
+                  "fill": "#FFFFFF",
+                  "content": "🗼 도쿄 여행",
+                  "fontFamily": "Inter",
+                  "fontSize": 15,
+                  "fontWeight": "800"
+                },
+                {
+                  "type": "text",
+                  "id": "t9KLT",
+                  "fill": "#FFFFFFB3",
+                  "content": "2025.03.15 ~ 2025.03.21 · 5박 6일",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "normal"
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "zsvlV",
+              "x": 0,
+              "y": 344,
+              "clip": true,
+              "width": 390,
+              "height": 500,
+              "fill": "#FFFFFF",
+              "cornerRadius": [
+                20,
+                20,
+                0,
+                0
+              ],
+              "layout": "vertical",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "ukLhX",
+                  "width": "fill_container",
+                  "height": 28,
+                  "justifyContent": "center",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "rectangle",
+                      "cornerRadius": 2,
+                      "id": "sGe2M",
+                      "fill": "#D1D5DB",
+                      "width": 36,
+                      "height": 4
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "zpXfp",
+                  "width": "fill_container",
+                  "height": 52,
+                  "padding": [
+                    0,
+                    20
+                  ],
+                  "justifyContent": "space_between",
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "T3m5L",
+                      "fill": "#111827",
+                      "content": "일정 내보내기",
+                      "fontFamily": "Inter",
+                      "fontSize": 17,
+                      "fontWeight": "700"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "E9b7Yq",
+                      "width": 30,
+                      "height": 30,
+                      "fill": "#F3F4F6",
+                      "cornerRadius": 15,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "id": "of0pv",
+                          "type": "ref",
+                          "ref": "EjU0x",
+                          "width": 16,
+                          "height": 16,
+                          "fill": "#6B7280"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "MHyeJ",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": [
+                    0,
+                    20,
+                    16,
+                    20
+                  ],
+                  "alignItems": "center",
+                  "children": [
+                    {
+                      "type": "frame",
+                      "id": "B5bxAM",
+                      "width": "fill_container",
+                      "height": 160,
+                      "fill": "#F3F4F6",
+                      "cornerRadius": 14,
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TwuKj",
+                          "width": 240,
+                          "fill": {
+                            "type": "gradient",
+                            "gradientType": "linear",
+                            "enabled": true,
+                            "rotation": 135,
+                            "size": {
+                              "height": 1
+                            },
+                            "colors": [
+                              {
+                                "color": "#3B82F6",
+                                "position": 0
+                              },
+                              {
+                                "color": "#1D4ED8",
+                                "position": 1
+                              }
+                            ]
+                          },
+                          "cornerRadius": 14,
+                          "layout": "vertical",
+                          "gap": 6,
+                          "padding": 16,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "DG6IK",
+                              "fill": "#FFFFFF",
+                              "content": "🗼 도쿄 여행  5박 6일",
+                              "fontFamily": "Inter",
+                              "fontSize": 13,
+                              "fontWeight": "800"
+                            },
+                            {
+                              "type": "text",
+                              "id": "Q3vFfR",
+                              "fill": "#FFFFFFB3",
+                              "content": "2025.03.15 ~ 2025.03.21",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            },
+                            {
+                              "type": "frame",
+                              "id": "BrpSG",
+                              "gap": -6,
+                              "children": [
+                                {
+                                  "type": "frame",
+                                  "id": "MTnC7",
+                                  "width": 22,
+                                  "height": 22,
+                                  "fill": "#F87171",
+                                  "cornerRadius": 11,
+                                  "stroke": {
+                                    "thickness": 2,
+                                    "fill": "#1D4ED8"
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "sg4zC",
+                                  "width": 22,
+                                  "height": 22,
+                                  "fill": "#60A5FA",
+                                  "cornerRadius": 11,
+                                  "stroke": {
+                                    "thickness": 2,
+                                    "fill": "#1D4ED8"
+                                  }
+                                },
+                                {
+                                  "type": "frame",
+                                  "id": "qvdbe",
+                                  "width": 22,
+                                  "height": 22,
+                                  "fill": "#34D399",
+                                  "cornerRadius": 11,
+                                  "stroke": {
+                                    "thickness": 2,
+                                    "fill": "#1D4ED8"
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      ]
+                    },
+                    {
+                      "type": "text",
+                      "id": "keYpa",
+                      "fill": "#9CA3AF",
+                      "content": "미리보기",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "rectangle",
+                  "id": "fYjFx",
+                  "fill": "#F3F4F6",
+                  "width": "fill_container",
+                  "height": 1
+                },
+                {
+                  "type": "frame",
+                  "id": "jcx5C",
+                  "width": "fill_container",
+                  "layout": "vertical",
+                  "gap": 10,
+                  "padding": [
+                    16,
+                    20
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "vN79h",
+                      "fill": "#6B7280",
+                      "content": "내보내기 형식",
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "600"
+                    },
+                    {
+                      "type": "frame",
+                      "id": "p4dZ3",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "gap": 14,
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "sXh4Q",
+                          "fill": "#000000",
+                          "content": "🖼️",
+                          "fontFamily": "Inter",
+                          "fontSize": 22,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "sHJww",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "w30Wb7",
+                              "fill": "#111827",
+                              "content": "이미지로 저장",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "jL7oI",
+                              "fill": "#9CA3AF",
+                              "content": "갤러리에 저장됩니다",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "XVXa4",
+                          "fill": "#D1D5DB",
+                          "content": "→",
+                          "fontFamily": "Inter",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "ZgB8T",
+                      "width": "fill_container",
+                      "fill": "#FFFFFF",
+                      "cornerRadius": 12,
+                      "stroke": {
+                        "thickness": 1,
+                        "fill": "#E5E7EB"
+                      },
+                      "gap": 14,
+                      "padding": [
+                        14,
+                        16
+                      ],
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "lKsXw",
+                          "fill": "#000000",
+                          "content": "📋",
+                          "fontFamily": "Inter",
+                          "fontSize": 22,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "frame",
+                          "id": "xOi2A",
+                          "width": "fill_container",
+                          "layout": "vertical",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "text",
+                              "id": "lDztM",
+                              "fill": "#111827",
+                              "content": "클립보드에 복사",
+                              "fontFamily": "Inter",
+                              "fontSize": 14,
+                              "fontWeight": "600"
+                            },
+                            {
+                              "type": "text",
+                              "id": "PPokB",
+                              "fill": "#9CA3AF",
+                              "content": "텍스트로 복사됩니다",
+                              "fontFamily": "Inter",
+                              "fontSize": 11,
+                              "fontWeight": "normal"
+                            }
+                          ]
+                        },
+                        {
+                          "type": "text",
+                          "id": "aLMp8",
+                          "fill": "#D1D5DB",
+                          "content": "→",
+                          "fontFamily": "Inter",
+                          "fontSize": 16,
+                          "fontWeight": "normal"
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "K61XI",
+                      "width": "fill_container",
+                      "height": 52,
+                      "fill": "#FEE500",
+                      "cornerRadius": 14,
+                      "gap": 8,
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "text",
+                          "id": "zmgtz",
+                          "fill": "#000000",
+                          "content": "💬",
+                          "fontFamily": "Inter",
+                          "fontSize": 18,
+                          "fontWeight": "normal"
+                        },
+                        {
+                          "type": "text",
+                          "id": "PCl7q",
+                          "fill": "#191919",
+                          "content": "카카오톡으로 공유",
+                          "fontFamily": "Inter",
+                          "fontSize": 15,
+                          "fontWeight": "700"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
         }
       ]
     }

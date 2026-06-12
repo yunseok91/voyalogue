@@ -7,7 +7,7 @@ import { auth, db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const { setUser, setLoading, setAdFree } = useAuthStore()
+  const { setUser, setLoading, setAdFree, setResolvedPhotoURL } = useAuthStore()
   const snapUnsubRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
@@ -108,6 +108,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       /* updateProfile 후 최신 User 객체를 다시 참조 */
       const finalUser = auth.currentUser ?? freshUser
 
+      setResolvedPhotoURL(resolvedPhoto)
       setUser(finalUser)
       if (snap?.exists()) setAdFree(snap.data().adFree === true)
 

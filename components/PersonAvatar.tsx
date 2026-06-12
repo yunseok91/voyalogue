@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 
 export const CLAY = [
   { base: '#E2E8F0', hi: '#FFFFFF', sh: '#64748B' }, // 0: white/gray
@@ -34,10 +34,24 @@ interface Props {
 
 export function PersonAvatar({ name, photoURL, size = 40, showName = false, className = '', colorIndex, hexColor, stacked, ringColor }: Props) {
   const [imgFailed, setImgFailed] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     setImgFailed(false)
+    setRetryCount(0)
+    retryTimerRef.current && clearTimeout(retryTimerRef.current)
   }, [photoURL])
+
+  useEffect(() => () => { retryTimerRef.current && clearTimeout(retryTimerRef.current) }, [])
+
+  const handleImgError = () => {
+    if (retryCount < 2) {
+      retryTimerRef.current = setTimeout(() => setRetryCount(r => r + 1), 2500)
+    } else {
+      setImgFailed(true)
+    }
+  }
 
   const clay    = colorIndex !== undefined ? CLAY[colorIndex % CLAY.length] : getColor(name)
   const base    = hexColor ?? clay.base
@@ -70,10 +84,11 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
         <div style={{ width: '100%', height: '100%', borderRadius: '50%', overflow: 'hidden', boxShadow: innerShadow }}>
           {showPhoto ? (
             <img
+              key={`${photoURL}-${retryCount}`}
               src={photoURL!}
               alt={name}
               referrerPolicy="no-referrer"
-              onError={() => setImgFailed(true)}
+              onError={handleImgError}
               style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
             />
           ) : (

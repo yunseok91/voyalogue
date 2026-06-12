@@ -23,13 +23,12 @@ export function AppNavbar({
   onExcel?:  () => void
   onReport?: () => void
 }) {
-  const { user, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor } = useAuthStore()
+  const { user, resolvedPhotoURL, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor } = useAuthStore()
   const router = useRouter()
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Y'
   const [dropdownOpen, setDropdownOpen]           = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   useScrollLock(showLogoutConfirm)
-  const [firestorePhotoURL, setFirestorePhotoURL] = useState<string | null>(null)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -39,7 +38,6 @@ export function AppNavbar({
         const data = snap.data()
         if (typeof data.avatarColor === 'number') setAvatarColor(data.avatarColor)
         if (typeof data.avatarHexColor === 'string') setAvatarHexColor(data.avatarHexColor)
-        if (typeof data.photoURL === 'string' && data.photoURL) setFirestorePhotoURL(data.photoURL)
       }
     })
   }, [user?.uid])
@@ -127,7 +125,7 @@ export function AppNavbar({
             >
               <PersonAvatar
                 name={displayName}
-                photoURL={user?.photoURL || firestorePhotoURL || undefined}
+                photoURL={resolvedPhotoURL || undefined}
                 size={36}
                 colorIndex={avatarHexColor ? undefined : (avatarColor ?? 0)}
                 hexColor={avatarHexColor ?? undefined}
