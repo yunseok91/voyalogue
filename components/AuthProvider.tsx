@@ -17,6 +17,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       snapUnsubRef.current = null
 
       if (!user) {
+        setResolvedPhotoURL('')
         setUser(null)
         return
       }
@@ -89,14 +90,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch { /* 베타 설정 없으면 무시 */ }
       }
 
+      /* reload() 전에 providerData에서 photoURL 선점 — reload()가 photoURL을 null로 덮어쓰는 Firebase 버그 대응 */
+      const preReloadPhoto =
+        user.providerData.find(p => p.photoURL)?.photoURL ||
+        user.photoURL ||
+        ''
+
       /* Google 등 소셜 로그인 후 photoURL이 stale할 수 있어 강제 갱신 */
       await user.reload().catch(() => {})
       const freshUser = auth.currentUser ?? user
 
-      /* user.photoURL이 null이면 providerData → Firestore 순으로 fallback 탐색 */
+      /* providerData → photoURL → reload 전 값 → Firestore 순으로 fallback 탐색 */
       const resolvedPhoto =
-        freshUser.photoURL ||
         freshUser.providerData.find(p => p.photoURL)?.photoURL ||
+        freshUser.photoURL ||
+        preReloadPhoto ||
         (snap?.exists() ? (snap.data().photoURL as string | undefined) : undefined) ||
         ''
 
