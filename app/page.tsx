@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import Script from 'next/script'
 import { useState, useEffect } from 'react'
 import { motion } from 'motion/react'
 import { Globe, Menu, X, Star } from 'lucide-react'
@@ -239,15 +238,7 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-white overflow-x-hidden" style={{ fontFamily: 'Inter, sans-serif' }}>
-      {/* AdSense — 랜딩 페이지에만 로드 */}
-      <Script
-        id="google-adsense"
-        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6889911728160635"
-        strategy="lazyOnload"
-        crossOrigin="anonymous"
-      />
-
-      {showRating && <ServiceRatingModal onClose={() => setShowRating(false)} />}
+{showRating && <ServiceRatingModal onClose={() => setShowRating(false)} />}
 
       {/* ── Navbar ────────────────────────────────────────────────────────── */}
       <header className={`fixed top-0 inset-x-0 z-50 h-[72px] flex items-center transition-all duration-200 ${scrolled ? 'bg-white/95 backdrop-blur shadow-sm border-b border-gray-100' : 'bg-white border-b border-gray-100'}`}>
