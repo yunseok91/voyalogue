@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { collection, getDocs, doc, deleteDoc, Timestamp, updateDoc, addDoc, serverTimestamp, getDoc, setDoc } from 'firebase/firestore'
+import { collection, getDocs, doc, deleteDoc, Timestamp, updateDoc, addDoc, serverTimestamp, getDoc, setDoc, writeBatch } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
-import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send, Users, RotateCcw, Plane } from 'lucide-react'
+import { useAuthStore } from '@/features/auth/store'
+import { generateCode } from '@/lib/inviteCode'
+import { Ban, MessageSquare, Trash2, Search, ChevronDown, ChevronUp, MapPin, X, Send, Users, RotateCcw, Plane, Copy, Check } from 'lucide-react'
 
 type UserRow = {
   uid: string
@@ -47,6 +49,7 @@ async function deleteUserTrips(uid: string) {
 }
 
 export default function AdminUsersPage() {
+  const { user: adminUser } = useAuthStore()
   const [users, setUsers]         = useState<UserRow[]>([])
   const [loading, setLoading]     = useState(true)
   const [search, setSearch]       = useState('')
@@ -56,6 +59,7 @@ export default function AdminUsersPage() {
   const [deleting, setDeleting]   = useState<string | null>(null)
   const [resetting, setResetting] = useState<string | null>(null)
   const [seeding, setSeeding]     = useState<string | null>(null)
+  const [cloning, setCloning]     = useState<string | null>(null)  // tripId
   const [toggling, setToggling]   = useState<string | null>(null)
   const [msgModal, setMsgModal]   = useState<MsgModal>(null)
   const [msgTitle, setMsgTitle]   = useState('')
@@ -206,6 +210,67 @@ export default function AdminUsersPage() {
       showToast('샘플여행 추가 실패')
     } finally {
       setSeeding(null)
+    }
+  }
+
+  /* 특정 여행을 어드민 계정으로 복제 */
+  const handleCloneTrip = async (sourceUid: string, tripId: string, tripTitle: string) => {
+    if (!adminUser) return
+    setCloning(tripId)
+    try {
+      const tripSnap = await getDoc(doc(db, 'users', sourceUid, 'trips', tripId))
+      if (!tripSnap.exists()) throw new Error('trip not found')
+      const sourceMeta = tripSnap.data()
+
+      const daysSnap = await getDocs(collection(db, 'users', sourceUid, 'trips', tripId, 'days'))
+
+      const newTripRef = doc(collection(db, 'users', adminUser.uid, 'trips'))
+      const newTripId  = newTripRef.id
+
+      // 배치를 400개 단위로 분할 (Firestore 한도 500)
+      const batches: ReturnType<typeof writeBatch>[] = []
+      let current = writeBatch(db)
+      let opCount = 0
+
+      const addOp = (fn: (b: ReturnType<typeof writeBatch>) => void) => {
+        if (opCount >= 400) { batches.push(current); current = writeBatch(db); opCount = 0 }
+        fn(current)
+        opCount++
+      }
+
+      const originalTitle = (sourceMeta.title as string | undefined) || (sourceMeta.city as string | undefined) || '여행'
+      addOp(b => b.set(newTripRef, {
+        ...sourceMeta,
+        title:       `[운영자 복제] ${originalTitle}`,
+        members:     [{ id: adminUser.uid, name: adminUser.displayName ?? '어드민', role: 'owner' }],
+        viewCode:    generateCode(),
+        editCode:    generateCode(),
+        clonedFrom:  { uid: sourceUid, tripId },
+        createdAt:   serverTimestamp(),
+      }))
+
+      for (const dayDoc of daysSnap.docs) {
+        const newDayRef = doc(db, 'users', adminUser.uid, 'trips', newTripId, 'days', dayDoc.id)
+        addOp(b => b.set(newDayRef, dayDoc.data()))
+
+        const itemsSnap = await getDocs(
+          collection(db, 'users', sourceUid, 'trips', tripId, 'days', dayDoc.id, 'items')
+        )
+        for (const itemDoc of itemsSnap.docs) {
+          const newItemRef = doc(db, 'users', adminUser.uid, 'trips', newTripId, 'days', dayDoc.id, 'items', itemDoc.id)
+          addOp(b => b.set(newItemRef, itemDoc.data()))
+        }
+      }
+
+      batches.push(current)
+      await Promise.all(batches.map(b => b.commit()))
+
+      showToast(`"${tripTitle}" 복제 완료 → /trips 에서 확인`)
+      setTimeout(() => setCloning(null), 1500)
+    } catch (err) {
+      console.error('복제 실패:', err)
+      showToast('복제 실패')
+      setCloning(null)
     }
   }
 
@@ -467,6 +532,17 @@ export default function AdminUsersPage() {
                             <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
                             <span className="font-medium">{t.title || t.city}</span>
                             <span className="text-gray-400">{t.startDate} – {t.endDate}</span>
+                            <button
+                              onClick={() => handleCloneTrip(u.uid, t.id, t.title || t.city)}
+                              disabled={cloning === t.id}
+                              title="내 계정으로 여행 복제"
+                              className="ml-auto flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-gray-100 hover:bg-violet-50 hover:text-violet-600 text-gray-500 transition-colors disabled:opacity-40"
+                            >
+                              {cloning === t.id
+                                ? <><Check className="w-3 h-3 text-emerald-500" /><span className="text-emerald-600">복제됨</span></>
+                                : <><Copy className="w-3 h-3" /><span>복제</span></>
+                              }
+                            </button>
                           </div>
                         ))}
                       </div>
