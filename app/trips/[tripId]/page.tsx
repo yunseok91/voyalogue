@@ -2042,7 +2042,7 @@ const OVERSEAS_DEFAULTS = ['여권', '항공권 (출력 또는 모바일)', '해
 
 /* ── 플래너 본체 ── */
 function PlannerContent({ tripId }: { tripId: string }) {
-  const { user, avatarColor, avatarHexColor, preferredCurrency, setAvatarColor, setAvatarHexColor, setOnboardingPaused } = useAuthStore()
+  const { user, resolvedPhotoURL, avatarColor, avatarHexColor, preferredCurrency, setAvatarColor, setAvatarHexColor, setOnboardingPaused } = useAuthStore()
   const uid    = user!.uid
   const router       = useRouter()
   const searchParams = useSearchParams()
@@ -2414,15 +2414,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── owner photoURL Firestore 동기화 (1회) ── */
   useEffect(() => {
-    if (!meta || !user?.photoURL) return
+    const myPhoto = resolvedPhotoURL || user?.photoURL
+    if (!meta || !myPhoto) return
     const owner = meta.members?.find(m => m.role === 'owner')
-    if (!owner || owner.photoURL === user.photoURL) return
+    if (!owner || owner.photoURL === myPhoto) return
     const updated = meta.members.map(m =>
-      m.role === 'owner' ? { ...m, photoURL: user.photoURL! } : m
+      m.role === 'owner' ? { ...m, photoURL: myPhoto } : m
     )
     updateDoc(doc(db, 'users', uid, 'trips', tripId), { members: updated }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, user?.photoURL])
+  }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, resolvedPhotoURL, user?.photoURL])
 
   /* ── 전체 Day items 1회 로드 ── */
   useEffect(() => {

@@ -316,7 +316,7 @@ function parseTripCountry(city: string): string {
 
 /* ── 내부 컴포넌트 ── */
 function TripsContent() {
-  const { user } = useAuthStore()
+  const { user, resolvedPhotoURL } = useAuthStore()
   const searchParams = useSearchParams()
   const router       = useRouter()
   const countryFilter = searchParams.get('country') ?? null
@@ -1047,7 +1047,7 @@ function TripsContent() {
                 const visibleMembers = activeMembers
                   .slice(0, 4)
                   .map(m => m.id === user?.uid
-                    ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
+                    ? { ...m, photoURL: resolvedPhotoURL || user.photoURL || m.photoURL, name: user.displayName ?? m.name }
                     : m
                   )
                 const extraCount = Math.max(0, activeMembers.length - 4)
@@ -1260,7 +1260,7 @@ function TripsContent() {
             <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
               {(memberPopupTrip.members ?? []).map((m, i) => {
                 const resolved = m.id === user?.uid
-                  ? { ...m, photoURL: user.photoURL ?? m.photoURL, name: user.displayName ?? m.name }
+                  ? { ...m, photoURL: resolvedPhotoURL || user.photoURL || m.photoURL, name: user.displayName ?? m.name }
                   : m
                 const roleLabel = resolved.role === 'owner' ? '방장' : resolved.role === 'treasurer' ? '총무' : '멤버'
                 const roleCls   = m.role === 'owner'

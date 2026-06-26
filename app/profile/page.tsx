@@ -137,7 +137,7 @@ type Stats = { total: number; nights: number; cities: number; countries: number 
 type TripSummary = { tripId: string; city: string; country: string; startDate: string; endDate: string; nights: number; gradient: string; title?: string; coverPhotoURL?: string }
 
 function ProfileContent() {
-  const { user, setUser, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor, setPreferredCurrency } = useAuthStore()
+  const { user, setUser, resolvedPhotoURL, setResolvedPhotoURL, avatarColor, setAvatarColor, avatarHexColor, setAvatarHexColor, setPreferredCurrency } = useAuthStore()
   const router            = useRouter()
   const handleResetTour = async () => {
     try { localStorage.setItem('voyalogue_tour_step', '1') } catch {}
@@ -202,7 +202,7 @@ function ProfileContent() {
   const [photoLoading, setPhotoLoading] = useState(false)
   const [photoError,   setPhotoError]   = useState('')
   const [localPhoto,   setLocalPhoto]   = useState<string | null>(null)
-  const currentPhoto = localPhoto || user?.photoURL || null
+  const currentPhoto = localPhoto || resolvedPhotoURL || user?.photoURL || null
 
   /* 모든 여행 members 배열의 색상 동기화 */
   const syncColorToTrips = async (uid: string, colorData: { hexColor?: string | null; colorIndex?: number | null }) => {
@@ -269,6 +269,7 @@ function ProfileContent() {
     await updateProfile(user, { photoURL: url })
     await setDoc(doc(db, 'users', user.uid), { photoURL: url }, { merge: true })
     setLocalPhoto(url)
+    setResolvedPhotoURL(url)
     await user.reload().catch(() => {})
     if (auth.currentUser) setUser(auth.currentUser)
     syncPhotoToTrips(user.uid, url).catch(() => {})
