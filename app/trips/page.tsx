@@ -547,6 +547,8 @@ function TripsContent() {
     e.stopPropagation()
     if (!user) return
 
+    if (!window.confirm('여행을 삭제하시겠습니까?\n24시간 후에 완전히 삭제됩니다.')) return
+
     const now = Date.now()
     /* 로컬 상태 즉시 딤 처리 */
     setTrips(prev => prev.map(t =>
@@ -586,6 +588,9 @@ function TripsContent() {
     e.preventDefault()
     e.stopPropagation()
     if (!user || copyingId) return
+
+    if (!window.confirm('여행을 복제하시겠습니까?')) return
+
     setCopyingId(trip.id)
     try {
       const origSnap = await getDoc(doc(db, 'users', user.uid, 'trips', trip.id))
