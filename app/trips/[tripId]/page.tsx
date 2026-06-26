@@ -72,15 +72,16 @@ type PlanItem = {
 type MemberRole = 'owner' | 'treasurer' | 'driver' | 'member'
 
 type Member = {
-  id:           string
-  name:         string
-  photoURL?:    string
-  role:         MemberRole
-  isDriver?:    boolean
-  colorIndex?:  number
-  hexColor?:    string
-  inviteCode?:  string
-  left?:        boolean
+  id:            string
+  name:          string
+  photoURL?:     string
+  role:          MemberRole
+  isDriver?:     boolean
+  isTreasurer?:  boolean
+  colorIndex?:   number
+  hexColor?:     string
+  inviteCode?:   string
+  left?:         boolean
 }
 
 type CheckItem = { id: string; label: string; done: boolean }
@@ -99,6 +100,7 @@ type FlightItem = {
   includeInSettlement?: boolean
   payerId?:             string
   participantIds?:      string[]
+  photos?:              string[]
 }
 
 type AccommodationItem = {
@@ -115,6 +117,7 @@ type AccommodationItem = {
   includeInSettlement?: boolean
   payerId?:             string
   participantIds?:      string[]
+  photos?:              string[]
 }
 
 type TripMeta = {
@@ -758,6 +761,12 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [uploading,       setUploading]       = useState(false)
   const [panelRates,      setPanelRates]      = useState<Record<string, number>>({ KRW: 1 })
   useEffect(() => { getRatesInKRW().then(setPanelRates).catch(() => {}) }, [])
+  /* 비행기 사진 */
+  const [flightPhotos,        setFlightPhotos]        = useState<File[]>([])
+  const [flightPhotoPreviews, setFlightPhotoPreviews] = useState<string[]>([])
+  /* 숙소 사진 */
+  const [accPhotos,           setAccPhotos]           = useState<File[]>([])
+  const [accPhotoPreviews,    setAccPhotoPreviews]    = useState<string[]>([])
   /* 비행기 */
   const [flightName,  setFlightName]  = useState('')
   const [inEnabled,   setInEnabled]   = useState(true)
@@ -809,6 +818,31 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
     URL.revokeObjectURL(receiptPreviews[i])
     setReceiptFiles(prev => prev.filter((_, j) => j !== i))
     setReceiptPreviews(prev => prev.filter((_, j) => j !== i))
+  }
+
+  const handleFlightPhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    const toAdd = files.slice(0, 3 - flightPhotos.length)
+    setFlightPhotos(prev => [...prev, ...toAdd])
+    setFlightPhotoPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
+    e.target.value = ''
+  }
+  const handleFlightPhotoRemove = (i: number) => {
+    URL.revokeObjectURL(flightPhotoPreviews[i])
+    setFlightPhotos(prev => prev.filter((_, j) => j !== i))
+    setFlightPhotoPreviews(prev => prev.filter((_, j) => j !== i))
+  }
+  const handleAccPhotoAdd = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? [])
+    const toAdd = files.slice(0, 3 - accPhotos.length)
+    setAccPhotos(prev => [...prev, ...toAdd])
+    setAccPhotoPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
+    e.target.value = ''
+  }
+  const handleAccPhotoRemove = (i: number) => {
+    URL.revokeObjectURL(accPhotoPreviews[i])
+    setAccPhotos(prev => prev.filter((_, j) => j !== i))
+    setAccPhotoPreviews(prev => prev.filter((_, j) => j !== i))
   }
 
   /* Google Places Autocomplete — 여행지 위치 바이어스 적용 */
@@ -943,13 +977,30 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         const fCostBase = Number(flightPrice) > 0
           ? { price: Number(flightPrice), currency: flightCurrency, includeInSettlement: flightIncludeInSettlement }
           : {}
+        let flightPhotoURLs: string[] = []
+        if (flightPhotos.length > 0) {
+          setUploading(true)
+          const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+            import('@/lib/firebase'), import('firebase/storage'),
+          ])
+          const ts = Date.now()
+          flightPhotoURLs = await Promise.all(flightPhotos.map(async (file, i) => {
+            const blob = await compressImage(file)
+            const r = sRef(storage, `users/${uid}/trips/${tripId}/flights/${ts}_${i}.jpg`)
+            await uploadBytes(r, blob)
+            return getDownloadURL(r)
+          }))
+          setUploading(false)
+        }
+        const photosField = flightPhotoURLs.length > 0 ? { photos: flightPhotoURLs } : {}
         const toAdd: Omit<FlightItem, 'id'>[] = []
-        // 가격은 첫 번째 세그먼트에만 저장 (이중 계산 방지)
-        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc, ...fCostBase })
+        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc, ...fCostBase, ...photosField })
         if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc, ...(inEnabled ? {} : fCostBase) })
         await onAddFlight(toAdd)
         setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
         setFlightLat(null); setFlightLng(null); setFlightPrice(''); setFlightIncludeInSettlement(true)
+        flightPhotoPreviews.forEach(u => URL.revokeObjectURL(u))
+        setFlightPhotos([]); setFlightPhotoPreviews([])
         showDoneScreen(flightName.trim()); return
       }
       if (mode === 'accommodation') {
@@ -957,10 +1008,28 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         const aCost = Number(accPrice) > 0
           ? { price: Number(accPrice), currency: accCurrency, includeInSettlement: accIncludeInSettlement }
           : {}
+        let accPhotoURLs: string[] = []
+        if (accPhotos.length > 0) {
+          setUploading(true)
+          const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+            import('@/lib/firebase'), import('firebase/storage'),
+          ])
+          const ts = Date.now()
+          accPhotoURLs = await Promise.all(accPhotos.map(async (file, i) => {
+            const blob = await compressImage(file)
+            const r = sRef(storage, `users/${uid}/trips/${tripId}/accommodations/${ts}_${i}.jpg`)
+            await uploadBytes(r, blob)
+            return getDownloadURL(r)
+          }))
+          setUploading(false)
+        }
+        const photosField = accPhotoURLs.length > 0 ? { photos: accPhotoURLs } : {}
         await onAddAccommodation({ name: accName.trim(), checkInDayId, checkInTime, checkOutDayId, checkOutTime,
-          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}), ...aCost })
+          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}), ...aCost, ...photosField })
         setAccName(''); setCheckInTime(''); setCheckOutTime(''); setAccLat(null); setAccLng(null)
         setAccPrice(''); setAccIncludeInSettlement(true)
+        accPhotoPreviews.forEach(u => URL.revokeObjectURL(u))
+        setAccPhotos([]); setAccPhotoPreviews([])
         showDoneScreen(accName.trim()); return
       }
       if (!ok) return
@@ -1187,9 +1256,32 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
                 </div>
               </div>
-              <button type="submit" disabled={!flightName.trim() || (!inEnabled && !outEnabled) || submitting}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-semibold text-gray-600">
+                  사진 첨부 <span className="font-normal text-gray-400">(최대 3장)</span>
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {flightPhotoPreviews.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => handleFlightPhotoRemove(i)}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                        <X className="w-2.5 h-2.5 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {flightPhotoPreviews.length < 3 && (
+                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                      <Camera className="w-4 h-4 text-gray-400" />
+                      <span className="text-[9px] text-gray-400">추가</span>
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleFlightPhotoAdd} />
+                    </label>
+                  )}
+                </div>
+              </div>
+              <button type="submit" disabled={!flightName.trim() || (!inEnabled && !outEnabled) || submitting || uploading}
                 className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
-                {submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '비행기 추가'}
+                {uploading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />업로드 중…</> : submitting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : '비행기 추가'}
               </button>
             </>
           )}
@@ -1198,12 +1290,20 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
           {mode === 'accommodation' && (
             <>
               <div className="flex flex-col gap-1">
-                <label className="text-[12px] font-semibold text-gray-600">
-                  숙소명
-                  {accLat !== null && <span className="ml-1.5 text-blue-500 font-normal">위치 확인됨</span>}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[12px] font-semibold text-gray-600">숙소명</label>
+                  {accLat !== null && (
+                    <span className="flex items-center gap-1 text-[11px] text-blue-500 font-normal">
+                      위치 확인됨
+                      <button type="button" onClick={() => { setAccLat(null); setAccLng(null) }}
+                        className="w-4 h-4 flex items-center justify-center rounded-full hover:bg-blue-100 text-blue-400">
+                        <X className="w-2.5 h-2.5" />
+                      </button>
+                    </span>
+                  )}
+                </div>
                 <input ref={accInputRef} type="text" placeholder="예: 도쿄 힐튼, APA 호텔…" value={accName}
-                  onChange={e => { setAccName(e.target.value); setAccLat(null); setAccLng(null) }}
+                  onChange={e => setAccName(e.target.value)}
                   autoFocus className={inputCls} />
                 <div
                   ref={accMapRef}
@@ -1278,9 +1378,32 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
                 </div>
               </div>
-              <button type="submit" disabled={!accName.trim() || submitting}
-                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors">
-                숙소 추가
+              <div className="flex flex-col gap-1.5">
+                <label className="text-[12px] font-semibold text-gray-600">
+                  사진 첨부 <span className="font-normal text-gray-400">(최대 3장)</span>
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {accPhotoPreviews.map((url, i) => (
+                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                      <img src={url} alt="" className="w-full h-full object-cover" />
+                      <button type="button" onClick={() => handleAccPhotoRemove(i)}
+                        className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                        <X className="w-2.5 h-2.5 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  {accPhotoPreviews.length < 3 && (
+                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                      <Camera className="w-4 h-4 text-gray-400" />
+                      <span className="text-[9px] text-gray-400">추가</span>
+                      <input type="file" accept="image/*" multiple className="hidden" onChange={handleAccPhotoAdd} />
+                    </label>
+                  )}
+                </div>
+              </div>
+              <button type="submit" disabled={!accName.trim() || submitting || uploading}
+                className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+                {uploading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />업로드 중…</> : '숙소 추가'}
               </button>
             </>
           )}
@@ -2213,8 +2336,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [showParticipantsFlight, setShowParticipantsFlight] = useState(false)
   const [showParticipantsAcc,    setShowParticipantsAcc]    = useState(false)
   const [expandedMemberId,       setExpandedMemberId]       = useState<string | null>(null)
-  const editFlightInputRef = useRef<HTMLInputElement>(null)
-  const editAccInputRef    = useRef<HTMLInputElement>(null)
+  const editFlightInputRef  = useRef<HTMLInputElement>(null)
+  const editAccInputRef     = useRef<HTMLInputElement>(null)
+  const editAccMapRef       = useRef<HTMLDivElement>(null)
+  const editFlightCameraRef = useRef<HTMLInputElement>(null)
+  const editAccCameraRef    = useRef<HTMLInputElement>(null)
+  const [editFlightNewPhotos,     setEditFlightNewPhotos]     = useState<File[]>([])
+  const [editFlightNewPreviews,   setEditFlightNewPreviews]   = useState<string[]>([])
+  const [editAccNewPhotos,        setEditAccNewPhotos]        = useState<File[]>([])
+  const [editAccNewPreviews,      setEditAccNewPreviews]      = useState<string[]>([])
+  const [editPhotoUploading,      setEditPhotoUploading]      = useState(false)
 
   /* 모달 열릴 때 배경 스크롤 잠금 */
   const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
@@ -3116,6 +3247,55 @@ function PlannerContent({ tripId }: { tripId: string }) {
     }))
   }
 
+  /* ── 비행기 / 숙소 사진 업로드 ── */
+  const handleUploadFlightPhoto = async (flightId: string, files: FileList) => {
+    if (!meta || !files.length) return
+    const flight = (meta.flights ?? []).find(f => f.id === flightId)
+    if (!flight) return
+    const existing = flight.photos ?? []
+    const canAdd = 3 - existing.length
+    if (canAdd <= 0) return
+    const toUpload = Array.from(files).slice(0, canAdd)
+    const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+      import('@/lib/firebase'), import('firebase/storage'),
+    ])
+    const ts = Date.now()
+    const newURLs = await Promise.all(toUpload.map(async (file, i) => {
+      const blob = await compressImage(file)
+      const r = sRef(storage, `users/${uid}/trips/${tripId}/flights/${ts}_${i}.jpg`)
+      await uploadBytes(r, blob)
+      return getDownloadURL(r)
+    }))
+    const photos = [...existing, ...newURLs]
+    const flights = (meta.flights ?? []).map(f => f.id === flightId ? { ...f, photos } : f)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
+    setMeta({ ...meta, flights })
+  }
+
+  const handleUploadAccPhoto = async (accId: string, files: FileList) => {
+    if (!meta || !files.length) return
+    const acc = (meta.accommodations ?? []).find(a => a.id === accId)
+    if (!acc) return
+    const existing = acc.photos ?? []
+    const canAdd = 3 - existing.length
+    if (canAdd <= 0) return
+    const toUpload = Array.from(files).slice(0, canAdd)
+    const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+      import('@/lib/firebase'), import('firebase/storage'),
+    ])
+    const ts = Date.now()
+    const newURLs = await Promise.all(toUpload.map(async (file, i) => {
+      const blob = await compressImage(file)
+      const r = sRef(storage, `users/${uid}/trips/${tripId}/accommodations/${ts}_${i}.jpg`)
+      await uploadBytes(r, blob)
+      return getDownloadURL(r)
+    }))
+    const photos = [...existing, ...newURLs]
+    const accommodations = (meta.accommodations ?? []).map(a => a.id === accId ? { ...a, photos } : a)
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
+    setMeta({ ...meta, accommodations })
+  }
+
   /* ── 비행기 / 숙소 고정 일정 ── */
   const handleAddFlight = async (fs: Omit<FlightItem, 'id'>[]) => {
     if (!meta) return
@@ -3185,18 +3365,65 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const handleUpdateFlight = async (updated: FlightItem) => {
     if (!meta) return
-    const flights = (meta.flights ?? []).map(f => f.id === updated.id ? updated : f)
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
-    setMeta({ ...meta, flights })
-    setEditingFlight(null)
+    setEditPhotoUploading(true)
+    try {
+      let photos = updated.photos ?? []
+      if (editFlightNewPhotos.length > 0) {
+        const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+          import('@/lib/firebase'), import('firebase/storage'),
+        ])
+        const ts = Date.now()
+        const newURLs = await Promise.all(editFlightNewPhotos.map(async (file, i) => {
+          const blob = await compressImage(file)
+          const r = sRef(storage, `users/${uid}/trips/${tripId}/flights/${ts}_${i}.jpg`)
+          await uploadBytes(r, blob)
+          return getDownloadURL(r)
+        }))
+        photos = [...photos, ...newURLs]
+      }
+      const final = { ...updated, ...(photos.length > 0 ? { photos } : {}) }
+      const flights = (meta.flights ?? []).map(f => f.id === updated.id ? final : f)
+      await updateDoc(doc(db, 'users', uid, 'trips', tripId), { flights })
+      setMeta({ ...meta, flights })
+      setEditingFlight(null)
+    } catch {
+      alert('저장에 실패했습니다. 다시 시도해 주세요.')
+    } finally {
+      setEditPhotoUploading(false)
+    }
   }
 
   const handleUpdateAccommodation = async (updated: AccommodationItem) => {
     if (!meta) return
-    const accommodations = (meta.accommodations ?? []).map(a => a.id === updated.id ? updated : a)
-    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
-    setMeta({ ...meta, accommodations })
-    setEditingAcc(null)
+    setEditPhotoUploading(true)
+    try {
+      let photos = updated.photos ?? []
+      if (editAccNewPhotos.length > 0) {
+        const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+          import('@/lib/firebase'), import('firebase/storage'),
+        ])
+        const ts = Date.now()
+        const newURLs = await Promise.all(editAccNewPhotos.map(async (file, i) => {
+          const blob = await compressImage(file)
+          const r = sRef(storage, `users/${uid}/trips/${tripId}/accommodations/${ts}_${i}.jpg`)
+          await uploadBytes(r, blob)
+          return getDownloadURL(r)
+        }))
+        photos = [...photos, ...newURLs]
+      }
+      const withPhotos = { ...updated, ...(photos.length > 0 ? { photos } : {}) }
+      const clean = Object.fromEntries(
+        Object.entries(withPhotos).filter(([, v]) => v !== undefined)
+      ) as AccommodationItem
+      const accommodations = (meta.accommodations ?? []).map(a => a.id === updated.id ? clean : a)
+      await updateDoc(doc(db, 'users', uid, 'trips', tripId), { accommodations })
+      setMeta({ ...meta, accommodations })
+      setEditingAcc(null)
+    } catch {
+      alert('저장에 실패했습니다. 다시 시도해 주세요.')
+    } finally {
+      setEditPhotoUploading(false)
+    }
   }
 
   /* ── 멤버 관리 ── */
@@ -3268,7 +3495,18 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   const setTreasurer = async (id: string) => {
     if (!meta) return
-    const isAlready = meta.members.find(m => m.id === id)?.role === 'treasurer'
+    const target = meta.members.find(m => m.id === id)
+    if (target?.role === 'owner') {
+      const members = meta.members.map(m => {
+        if (m.id !== id) return m
+        const { isTreasurer: _old, ...rest } = m
+        return _old ? rest : { ...rest, isTreasurer: true as const }
+      })
+      await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+      setMeta({ ...meta, members })
+      return
+    }
+    const isAlready = target?.role === 'treasurer'
     const members = meta.members.map(m => ({
       ...m,
       role: m.role === 'owner' ? 'owner' as const
@@ -3356,6 +3594,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
   useEffect(() => {
     setShowPayerFlight(!!editingFlight?.payerId)
     setShowParticipantsFlight(!!(editingFlight?.participantIds?.length))
+    setEditFlightNewPhotos([])
+    setEditFlightNewPreviews(p => { p.forEach(u => URL.revokeObjectURL(u)); return [] })
   }, [editingFlight?.id])
 
   /* ── 수정 모달 자동완성 (숙소) ── */
@@ -3365,7 +3605,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
       if (!editAccInputRef.current) return
       ac = new google.maps.places.Autocomplete(editAccInputRef.current, {
-        fields: ['name', 'geometry'], types: ['lodging'],
+        fields: ['name', 'geometry'],
       })
       ac.addListener('place_changed', () => {
         const p = ac!.getPlace()
@@ -3386,7 +3626,24 @@ function PlannerContent({ tripId }: { tripId: string }) {
   useEffect(() => {
     setShowPayerAcc(!!editingAcc?.payerId)
     setShowParticipantsAcc(!!(editingAcc?.participantIds?.length))
+    setEditAccNewPhotos([])
+    setEditAccNewPreviews(p => { p.forEach(u => URL.revokeObjectURL(u)); return [] })
   }, [editingAcc?.id])
+
+  /* ── 숙소 수정 모달 미니맵 ── */
+  useEffect(() => {
+    const lat = editingAcc?.lat
+    const lng = editingAcc?.lng
+    if (lat === undefined || lng === undefined || !editAccMapRef.current) return
+    import('@/lib/googleMaps').then(({ loadGoogleMaps }) => loadGoogleMaps()).then(() => {
+      const el = editAccMapRef.current; if (!el) return
+      const gMap = new google.maps.Map(el, {
+        center: { lat, lng }, zoom: 15,
+        disableDefaultUI: true, gestureHandling: 'none',
+      })
+      new google.maps.Marker({ position: { lat, lng }, map: gMap })
+    }).catch(() => {})
+  }, [editingAcc?.lat, editingAcc?.lng])
 
   /* ── 여행 정보 편집 ── */
   const openEdit = () => setShowEdit(true)
@@ -4066,19 +4323,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
             )}
 
             {/* ── 고정 일정 (비행기 / 숙소) ── */}
-            {activeDay && activeDayIdx !== -1 && (
-              <FixedScheduleSection
-                flights={meta.flights ?? []}
-                accommodations={meta.accommodations ?? []}
-                activeDay={activeDay}
-                days={days}
-                onEditFlight={f => setEditingFlight({ ...f, payerId: f.payerId ?? ownerId })}
-                onDeleteFlight={handleDeleteFlight}
-                onEditAcc={a => setEditingAcc({ ...a, payerId: a.payerId ?? ownerId })}
-                onDeleteAcc={handleDeleteAccommodation}
-                onFocusMap={handleFocusMap}
-              />
-            )}
+            {activeDay && activeDayIdx !== -1 && (() => {
+              const myMember = (meta.members ?? []).find(m => m.id === uid)
+              const canEditFixed = !myMember || myMember.role === 'owner' || myMember.role === 'treasurer'
+              return (
+                <FixedScheduleSection
+                  flights={meta.flights ?? []}
+                  accommodations={meta.accommodations ?? []}
+                  activeDay={activeDay}
+                  days={days}
+                  onEditFlight={f => setEditingFlight({ ...f, payerId: f.payerId ?? ownerId })}
+                  onDeleteFlight={handleDeleteFlight}
+                  onEditAcc={a => setEditingAcc({ ...a, payerId: a.payerId ?? ownerId })}
+                  onDeleteAcc={handleDeleteAccommodation}
+                  onFocusMap={handleFocusMap}
+                  onViewPhotos={photos => setLightbox({ receipts: photos, idx: 0 })}
+                  onUploadFlightPhoto={handleUploadFlightPhoto}
+                  onUploadAccPhoto={handleUploadAccPhoto}
+                  canEdit={canEditFixed}
+                />
+              )
+            })()}
 
             {activeDayIdx !== -1 && currentItems.length === 0 && (
               <div onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
@@ -4584,11 +4849,35 @@ function PlannerContent({ tripId }: { tripId: string }) {
                         <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
                           <Crown className="w-3 h-3 text-white" />
                         </span>
+                        {!m.left && (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setTreasurer(m.id)}
+                              title={m.isTreasurer ? '총무 해제' : '총무 지정'}
+                              className={`absolute -bottom-0.5 -left-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                m.isTreasurer ? 'bg-amber-400 hover:bg-amber-500' : 'bg-gray-200 hover:bg-amber-300'
+                              }`}
+                            >
+                              <Wallet className={`w-3 h-3 ${m.isTreasurer ? 'text-white' : 'text-gray-400'}`} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDriver(m.id)}
+                              title={m.isDriver ? '운전자 해제' : '운전자 지정'}
+                              className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                m.isDriver ? 'bg-sky-500 hover:bg-sky-600' : 'bg-gray-200 hover:bg-sky-300'
+                              }`}
+                            >
+                              <Car className={`w-3 h-3 ${m.isDriver ? 'text-white' : 'text-gray-400'}`} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
                         {m.left ? (
                           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-400">
@@ -4604,7 +4893,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             }`}>
                               {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
                             </span>
-                            {m.isDriver && m.role === 'treasurer' && (
+                            {m.role === 'owner' && m.isTreasurer && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-amber-50 text-amber-600">총무</span>
+                            )}
+                            {m.isDriver && (m.role === 'treasurer' || m.role === 'owner') && (
                               <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
                             )}
                           </>
@@ -5220,7 +5512,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                 }`}>
                                   {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
                                 </span>
-                                {m.isDriver && m.role === 'treasurer' && (
+                                {m.role === 'owner' && m.isTreasurer && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-amber-50 text-amber-600">총무</span>
+                                )}
+                                {m.isDriver && (m.role === 'treasurer' || m.role === 'owner') && (
                                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
                                 )}
                               </>
@@ -5647,9 +5942,55 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 )
               })()}
             </div>
-            <button onClick={() => handleUpdateFlight(editingFlight)}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
-              저장
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[12px] font-semibold text-gray-600">사진 <span className="font-normal text-gray-400">(최대 3장)</span></label>
+                {(editingFlight.photos?.length ?? 0) + editFlightNewPreviews.length > 0 && (
+                  <button type="button" onClick={() => setLightbox({ receipts: [...(editingFlight.photos ?? []), ...editFlightNewPreviews], idx: 0 })}
+                    className="text-[11px] text-violet-500 hover:text-violet-700">보기</button>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(editingFlight.photos ?? []).map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => setEditingFlight(prev => prev ? { ...prev, photos: prev.photos?.filter((_, j) => j !== i) } : prev)}
+                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {editFlightNewPreviews.map((url, i) => (
+                  <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => {
+                      URL.revokeObjectURL(url)
+                      setEditFlightNewPhotos(prev => prev.filter((_, j) => j !== i))
+                      setEditFlightNewPreviews(prev => prev.filter((_, j) => j !== i))
+                    }} className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {(editingFlight.photos?.length ?? 0) + editFlightNewPreviews.length < 3 && (
+                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                    <Camera className="w-4 h-4 text-gray-400" />
+                    <span className="text-[9px] text-gray-400">추가</span>
+                    <input ref={editFlightCameraRef} type="file" accept="image/*" multiple className="hidden" onChange={e => {
+                      const files = Array.from(e.target.files ?? [])
+                      const canAdd = 3 - (editingFlight.photos?.length ?? 0) - editFlightNewPhotos.length
+                      const toAdd = files.slice(0, canAdd)
+                      setEditFlightNewPhotos(prev => [...prev, ...toAdd])
+                      setEditFlightNewPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
+                      e.target.value = ''
+                    }} />
+                  </label>
+                )}
+              </div>
+            </div>
+            <button onClick={() => handleUpdateFlight(editingFlight)} disabled={editPhotoUploading}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              {editPhotoUploading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />업로드 중…</> : '저장'}
             </button>
           </div>
         </div>
@@ -5668,11 +6009,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </button>
             </div>
             <div className="flex flex-col gap-1">
-              <label className="text-[12px] font-semibold text-gray-600">숙소명 (숙소 검색)</label>
+              <label className="text-[12px] font-semibold text-gray-600">
+                숙소명 (숙소 검색)
+                {editingAcc.lat !== undefined && <span className="ml-1.5 text-blue-500 font-normal">위치 확인됨</span>}
+              </label>
               <input ref={editAccInputRef} type="text" value={editingAcc.name}
-                onChange={e => setEditingAcc({ ...editingAcc, name: e.target.value })}
+                onChange={e => setEditingAcc(prev => prev ? { ...prev, name: e.target.value } : prev)}
                 placeholder="호텔·숙소명 검색..."
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all" />
+              <div ref={editAccMapRef}
+                style={{ height: editingAcc.lat !== undefined ? 148 : 0 }}
+                className="w-full rounded-xl overflow-hidden transition-all duration-300" />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="flex flex-col gap-1 min-w-0">
@@ -5800,9 +6147,55 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 )
               })()}
             </div>
-            <button onClick={() => handleUpdateAccommodation(editingAcc)}
-              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors">
-              저장
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-center justify-between">
+                <label className="text-[12px] font-semibold text-gray-600">사진 <span className="font-normal text-gray-400">(최대 3장)</span></label>
+                {(editingAcc.photos?.length ?? 0) + editAccNewPreviews.length > 0 && (
+                  <button type="button" onClick={() => setLightbox({ receipts: [...(editingAcc.photos ?? []), ...editAccNewPreviews], idx: 0 })}
+                    className="text-[11px] text-violet-500 hover:text-violet-700">보기</button>
+                )}
+              </div>
+              <div className="flex gap-2 flex-wrap">
+                {(editingAcc.photos ?? []).map((url, i) => (
+                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => setEditingAcc(prev => prev ? { ...prev, photos: prev.photos?.filter((_, j) => j !== i) } : prev)}
+                      className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {editAccNewPreviews.map((url, i) => (
+                  <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                    <img src={url} alt="" className="w-full h-full object-cover" />
+                    <button type="button" onClick={() => {
+                      URL.revokeObjectURL(url)
+                      setEditAccNewPhotos(prev => prev.filter((_, j) => j !== i))
+                      setEditAccNewPreviews(prev => prev.filter((_, j) => j !== i))
+                    }} className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
+                      <X className="w-2.5 h-2.5 text-white" />
+                    </button>
+                  </div>
+                ))}
+                {(editingAcc.photos?.length ?? 0) + editAccNewPreviews.length < 3 && (
+                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                    <Camera className="w-4 h-4 text-gray-400" />
+                    <span className="text-[9px] text-gray-400">추가</span>
+                    <input ref={editAccCameraRef} type="file" accept="image/*" multiple className="hidden" onChange={e => {
+                      const files = Array.from(e.target.files ?? [])
+                      const canAdd = 3 - (editingAcc.photos?.length ?? 0) - editAccNewPhotos.length
+                      const toAdd = files.slice(0, canAdd)
+                      setEditAccNewPhotos(prev => [...prev, ...toAdd])
+                      setEditAccNewPreviews(prev => [...prev, ...toAdd.map(f => URL.createObjectURL(f))])
+                      e.target.value = ''
+                    }} />
+                  </label>
+                )}
+              </div>
+            </div>
+            <button onClick={() => handleUpdateAccommodation(editingAcc)} disabled={editPhotoUploading}
+              className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2">
+              {editPhotoUploading ? <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />업로드 중…</> : '저장'}
             </button>
           </div>
         </div>

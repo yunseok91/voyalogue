@@ -538,6 +538,12 @@ export function TripMap({ city, items, focusId, focusTrigger, members, previewPl
           openIwRef.current = iw
         })
         markerMapRef.current.set(item.id, { marker, iw })
+
+        /* special 아이템도 bounds에 포함 */
+        const sll = new google.maps.LatLng(item.lat, item.lng)
+        allBounds.extend(sll)
+        totalPinned++
+        if (active) { activeBounds.extend(sll); activePinned++ }
       })
 
       dayGroups.forEach(group => {

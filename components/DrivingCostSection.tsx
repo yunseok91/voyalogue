@@ -170,7 +170,7 @@ export function DrivingCostSection({
   const unit              = getCurrencyUnit(currency)
   const fmt               = (n: number) => formatAmount(n, currency)
 
-  if (!driver) return null
+  if (!driver && !canEdit) return null
   const total             = (fuel || 0) + (toll || 0)
   const splitCount        = driverBenefit && driver ? activeMemberCount - 1 : activeMemberCount
   const perPerson         = splitCount > 0 && total > 0 ? Math.round(total / splitCount) : 0

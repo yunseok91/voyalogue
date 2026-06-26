@@ -1,6 +1,7 @@
 'use client'
 
-import { Plane, BedDouble, Pencil, X, MapPin } from 'lucide-react'
+import { useRef } from 'react'
+import { Plane, BedDouble, Pencil, X, MapPin, ImageIcon } from 'lucide-react'
 
 export type FlightItem = {
   id:         string
@@ -16,6 +17,7 @@ export type FlightItem = {
   includeInSettlement?: boolean
   payerId?:             string
   participantIds?:      string[]
+  photos?:              string[]
 }
 
 export type AccommodationItem = {
@@ -32,6 +34,7 @@ export type AccommodationItem = {
   includeInSettlement?: boolean
   payerId?:             string
   participantIds?:      string[]
+  photos?:              string[]
 }
 
 type DayEntry = { dayId: string }
@@ -41,17 +44,25 @@ type Props = {
   accommodations: AccommodationItem[]
   activeDay:      DayEntry
   days:           DayEntry[]
-  onEditFlight?:       (f: FlightItem) => void
-  onDeleteFlight?:     (id: string) => void
-  onEditAcc?:          (a: AccommodationItem) => void
-  onDeleteAcc?:        (id: string) => void
-  onFocusMap?:         (itemId: string) => void
+  onEditFlight?:         (f: FlightItem) => void
+  onDeleteFlight?:       (id: string) => void
+  onEditAcc?:            (a: AccommodationItem) => void
+  onDeleteAcc?:          (id: string) => void
+  onFocusMap?:           (itemId: string) => void
+  onViewPhotos?:         (photos: string[]) => void
+  onUploadFlightPhoto?:  (id: string, files: FileList) => void
+  onUploadAccPhoto?:     (id: string, files: FileList) => void
+  canEdit?:              boolean
 }
 
 export function FixedScheduleSection({
   flights, accommodations, activeDay, days,
   onEditFlight, onDeleteFlight, onEditAcc, onDeleteAcc, onFocusMap,
+  onViewPhotos, onUploadFlightPhoto, onUploadAccPhoto, canEdit,
 }: Props) {
+  const flightCameraRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  const accCameraRefs    = useRef<Record<string, HTMLInputElement | null>>({})
+
   const activeDayIdx = days.findIndex(d => d.dayId === activeDay.dayId)
 
   const dayFlights = flights.filter(f => f.dayId === activeDay.dayId)
@@ -100,6 +111,33 @@ export function FixedScheduleSection({
                 {f.currency ?? ''} {f.price.toLocaleString()}
                 {!f.includeInSettlement && <span className="ml-1 text-[9px]">(정산 미포함)</span>}
               </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            {f.photos && f.photos.length > 0 && (
+              <button
+                onClick={e => { e.stopPropagation(); onViewPhotos?.(f.photos!) }}
+                className="flex items-center gap-0.5 bg-violet-50 px-1.5 py-0.5 rounded-full hover:bg-violet-100 transition-colors"
+              >
+                <ImageIcon className="w-2.5 h-2.5 text-violet-600" />
+                <span className="text-[11px] font-semibold text-violet-600">{f.photos.length}</span>
+              </button>
+            )}
+            {canEdit && (!f.photos || f.photos.length < 3) && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); flightCameraRefs.current[f.id]?.click() }}
+                  className="flex items-center gap-0.5 bg-white border border-violet-200 px-1.5 py-0.5 rounded-full hover:bg-violet-50 hover:border-violet-300 transition-colors"
+                  title="사진 업로드"
+                >
+                  <ImageIcon className="w-2.5 h-2.5 text-violet-400" />
+                </button>
+                <input
+                  ref={el => { flightCameraRefs.current[f.id] = el }}
+                  type="file" accept="image/*" multiple className="hidden"
+                  onChange={e => { if (e.target.files?.length) { onUploadFlightPhoto?.(f.id, e.target.files); e.target.value = '' } }}
+                />
+              </>
             )}
           </div>
           {(onEditFlight || onDeleteFlight) && (
@@ -153,6 +191,33 @@ export function FixedScheduleSection({
                 {acc.currency ?? ''} {acc.price.toLocaleString()}
                 {!acc.includeInSettlement && <span className="ml-1 text-[9px]">(정산 미포함)</span>}
               </p>
+            )}
+          </div>
+          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+            {acc.photos && acc.photos.length > 0 && (
+              <button
+                onClick={e => { e.stopPropagation(); onViewPhotos?.(acc.photos!) }}
+                className="flex items-center gap-0.5 bg-violet-50 px-1.5 py-0.5 rounded-full hover:bg-violet-100 transition-colors"
+              >
+                <ImageIcon className="w-2.5 h-2.5 text-violet-600" />
+                <span className="text-[11px] font-semibold text-violet-600">{acc.photos.length}</span>
+              </button>
+            )}
+            {canEdit && (!acc.photos || acc.photos.length < 3) && (
+              <>
+                <button
+                  onClick={e => { e.stopPropagation(); accCameraRefs.current[acc.id]?.click() }}
+                  className="flex items-center gap-0.5 bg-white border border-violet-200 px-1.5 py-0.5 rounded-full hover:bg-violet-50 hover:border-violet-300 transition-colors"
+                  title="사진 업로드"
+                >
+                  <ImageIcon className="w-2.5 h-2.5 text-violet-400" />
+                </button>
+                <input
+                  ref={el => { accCameraRefs.current[acc.id] = el }}
+                  type="file" accept="image/*" multiple className="hidden"
+                  onChange={e => { if (e.target.files?.length) { onUploadAccPhoto?.(acc.id, e.target.files); e.target.value = '' } }}
+                />
+              </>
             )}
           </div>
           <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
