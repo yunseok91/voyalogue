@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Car, Fuel, X, Upload, ImageIcon, MapPin, Navigation, Clock, Move } from 'lucide-react'
+import { Car, Fuel, X, Upload, ImageIcon, MapPin, Navigation, Clock, Move, ZoomIn } from 'lucide-react'
 import { formatKRW } from '@/lib/exchangeRate'
 import Image from 'next/image'
 
@@ -334,7 +334,8 @@ export function DrivingCostSection({
             <div className="flex-shrink-0 border-b border-gray-200">
               {receipts.length > 0 ? (
                 <div
-                  className={`relative w-full h-48 bg-gray-100 overflow-hidden select-none ${dragging ? 'cursor-grabbing' : canAttachReceipt ? 'cursor-grab' : ''}`}
+                  className={`relative w-full h-48 bg-gray-100 overflow-hidden select-none ${dragging ? 'cursor-grabbing' : canAttachReceipt ? 'cursor-grab' : 'cursor-zoom-in'}`}
+                  onClick={!canAttachReceipt ? () => setLightboxIdx(0) : undefined}
                   onMouseDown={e => {
                     if (!canAttachReceipt) return
                     e.preventDefault()
@@ -383,6 +384,17 @@ export function DrivingCostSection({
                         <Move className="w-3 h-3" />드래그로 위치 조정
                       </div>
                     </div>
+                  )}
+
+                  {/* 확대 보기 버튼 (에디터 모드) */}
+                  {canAttachReceipt && (
+                    <button
+                      onClick={e => { e.stopPropagation(); setLightboxIdx(0) }}
+                      className="absolute bottom-2.5 right-2.5 w-7 h-7 bg-black/50 hover:bg-black/70 rounded-full flex items-center justify-center transition-colors pointer-events-auto"
+                      title="크게 보기"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5 text-white" />
+                    </button>
                   )}
 
                   {/* 변경 / 제거 버튼 */}
