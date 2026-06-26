@@ -43,7 +43,7 @@ import { TripNavbar } from '@/components/TripNavbar'
 import { InfoTooltip } from '@/components/InfoTooltip'
 import { SlotDropZone } from '@/components/SlotDropZone'
 import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
-import { LottoGame } from '@/components/LottoGame'
+import { PickGame } from '@/components/PickGame'
 import { DrivingCostSection } from '@/components/DrivingCostSection'
 
 /* ── 타입 ── */
@@ -185,7 +185,7 @@ const CAT_DISPLAY: Record<Category, string> = {
 }
 
 /* HH:MM → { label: "오전 9:30" | "오후 2:30", isPM: bool } */
-function LottoIcon({ className }: { className?: string }) {
+function PickIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
       <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
@@ -404,7 +404,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
       </span>
 
       <div className="flex-1 min-w-0">
-        {/* 이름 + 맵 인덱스 배지 + 카테고리 (클릭 가능) */}
+        {/* 이름 + 맵 인덱스 배지 */}
         <div className="flex items-start gap-2 mb-1">
           {mapIndex !== undefined && item.lat && item.lng && (
             <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5 ${SLOT_DOT[item.timeSlot]}`}>
@@ -414,42 +414,6 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
           <span className="text-sm font-semibold text-gray-900 leading-snug flex-1 min-w-0 break-words">
             {item.name}
           </span>
-
-          {/* 카테고리 배지 — 클릭하면 카테고리 변경 팝업 */}
-          <div className="relative flex-shrink-0" ref={catRef}>
-            <button
-              onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
-            >
-              {CAT_DISPLAY[item.cat] ?? item.cat}
-            </button>
-
-            {showCatPick && (
-              <div
-                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2"
-                style={{ width: 148 }}
-                onMouseDown={e => e.stopPropagation()}
-              >
-                <div className="grid grid-cols-2 gap-1">
-                  {CATEGORIES.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { onChangeCat(item.id, c); setShowCatPick(false) }}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${
-                        c === item.cat
-                          ? 'bg-gray-900 text-white'
-                          : 'hover:bg-gray-100 text-gray-600'
-                      }`}
-                    >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c === item.cat ? 'bg-white' : CAT_DOTS[c]}`} />
-                      {CAT_DISPLAY[c]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* 메모 — 시각적으로 구분되는 스타일 */}
@@ -483,34 +447,20 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
             />
           </div>
 
-          {/* 2행: ÷N (좌) + 금액 (우) */}
-          {(item.price > 0 || (totalPeople > 1)) && (
+          {/* 2행: ÷N */}
+          {item.price > 0 && totalPeople > 1 && (
             <div className="flex items-center gap-2">
-              {totalPeople > 1 && item.price > 0 && (
-                <button
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
-                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all whitespace-nowrap text-blue-600 bg-blue-50 hover:bg-blue-100"
-                >
-                  <Users className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span>÷{actualPart}</span>
-                  {showPP && perPersonKRW > 0 && (
-                    <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
-                  )}
-                </button>
-              )}
-              {item.price > 0 && (
-                <div className="flex flex-col items-end ml-auto gap-0.5">
-                  <span className="text-xs font-semibold text-emerald-600 leading-none">
-                    {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
-                  </span>
-                  {item.currency !== 'KRW' && rates[item.currency] && (
-                    <span className="text-[10px] text-gray-400 leading-none">
-                      약 {formatKRW(Math.round(item.price * rates[item.currency]))}
-                    </span>
-                  )}
-                </div>
-              )}
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all whitespace-nowrap text-blue-600 bg-blue-50 hover:bg-blue-100"
+              >
+                <Users className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>÷{actualPart}</span>
+                {showPP && perPersonKRW > 0 && (
+                  <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
+                )}
+              </button>
             </div>
           )}
 
@@ -552,29 +502,76 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         </div>
       </div>
 
-      {/* 권한별 버튼 */}
-      {canEdit && (
-        <div className="flex flex-col gap-1 flex-shrink-0">
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onQuickEdit(item) }}
-            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 rounded-lg transition-all"
-            title="내역 작성"
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>내역</span>
-          </button>
-          <button
-            onPointerDown={e => e.stopPropagation()}
-            onClick={e => { e.stopPropagation(); onEdit(item) }}
-            className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
-            title="수정"
-          >
-            <Edit2 className="w-3.5 h-3.5" />
-            <span>수정</span>
-          </button>
+      {/* 오른쪽: 카테고리 + 버튼 */}
+      <div className="flex-shrink-0 flex flex-col gap-1.5 items-end">
+        {/* 1행: 카테고리 + 내역 */}
+        <div className="flex items-center gap-1">
+          <div className="relative" ref={catRef}>
+            <button
+              onMouseDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
+            >
+              {CAT_DISPLAY[item.cat] ?? item.cat}
+            </button>
+            {showCatPick && (
+              <div
+                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2"
+                style={{ width: 148 }}
+                onMouseDown={e => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-2 gap-1">
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => { onChangeCat(item.id, c); setShowCatPick(false) }}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c === item.cat ? 'bg-white' : CAT_DOTS[c]}`} />
+                      {CAT_DISPLAY[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {canEdit && (
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onQuickEdit(item) }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 rounded-lg transition-all"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span>내역</span>
+            </button>
+          )}
         </div>
-      )}
+        {/* 2행: 금액 + 수정 */}
+        <div className="flex items-center gap-1.5">
+          {item.price > 0 && (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-xs font-semibold text-emerald-600 leading-none">
+                {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
+              </span>
+              {item.currency !== 'KRW' && rates[item.currency] && (
+                <span className="text-[10px] text-gray-400 leading-none">
+                  약 {formatKRW(Math.round(item.price * rates[item.currency]))}
+                </span>
+              )}
+            </div>
+          )}
+          {canEdit && (
+            <button
+              onPointerDown={e => e.stopPropagation()}
+              onClick={e => { e.stopPropagation(); onEdit(item) }}
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+              <span>수정</span>
+            </button>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
@@ -2106,7 +2103,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
   })
   const [showWelcome,          setShowWelcome]          = useState(false)
   const [showTreasurerPrompt,  setShowTreasurerPrompt]  = useState(false)
-  const [showLotto,            setShowLotto]            = useState(false)
+  const [showPick,            setShowPick]            = useState(false)
+  const [showDriverPick,      setShowDriverPick]      = useState(false)
+  const [driverPickActive,    setDriverPickActive]    = useState(false)
   const [pendingTreasurer,     setPendingTreasurer]     = useState(false)
 
   // 웰컴/총무 모달이 열려있는 동안 온보딩 콜아웃 숨김
@@ -2316,20 +2315,28 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }, [uid, tripId])
 
   /* ── lotto 실시간 감지 ── */
-  const [lottoActive, setLottoActive] = useState(false)
+  const [pickActive, setPickActive] = useState(false)
   useEffect(() => {
     if (!uid || !tripId) return
     const unsub = onSnapshot(doc(db, 'users', uid, 'trips', tripId), snap => {
       const data = snap.data()
-      const lotto = data?.lotto
-      const valid = lotto && lotto.status && Array.isArray(lotto.participants) && lotto.participants.includes(uid)
+      const pick = data?.pick
+      const valid = pick && pick.status && Array.isArray(pick.participants) && pick.participants.includes(uid)
       if (valid) {
-        setLottoActive(true)
-        // 방장은 바로 팝업 오픈, 멤버는 배너만 표시
-        if (lotto.hostUid === uid) setShowLotto(true)
+        setPickActive(true)
+        if (pick.hostUid === uid) setShowPick(true)
       } else {
-        setLottoActive(false)
-        setShowLotto(false)
+        setPickActive(false)
+        setShowPick(false)
+      }
+      const driverPick = data?.driverPick
+      const driverValid = driverPick && driverPick.status && Array.isArray(driverPick.participants) && driverPick.participants.includes(uid)
+      if (driverValid) {
+        setDriverPickActive(true)
+        if (driverPick.hostUid === uid) setShowDriverPick(true)
+      } else {
+        setDriverPickActive(false)
+        setShowDriverPick(false)
       }
     })
     return unsub
@@ -3544,18 +3551,18 @@ function PlannerContent({ tripId }: { tripId: string }) {
       )}
 
       {/* ── 총무 뽑기 입장 배너 (방장 제외 멤버) ── */}
-      {lottoActive && !showLotto && meta && (
+      {pickActive && !showPick && meta && (
         <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-violet-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
             <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
-              <LottoIcon className="w-5 h-5 text-violet-600" />
+              <PickIcon className="w-5 h-5 text-violet-600" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-bold text-gray-900">총무 뽑기 시작!</p>
               <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
             </div>
             <button
-              onClick={() => setShowLotto(true)}
+              onClick={() => setShowPick(true)}
               className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors flex-shrink-0"
             >
               입장하기
@@ -3565,8 +3572,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
       )}
 
       {/* ── 총무 뽑기 게임 ── */}
-      {showLotto && meta && (
-        <LottoGame
+      {showPick && meta && (
+        <PickGame
           tripId={tripId}
           ownerUid={uid}
           myUid={uid}
@@ -3578,8 +3585,52 @@ function PlannerContent({ tripId }: { tripId: string }) {
             hexColor:   m.hexColor,
             role:       m.role,
           }))}
-          onClose={() => setShowLotto(false)}
+          onClose={() => setShowPick(false)}
           onAssign={setTreasurer}
+          mode="treasurer"
+          pickField="pick"
+        />
+      )}
+
+      {/* ── 운전자 뽑기 입장 배너 ── */}
+      {driverPickActive && !showDriverPick && meta && (
+        <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-emerald-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <Car className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900">운전자 뽑기 시작!</p>
+              <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
+            </div>
+            <button
+              onClick={() => setShowDriverPick(true)}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors flex-shrink-0"
+            >
+              입장하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 운전자 뽑기 게임 ── */}
+      {showDriverPick && meta && (
+        <PickGame
+          tripId={tripId}
+          ownerUid={uid}
+          myUid={uid}
+          members={(meta.members ?? []).filter(m => !m.left).map(m => ({
+            id:         m.id,
+            name:       m.name,
+            photoURL:   m.photoURL,
+            colorIndex: m.colorIndex,
+            hexColor:   m.hexColor,
+            role:       m.role,
+          }))}
+          onClose={() => setShowDriverPick(false)}
+          onAssign={(id) => { const t = meta.members.find(m => m.id === id); if (t && !t.isDriver) setDriver(id) }}
+          mode="driver"
+          pickField="driverPick"
         />
       )}
 
@@ -4586,20 +4637,34 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </div>
               </div>
 
-              {/* 총무 뽑기 — 방장 + 2명 이상 + 여행 종료 전 */}
+              {/* 총무·운전자 뽑기 — 방장 + 2명 이상 + 여행 종료 전 */}
               {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (!meta.endDate || new Date(meta.endDate) >= new Date(new Date().toDateString())) && (
-                <button
-                  onClick={() => setShowLotto(true)}
-                  className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors group"
-                >
-                  <div className="w-8 h-8 rounded-xl bg-violet-100 group-hover:bg-violet-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                    <LottoIcon className="w-4 h-4 text-violet-600" />
-                  </div>
-                  <div className="flex-1 text-left">
-                    <p className="text-xs font-bold text-violet-700">총무 뽑기</p>
-                    <p className="text-[11px] text-violet-400">랜덤 게임으로 총무를 정해요</p>
-                  </div>
-                </button>
+                <>
+                  <button
+                    onClick={() => setShowPick(true)}
+                    className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-violet-100 group-hover:bg-violet-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <PickIcon className="w-4 h-4 text-violet-600" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-xs font-bold text-violet-700">총무 뽑기</p>
+                      <p className="text-[11px] text-violet-400">랜덤 게임으로 총무를 정해요</p>
+                    </div>
+                  </button>
+                  <button
+                    onClick={() => setShowDriverPick(true)}
+                    className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors group"
+                  >
+                    <div className="w-8 h-8 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <Car className="w-4 h-4 text-emerald-600" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="text-xs font-bold text-emerald-700">운전자 뽑기</p>
+                      <p className="text-[11px] text-emerald-400">랜덤 게임으로 운전자를 정해요</p>
+                    </div>
+                  </button>
+                </>
               )}
 
               {/* 뷰어 링크 */}

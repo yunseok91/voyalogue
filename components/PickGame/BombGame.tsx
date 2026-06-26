@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { mulberry32 } from './prng'
-import type { LottoMember } from './types'
+import type { PickMember } from './types'
 
 interface Props {
-  members:   LottoMember[]
+  members:   PickMember[]
   resultUid: string
   seed:      number
   startedAt: number

@@ -75,10 +75,10 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['flights', 'accommodations']) &&
         resource.data.editCode is string &&
         exists(/databases/$(database)/documents/shareIndex/$(resource.data.editCode));
-      // 총무 뽑기(lotto): 멤버가 자신의 ready 상태 및 vote 업데이트 허용
+      // 뽑기 게임(pick/driverPick): 멤버가 자신의 ready 상태 및 vote 업데이트 허용
       allow update: if request.auth != null &&
         request.auth.uid != uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lotto']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pick', 'driverPick']) &&
         resource.data.viewCode is string &&
         exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
       // 운전자/총무: 운전 경비(drivingCost) 수정 허용 (joinCode가 활성 상태일 때)

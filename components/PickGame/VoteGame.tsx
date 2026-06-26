@@ -1,11 +1,11 @@
 'use client'
 
 import { PersonAvatar } from '@/components/PersonAvatar'
-import type { LottoMember, LottoState } from './types'
+import type { PickMember, PickState } from './types'
 
 interface Props {
-  lotto:    LottoState
-  members:  LottoMember[]
+  pick:    PickState
+  members:  PickMember[]
   myUid:    string
   isHost:   boolean
   onVote:   (targetUid: string) => void
@@ -13,19 +13,19 @@ interface Props {
   onDone:   () => void
 }
 
-export function VoteGame({ lotto, members, myUid, isHost, onVote, onReveal, onDone }: Props) {
-  const round      = lotto.voteRound ?? 1
-  const candidates = (lotto.voteCandidates ?? [])
+export function VoteGame({ pick, members, myUid, isHost, onVote, onReveal, onDone }: Props) {
+  const round      = pick.voteRound ?? 1
+  const candidates = (pick.voteCandidates ?? [])
     .map(uid => members.find(m => m.id === uid))
-    .filter(Boolean) as LottoMember[]
-  const votes      = lotto.votes ?? {}
-  const history    = lotto.voteHistory ?? []
+    .filter(Boolean) as PickMember[]
+  const votes      = pick.votes ?? {}
+  const history    = pick.voteHistory ?? []
   const myVote      = votes[myUid]
   const voteCount   = Object.keys(votes).length
-  const totalVoters = lotto.participants.length
+  const totalVoters = pick.participants.length
   const allVoted    = voteCount >= totalVoters
   // 모든 참여자가 투표 가능 (후보 여부 무관), 본인 후보 제외
-  const canVote     = !myVote && lotto.participants.includes(myUid)
+  const canVote     = !myVote && pick.participants.includes(myUid)
 
   // 현재 라운드 득표 집계
   const tally: Record<string, number> = {}
@@ -111,7 +111,7 @@ export function VoteGame({ lotto, members, myUid, isHost, onVote, onReveal, onDo
       {!isHost && myVote && !allVoted && (
         <p className="text-center text-xs text-gray-400">다른 멤버의 투표를 기다리는 중…</p>
       )}
-      {!isHost && !lotto.participants.includes(myUid) && (
+      {!isHost && !pick.participants.includes(myUid) && (
         <p className="text-center text-xs text-gray-400">관전 중입니다</p>
       )}
     </div>

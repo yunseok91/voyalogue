@@ -37,7 +37,7 @@ import { GripVertical } from 'lucide-react'
 import { SlotDropZone } from '@/components/SlotDropZone'
 import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
 import { InfoTooltip } from '@/components/InfoTooltip'
-import { LottoGame } from '@/components/LottoGame'
+import { PickGame } from '@/components/PickGame'
 
 /* ── 타입 (플래너와 동일) ── */
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
@@ -99,7 +99,8 @@ type TripMeta = {
   notice?:              string
   dayBudgets?:          Record<string, number>
   dayRates?:            Record<string, number>
-  lotto?:               Record<string, unknown>
+  pick?:                Record<string, unknown>
+  driverPick?:          Record<string, unknown>
   drivingCost?:         import('@/components/DrivingCostSection').DrivingCostData
 }
 
@@ -299,7 +300,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         </button>
       )}
       <div className="flex-1 min-w-0">
-        {/* 이름 + 맵 인덱스 배지 + 카테고리 */}
+        {/* 이름 + 맵 인덱스 배지 */}
         <div className="flex items-start gap-2 mb-1">
           {mapIndex !== undefined && item.lat && item.lng && (
             <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white mt-0.5 ${SLOT_DOT[item.timeSlot]}`}>
@@ -307,39 +308,6 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
             </span>
           )}
           <span className="text-sm font-semibold text-gray-900 leading-snug flex-1 min-w-0 break-words">{item.name}</span>
-          <div className="relative flex-shrink-0" ref={catRef}>
-            {canEdit && onChangeCat ? (
-              <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
-              >
-                {CAT_DISPLAY[item.cat] ?? item.cat}
-              </button>
-            ) : (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
-            )}
-            {showCatPick && (
-              <div
-                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2"
-                style={{ width: 148 }}
-                onMouseDown={e => e.stopPropagation()}
-              >
-                <div className="grid grid-cols-2 gap-1">
-                  {CATEGORIES.map(c => (
-                    <button
-                      key={c}
-                      onClick={() => { onChangeCat!(item.id, c); setShowCatPick(false) }}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
-                    >
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CAT_DOTS[c]}`} />
-                      {CAT_DISPLAY[c]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
         </div>
 
         {/* 메모 */}
@@ -373,32 +341,20 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
             />
           </div>
 
-          {/* 2행: ÷N (좌) + 금액 (우) */}
-          {item.price > 0 && (
+          {/* 2행: ÷N */}
+          {item.price > 0 && actualPart > 1 && (
             <div className="flex items-center gap-2">
-              {actualPart > 1 && (
-                <button
-                  onMouseDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
-                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap transition-all text-blue-600 bg-blue-50 hover:bg-blue-100"
-                >
-                  <Users className="w-2.5 h-2.5 flex-shrink-0" />
-                  <span>÷{actualPart}</span>
-                  {showPP && perPersonKRW > 0 && (
-                    <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
-                  )}
-                </button>
-              )}
-              <div className="flex flex-col items-end ml-auto gap-0.5">
-                <span className="text-xs font-semibold text-emerald-600 leading-none">
-                  {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
-                </span>
-                {item.currency !== 'KRW' && rates && rates[item.currency] && (
-                  <span className="text-[10px] text-gray-400 leading-none">
-                    ≈ {formatKRW(Math.round(item.price * rates[item.currency]))}
-                  </span>
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
+                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full whitespace-nowrap transition-all text-blue-600 bg-blue-50 hover:bg-blue-100"
+              >
+                <Users className="w-2.5 h-2.5 flex-shrink-0" />
+                <span>÷{actualPart}</span>
+                {showPP && perPersonKRW > 0 && (
+                  <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
                 )}
-              </div>
+              </button>
             </div>
           )}
 
@@ -428,31 +384,73 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         </div>
       </div>
 
-      {/* 편집 권한 인라인 버튼 */}
-      {canEdit && (
-        <div className="flex flex-col gap-1 flex-shrink-0">
-          {onEdit && (
+      {/* 오른쪽: 카테고리 + 버튼 */}
+      <div className="flex-shrink-0 flex flex-col gap-1.5 items-end">
+        {/* 1행: 카테고리 + 내역 */}
+        <div className="flex items-center gap-1">
+          <div className="relative" ref={catRef}>
+            {canEdit && onChangeCat ? (
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
+              >
+                {CAT_DISPLAY[item.cat] ?? item.cat}
+              </button>
+            ) : (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
+            )}
+            {showCatPick && (
+              <div className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2" style={{ width: 148 }} onMouseDown={e => e.stopPropagation()}>
+                <div className="grid grid-cols-2 gap-1">
+                  {CATEGORIES.map(c => (
+                    <button key={c} onClick={() => { onChangeCat!(item.id, c); setShowCatPick(false) }}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CAT_DOTS[c]}`} />
+                      {CAT_DISPLAY[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          {canEdit && onEdit && (
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 rounded-lg transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 active:bg-emerald-200 rounded-lg transition-all"
             >
               <Receipt className="w-3.5 h-3.5" />
               <span>내역</span>
             </button>
           )}
-          {onEdit && (
+        </div>
+        {/* 2행: 금액 + 수정 */}
+        <div className="flex items-center gap-1.5">
+          {item.price > 0 && (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="text-xs font-semibold text-emerald-600 leading-none">
+                {item.currency === 'KRW' ? formatKRW(item.price) : formatLocal(item.price, item.currency)}
+              </span>
+              {item.currency !== 'KRW' && rates && rates[item.currency] && (
+                <span className="text-[10px] text-gray-400 leading-none">
+                  ≈ {formatKRW(Math.round(item.price * rates[item.currency]))}
+                </span>
+              )}
+            </div>
+          )}
+          {canEdit && onEdit && (
             <button
               onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center justify-center gap-1 px-2.5 py-2.5 min-h-[40px] text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
+              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
             >
               <Edit2 className="w-3.5 h-3.5" />
               <span>수정</span>
             </button>
           )}
         </div>
-      )}
+      </div>
 
       {/* 영수증 라이트박스 */}
       {lightboxIdx !== null && item.receipts && (
@@ -1160,12 +1158,16 @@ export default function SharePage() {
   const [expandedMemberId, setExpandedMemberId] = useState<string | null>(null)
   const [showReport,       setShowReport]       = useState(false)
   const [showMemberPopup,  setShowMemberPopup]  = useState(false)
-  const [showLotto,        setShowLotto]        = useState(false)
+  const [showPick,        setShowPick]        = useState(false)
+  const [showDriverPick,  setShowDriverPick]  = useState(false)
 
-  /* 방장이 게임 종료(lotto 제거) 시 멤버 팝업 강제 닫기 */
+  /* 방장이 게임 종료 시 팝업 강제 닫기 */
   useEffect(() => {
-    if (!(trip?.lotto && (trip.lotto as any).status)) setShowLotto(false)
-  }, [trip?.lotto])
+    if (!(trip?.pick && (trip.pick as any).status)) setShowPick(false)
+  }, [trip?.pick])
+  useEffect(() => {
+    if (!(trip?.driverPick && (trip.driverPick as any).status)) setShowDriverPick(false)
+  }, [trip?.driverPick])
 
   useScrollLock(showAdd || !!editingItem || showSettlement || showReport || showMemberPopup || !!editingFlight || !!editingAcc)
 
@@ -1227,7 +1229,7 @@ export default function SharePage() {
         const data = snap.data()
         setTrip(prev =>
           prev
-            ? { ...prev, checklist: data.checklist, members: data.members, lotto: data.lotto }
+            ? { ...prev, checklist: data.checklist, members: data.members, pick: data.pick, driverPick: data.driverPick }
             : { uid, id: tripId, ...(data as Omit<TripMeta, 'uid' | 'id'>) }
         )
       })
@@ -3488,7 +3490,7 @@ export default function SharePage() {
       )}
 
       {/* ── 총무 뽑기 입장 배너 (멤버용) ── */}
-      {trip?.lotto && (trip.lotto as any).status && !showLotto && user && Array.isArray((trip.lotto as any).participants) && (trip.lotto as any).participants.includes(user.uid) && (
+      {trip?.pick && (trip.pick as any).status && !showPick && user && Array.isArray((trip.pick as any).participants) && (trip.pick as any).participants.includes(user.uid) && (
         <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-violet-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
             <div className="w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center flex-shrink-0">
@@ -3504,7 +3506,7 @@ export default function SharePage() {
               <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
             </div>
             <button
-              onClick={() => setShowLotto(true)}
+              onClick={() => setShowPick(true)}
               className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-xs font-bold transition-colors flex-shrink-0"
             >
               입장하기
@@ -3514,8 +3516,8 @@ export default function SharePage() {
       )}
 
       {/* ── 총무 뽑기 게임 모달 (멤버용) ── */}
-      {showLotto && trip && user && (
-        <LottoGame
+      {showPick && trip && user && (
+        <PickGame
           tripId={trip.id}
           ownerUid={trip.uid}
           myUid={user.uid}
@@ -3527,8 +3529,52 @@ export default function SharePage() {
             hexColor:   m.hexColor,
             role:       m.role,
           }))}
-          onClose={() => setShowLotto(false)}
-          onAssign={() => {/* 멤버는 총무 지정 권한 없음 */}}
+          onClose={() => setShowPick(false)}
+          onAssign={() => {}}
+          mode="treasurer"
+          pickField="pick"
+        />
+      )}
+
+      {/* ── 운전자 뽑기 입장 배너 (멤버용) ── */}
+      {trip?.driverPick && (trip.driverPick as any).status && !showDriverPick && user && Array.isArray((trip.driverPick as any).participants) && (trip.driverPick as any).participants.includes(user.uid) && (
+        <div className="fixed bottom-20 inset-x-0 z-[120] flex justify-center px-4">
+          <div className="w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-emerald-200 px-4 py-3.5 flex items-center gap-3 animate-slide-up">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center flex-shrink-0">
+              <Car className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-gray-900">운전자 뽑기 시작!</p>
+              <p className="text-xs text-gray-400">방장이 게임을 준비하고 있어요</p>
+            </div>
+            <button
+              onClick={() => setShowDriverPick(true)}
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-colors flex-shrink-0"
+            >
+              입장하기
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── 운전자 뽑기 게임 모달 (멤버용) ── */}
+      {showDriverPick && trip && user && (
+        <PickGame
+          tripId={trip.id}
+          ownerUid={trip.uid}
+          myUid={user.uid}
+          members={(trip.members ?? []).filter(m => !m.left).map(m => ({
+            id:         m.id,
+            name:       m.name,
+            photoURL:   m.photoURL,
+            colorIndex: m.colorIndex,
+            hexColor:   m.hexColor,
+            role:       m.role,
+          }))}
+          onClose={() => setShowDriverPick(false)}
+          onAssign={() => {}}
+          mode="driver"
+          pickField="driverPick"
         />
       )}
 

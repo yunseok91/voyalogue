@@ -1,6 +1,6 @@
 export type GameType = 'bomb' | 'random' | 'race' | 'vote'
 
-export type LottoStatus =
+export type PickStatus =
   | 'waiting'    // 대기실 — 멤버 입장 확인
   | 'selecting'  // 방장이 게임 선택 중
   | 'picking'    // 제비뽑기 카드 선택 중 (random 전용)
@@ -8,8 +8,8 @@ export type LottoStatus =
   | 'playing'    // 게임 진행 중
   | 'result'     // 결과 화면
 
-export interface LottoState {
-  status:       LottoStatus
+export interface PickState {
+  status:       PickStatus
   gameType:     GameType | null
   hostUid:      string
   participants: string[]              // 참여자 uid 목록
@@ -29,7 +29,7 @@ export interface LottoState {
   voteHistory?:    Array<Record<string, number>>  // 라운드별 득표수
 }
 
-export interface LottoMember {
+export interface PickMember {
   id:          string
   name:        string
   photoURL?:   string

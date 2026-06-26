@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { PersonAvatar } from '@/components/PersonAvatar'
-import type { LottoMember } from './types'
+import type { PickMember } from './types'
 
 interface Props {
-  members:    LottoMember[]
+  members:    PickMember[]
   picks:      Record<string, number>  // uid → 선택한 슬롯 인덱스
   winnerSlot: number                  // 당첨 카드 슬롯
   resultUid:  string | null
@@ -81,7 +81,7 @@ export function RandomGame({ members, picks, winnerSlot, resultUid, phase, myUid
   }, [phase])
 
   // 슬롯 → 해당 슬롯을 선택한 멤버
-  const slotToMember: (LottoMember | undefined)[] = Array.from({ length: n }, (_, i) => {
+  const slotToMember: (PickMember | undefined)[] = Array.from({ length: n }, (_, i) => {
     const entry = Object.entries(picks).find(([, slot]) => slot === i)
     return entry ? members.find(m => m.id === entry[0]) : undefined
   })

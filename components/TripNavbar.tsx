@@ -192,7 +192,7 @@ export function TripNavbar({
                   </span>
                 )}
                 {isDriver && (
-                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-white">
+                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white">
                     <Car className="w-2.5 h-2.5" />운전자
                   </span>
                 )}
