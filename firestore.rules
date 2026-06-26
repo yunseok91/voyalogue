@@ -81,6 +81,12 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['lotto']) &&
         resource.data.viewCode is string &&
         exists(/databases/$(database)/documents/shareIndex/$(resource.data.viewCode));
+      // 운전자/총무: 운전 경비(drivingCost) 수정 허용 (joinCode가 활성 상태일 때)
+      allow update: if request.auth != null &&
+        request.auth.uid != uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['drivingCost']) &&
+        resource.data.joinCode is string &&
+        exists(/databases/$(database)/documents/shareIndex/$(resource.data.joinCode));
     }
 
     // Member invite codes: public read, owner write

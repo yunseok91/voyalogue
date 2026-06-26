@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, CheckSquare, Headset, LogOut,
-  Users, Wallet, Crown, Edit2, Menu, X, Megaphone, UserCircle,
+  Users, Wallet, Crown, Edit2, Menu, X, Megaphone, UserCircle, Car,
 } from 'lucide-react'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { gradientStyle } from '@/lib/tripGradient'
@@ -91,7 +91,7 @@ export type NavMember = {
   id:          string
   name:        string
   photoURL?:   string
-  role:        'owner' | 'treasurer' | 'member'
+  role:        'owner' | 'treasurer' | 'driver' | 'member'
   colorIndex?: number
   hexColor?:   string
   left?:       boolean
@@ -111,6 +111,7 @@ type Props = {
 
   isOwner:      boolean
   isTreasurer?: boolean
+  isDriver?:    boolean
   user:         { uid: string; displayName?: string | null; photoURL?: string | null } | null
 
   members:       NavMember[]
@@ -127,7 +128,7 @@ type Props = {
 export function TripNavbar({
   city, title, gradient, coverPhotoURL, coverPhotoPosition,
   startDate, endDate, nights,
-  isOwner, isTreasurer, user,
+  isOwner, isTreasurer, isDriver, user,
   members, currentMember,
   onMemberClick, onChecklistToggle, onReportClick, onNoticeClick,
   onLeaveTrip, onEditTrip,
@@ -140,6 +141,8 @@ export function TripNavbar({
     ? 'bg-blue-600 text-white'
     : isTreasurer
     ? 'bg-amber-400 text-white'
+    : isDriver
+    ? 'bg-sky-500 text-white'
     : 'bg-gray-100 text-gray-600'
 
   const swatchStyle = coverPhotoURL
@@ -177,14 +180,28 @@ export function TripNavbar({
             {startDate.slice(5).replace('-', '/')} – {endDate.slice(5).replace('-', '/')} · {nights}박
           </span>
           {user && (
-            <span className={`flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full ${roleBadgeCls}`}>
-              {isOwner
-                ? <><Crown  className="w-2.5 h-2.5" />방장</>
-                : isTreasurer
-                ? <><Wallet className="w-2.5 h-2.5" />총무</>
-                : <>게스트</>
-              }
-            </span>
+            isOwner ? (
+              <span className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                <Crown className="w-2.5 h-2.5" />방장
+              </span>
+            ) : (isTreasurer || isDriver) ? (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {isTreasurer && (
+                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white">
+                    <Wallet className="w-2.5 h-2.5" />총무
+                  </span>
+                )}
+                {isDriver && (
+                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-white">
+                    <Car className="w-2.5 h-2.5" />운전자
+                  </span>
+                )}
+              </div>
+            ) : (
+              <span className="flex-shrink-0 flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                게스트
+              </span>
+            )
           )}
           {onEditTrip && (
             <button
@@ -215,24 +232,26 @@ export function TripNavbar({
             className="flex items-center gap-1.5 px-2 py-1.5 rounded-full border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
             title="멤버 목록"
           >
-            <div className="flex -space-x-2">
-              {members.slice(0, 3).map((m, i) => {
-                const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
-                return (
-                  <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                    <PersonAvatar
-                      name={m.name} photoURL={m.photoURL} size={26} stacked
-                      colorIndex={ci}
-                      hexColor={m.hexColor}
-                      ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined}
-                    />
-                    {m.role === 'owner'     && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500  rounded-full flex items-center justify-center"><Crown  className="w-1.5 h-1.5 text-white" /></span>}
-                    {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-1.5 h-1.5 text-white" /></span>}
-                  </div>
-                )
-              })}
+            <div className="flex items-center gap-1">
+              <div className="flex -space-x-2">
+                {members.slice(0, 3).map((m, i) => {
+                  const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                  return (
+                    <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
+                      <PersonAvatar
+                        name={m.name} photoURL={m.photoURL} size={26} stacked
+                        colorIndex={ci}
+                        hexColor={m.hexColor}
+                        ringColor={m.hexColor ?? CLAY[ci ?? 1]?.base}
+                      />
+                      {m.role === 'owner'     && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-blue-500  rounded-full flex items-center justify-center"><Crown  className="w-1.5 h-1.5 text-white" /></span>}
+                      {m.role === 'treasurer' && <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-amber-400 rounded-full flex items-center justify-center"><Wallet className="w-1.5 h-1.5 text-white" /></span>}
+                    </div>
+                  )
+                })}
+              </div>
               {members.length > 3 && (
-                <div className="w-[26px] h-[26px] rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
+                <div className="min-w-[22px] h-[22px] px-1 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
               )}
             </div>
             <span className="hidden lg:inline text-xs font-semibold text-gray-600">{isOwner ? '멤버 편집' : '멤버'}</span>
@@ -273,22 +292,24 @@ export function TripNavbar({
           data-tour="member-btn"
           className="flex items-center gap-2 px-2.5 py-1.5 rounded-full border border-gray-200 active:bg-blue-50 transition-colors flex-shrink-0"
         >
-          <div className="flex -space-x-2">
-            {members.slice(0, 3).map((m, i) => {
-              const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
-              return (
-                <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
-                  <PersonAvatar
-                    name={m.name} photoURL={m.photoURL} size={24} stacked
-                    colorIndex={ci}
-                    hexColor={m.hexColor}
-                    ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined}
-                  />
-                </div>
-              )
-            })}
+          <div className="flex items-center gap-1">
+            <div className="flex -space-x-2">
+              {members.slice(0, 3).map((m, i) => {
+                const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                return (
+                  <div key={m.id} className="relative" style={{ zIndex: 10 - i }}>
+                    <PersonAvatar
+                      name={m.name} photoURL={m.photoURL} size={24} stacked
+                      colorIndex={ci}
+                      hexColor={m.hexColor}
+                      ringColor={m.hexColor ?? CLAY[ci ?? 1]?.base}
+                    />
+                  </div>
+                )
+              })}
+            </div>
             {members.length > 3 && (
-              <div className="w-6 h-6 rounded-full bg-gray-100 ring-2 ring-white flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
+              <div className="min-w-[20px] h-[20px] px-1 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-500">+{members.length - 3}</div>
             )}
           </div>
           <span className="text-xs font-medium text-gray-600">{members.length}명</span>

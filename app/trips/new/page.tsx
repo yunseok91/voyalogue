@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Search, Calendar, Minus, Plus, MapPin, ChevronRight, Loader2, Sparkles, ImagePlus, X, ChevronDown } from 'lucide-react'
-import { collection, addDoc, setDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore'
+import { collection, addDoc, setDoc, doc, updateDoc, serverTimestamp, getDocs, query as firestoreQuery, limit } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
 import { AuthGuard } from '@/components/AuthGuard'
@@ -311,6 +311,11 @@ function NewTripContent() {
       : `${THEME_COLORS[themeIdx].from},${THEME_COLORS[themeIdx].to}`
 
     try {
+      const existingSnap = await getDocs(firestoreQuery(collection(db, 'users', user.uid, 'trips'), limit(10)))
+      const isFirstTrip  = !existingSnap.docs.some(d =>
+        (d.data().members ?? []).some((m: { id: string; role: string }) => m.id === user.uid && m.role === 'owner')
+      )
+
       const viewCode = generateCode()
       const editCode = generateCode()
       const ref = await addDoc(collection(db, 'users', user.uid, 'trips'), {
@@ -353,7 +358,7 @@ function NewTripContent() {
 
       localStorage.setItem('showServiceReview', '1')
       localStorage.setItem('showTreasurerPrompt', '1')
-      if (!localStorage.getItem('voyagelogue_welcomed')) {
+      if (isFirstTrip) {
         localStorage.setItem('voyagelogue_welcomed', '1')
         localStorage.setItem('showWelcome', '1')
       }

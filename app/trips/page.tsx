@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, LogOut, Copy, Loader2, Megaphone } from 'lucide-react'
+import { MapPin, ChevronLeft, ChevronRight, Trash2, Palette, X, Info, Zap, Wrench, Crown, User, ChevronDown, Edit2, Users, Wallet, Car, LogOut, Copy, Loader2, Megaphone } from 'lucide-react'
 import { collection, orderBy, query, where, doc, deleteDoc, getDocs, updateDoc, getDoc, addDoc, serverTimestamp, writeBatch, setDoc, onSnapshot } from 'firebase/firestore'
 import type { Timestamp } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
@@ -53,10 +53,11 @@ type InvitedTripRef = {
 }
 
 type InvitedTrip = Trip & {
-  isInvited: true
-  viewCode:  string
-  ownerUid:  string
-  myRole:    'member' | 'treasurer'
+  isInvited:   true
+  viewCode:    string
+  ownerUid:    string
+  myRole:      'member' | 'treasurer'
+  myIsDriver?: boolean
 }
 
 type AnnouncementType = 'notice' | 'event' | 'maintenance'
@@ -380,9 +381,10 @@ function TripsContent() {
             if (!tripSnap.exists()) return null
             const data = tripSnap.data()
             const members = (data.members ?? []) as Array<{ id: string; role: string }>
-            const myMember = members.find(m => m.id === uid)
+            const myMember   = members.find(m => m.id === uid) as { id: string; role: string; isDriver?: boolean } | undefined
             const myRole: 'member' | 'treasurer' = myMember?.role === 'treasurer' ? 'treasurer' : 'member'
-            return { id: ref.tripId, ...data, isInvited: true as const, viewCode: ref.viewCode, ownerUid: ref.ownerUid, myRole } as InvitedTrip
+            const myIsDriver = !!(myMember?.isDriver || myMember?.role === 'driver')
+            return { id: ref.tripId, ...data, isInvited: true as const, viewCode: ref.viewCode, ownerUid: ref.ownerUid, myRole, myIsDriver } as InvitedTrip
           } catch { return null }
         })
       )
@@ -882,11 +884,6 @@ function TripsContent() {
                                   샘플
                                 </span>
                               )}
-                              {isOngoing && (
-                                <span className={`flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm ${hasCover || !isDark ? 'text-white bg-white/20' : 'text-gray-800 bg-black/10'}`}>
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
-                                </span>
-                              )}
                               {!hasCover && (
                                 <button
                                   onClick={e => toggleTextColor(e, trip)}
@@ -1045,6 +1042,7 @@ function TripsContent() {
                 const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
                 const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
                 const isTreasurer = trip.myRole === 'treasurer'
+                const myIsDriver  = !!(trip as InvitedTrip).myIsDriver
                 const activeMembers = (trip.members ?? []).filter(m => !m.left)
                 const visibleMembers = activeMembers
                   .slice(0, 4)
@@ -1080,10 +1078,19 @@ function TripsContent() {
                         <div className="flex items-start justify-between">
                           <div className="flex items-center gap-1.5">
                             <User className={`w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 ${invClrIcon}`} />
-                            {isTreasurer ? (
-                              <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white shadow-sm">
-                                <Wallet className="w-2.5 h-2.5" />총무
-                              </span>
+                            {(isTreasurer || myIsDriver) ? (
+                              <div className="flex items-center gap-1">
+                                {isTreasurer && (
+                                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white shadow-sm">
+                                    <Wallet className="w-2.5 h-2.5" />총무
+                                  </span>
+                                )}
+                                {myIsDriver && (
+                                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-sky-500 text-white shadow-sm">
+                                    <Car className="w-2.5 h-2.5" />운전자
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-[11px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm text-white bg-white/20">
                                 게스트
@@ -1092,11 +1099,6 @@ function TripsContent() {
                           </div>
                           {!isPending && (
                             <div className="flex items-center gap-1.5">
-                              {isOngoing && (
-                                <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full backdrop-blur-sm text-white bg-white/20">
-                                  <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />여행 중
-                                </span>
-                              )}
                               <button
                                 onClick={e => handleLeaveInvited(e, trip)}
                                 className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"

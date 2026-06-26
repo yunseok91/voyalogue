@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams, useSearchParams } from 'next/navigation'
-import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, Plane, BedDouble, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone, Receipt, ScrollText } from 'lucide-react'
+import { MapPin, Wallet, Users, Crown, ChevronLeft, ChevronRight, Loader2, Star, Plus, X, Camera, ImageIcon, Plane, BedDouble, Car, Fuel, Pencil, UserPlus, LogOut, MoreHorizontal, Edit2, Trash2, CheckSquare, Headset, Megaphone, Receipt, ScrollText, CreditCard, LayoutList } from 'lucide-react'
 import {
   collection, getDoc, getDocs, onSnapshot,
   doc, addDoc, deleteDoc, updateDoc, setDoc, serverTimestamp,
@@ -13,12 +13,13 @@ import { gradientStyle, gradientTextColor } from '@/lib/tripGradient'
 import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 import { detectCurrencies, CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 import { getRatesInKRW, toKRW, formatLocal, formatKRW } from '@/lib/exchangeRate'
-import { TripMap, type MapItem } from '@/components/TripMap'
+import { TripMap, type MapItem, DAY_COLORS } from '@/components/TripMap'
 import { useAuthStore } from '@/features/auth/store'
 import { notifyTripMembers } from '@/lib/tripNotification'
 import { NotificationBell } from '@/components/NotificationBell'
 import { useScrollLock } from '@/hooks/useScrollLock'
 import { FixedScheduleSection } from '@/components/FixedScheduleSection'
+import { DrivingCostSection } from '@/components/DrivingCostSection'
 import { ReportModal } from '@/components/ReportModal'
 import { TripNavbar } from '@/components/TripNavbar'
 import {
@@ -40,9 +41,9 @@ import { LottoGame } from '@/components/LottoGame'
 
 /* ── 타입 (플래너와 동일) ── */
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
-type MemberRole = 'owner' | 'treasurer' | 'member'
+type MemberRole = 'owner' | 'treasurer' | 'driver' | 'member'
 
-type Member = { id: string; name: string; photoURL?: string; role: MemberRole; colorIndex?: number; hexColor?: string; left?: boolean }
+type Member = { id: string; name: string; photoURL?: string; role: MemberRole; isDriver?: boolean; colorIndex?: number; hexColor?: string; left?: boolean }
 
 type FlightItem = {
   id:          string
@@ -99,6 +100,7 @@ type TripMeta = {
   dayBudgets?:          Record<string, number>
   dayRates?:            Record<string, number>
   lotto?:               Record<string, unknown>
+  drivingCost?:         import('@/components/DrivingCostSection').DrivingCostData
 }
 
 type PlanItem = {
@@ -118,6 +120,11 @@ const CAT_COLORS: Record<Category, string> = {
   식사: 'bg-orange-100 text-orange-700', 장소: 'bg-blue-100 text-blue-700',
   쇼핑: 'bg-pink-100 text-pink-700',     교통: 'bg-teal-100 text-teal-700',
   기타: 'bg-gray-100 text-gray-600',
+}
+const CAT_DOTS: Record<Category, string> = {
+  식사: 'bg-orange-500', 장소: 'bg-blue-500',
+  쇼핑: 'bg-pink-500',   교통: 'bg-teal-500',
+  기타: 'bg-gray-400',
 }
 const CAT_DISPLAY: Record<Category, string> = {
   식사: '식사', 장소: '관광', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
@@ -225,7 +232,7 @@ function RateWidget({
       </span>
       <button
         onClick={() => { setInput(displayRate.toFixed(2)); setEditing(true) }}
-        className="text-gray-300 hover:text-blue-500 transition-colors"
+        className="text-gray-400 hover:text-blue-500 transition-colors"
         title="환율 수정"
       >
         <Pencil className="w-2.5 h-2.5" />
@@ -240,18 +247,28 @@ function RateWidget({
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, mapIndex, onFocusMap, dragHandleProps }: {
+function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, onChangeCat, mapIndex, onFocusMap, dragHandleProps }: {
   item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number; memberIds?: string[]
   rates?: Record<string, number>
   onEdit?: (item: PlanItem) => void
   onDelete?: (id: string) => void
   onRate?: (id: string, v: number) => void
+  onChangeCat?: (id: string, cat: Category) => void
   mapIndex?: number
   onFocusMap?: (id: string) => void
   dragHandleProps?: Record<string, unknown>
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showPP,  setShowPP]  = useState(false)
+  const [showCatPick, setShowCatPick] = useState(false)
+  const catRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!showCatPick) return
+    const handler = (e: MouseEvent) => { if (!catRef.current?.contains(e.target as Node)) setShowCatPick(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showCatPick])
 
   useEffect(() => {
     if (!showPP) return
@@ -276,7 +293,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         <button
           {...dragHandleProps}
           onClick={e => e.stopPropagation()}
-          className="flex-shrink-0 mt-1 text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
+          className="flex-shrink-0 mt-1 text-gray-400 hover:text-gray-500 cursor-grab active:cursor-grabbing touch-none"
         >
           <GripVertical className="w-4 h-4" />
         </button>
@@ -290,7 +307,39 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
             </span>
           )}
           <span className="text-sm font-semibold text-gray-900 leading-snug flex-1 min-w-0 break-words">{item.name}</span>
-          <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0 ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
+          <div className="relative flex-shrink-0" ref={catRef}>
+            {canEdit && onChangeCat ? (
+              <button
+                onMouseDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
+              >
+                {CAT_DISPLAY[item.cat] ?? item.cat}
+              </button>
+            ) : (
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
+            )}
+            {showCatPick && (
+              <div
+                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2"
+                style={{ width: 148 }}
+                onMouseDown={e => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-2 gap-1">
+                  {CATEGORIES.map(c => (
+                    <button
+                      key={c}
+                      onClick={() => { onChangeCat!(item.id, c); setShowCatPick(false) }}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                    >
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CAT_DOTS[c]}`} />
+                      {CAT_DISPLAY[c]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* 메모 */}
@@ -359,20 +408,20 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
               <button
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); setLightboxIdx(0) }}
-                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-violet-600 bg-violet-50 hover:bg-violet-100 transition-colors flex-shrink-0"
+                className="flex items-center gap-0.5 bg-violet-50 px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 hover:bg-violet-100"
               >
-                <Camera className="w-2.5 h-2.5" />
-                <span>{item.receipts.length}</span>
+                <ImageIcon className="w-2.5 h-2.5 text-violet-600" />
+                <span className="text-[11px] font-semibold text-violet-600">{item.receipts.length}</span>
               </button>
             )}
             {canEdit && (!item.receipts || item.receipts.length < 3) && onEdit && (
               <button
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onEdit(item) }}
-                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600 transition-colors flex-shrink-0"
+                className="flex items-center gap-0.5 bg-white border border-violet-200 px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 hover:bg-violet-50 hover:border-violet-300"
                 title="사진 업로드"
               >
-                <Camera className="w-2.5 h-2.5" />
+                <ImageIcon className="w-2.5 h-2.5 text-violet-400" />
               </button>
             )}
           </div>
@@ -540,6 +589,8 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
   const [rating,         setRating]         = useState(0)
   const [hoverRating,    setHoverRating]    = useState(0)
   const [participantIds, setParticipantIds] = useState<string[]>(members.map(m => m.id))
+  const [payerId,        setPayerId]        = useState<string | undefined>(() => (members.find(m => m.role === 'treasurer') ?? members.find(m => m.role === 'owner'))?.id)
+  const [showPayer,      setShowPayer]      = useState(false)
   const [receiptFiles,   setReceiptFiles]   = useState<File[]>([])
   const [receiptPreviews,setReceiptPreviews]= useState<string[]>([])
   const [uploading,      setUploading]      = useState(false)
@@ -606,6 +657,7 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
       lat: lat ?? 0, lng: lng ?? 0,
       participants: participantIds.length || members.length,
       participantIds,
+      ...(payerId ? { payerId } : {}),
       ...(receiptURLs.length > 0 ? { receipts: receiptURLs } : {}),
     })
     setUploading(false)
@@ -715,6 +767,35 @@ function AddPanel({ onAdd, onClose, defaultCurrency, currencies, members, tripUi
               </div>
             </div>
           )}
+          {/* 결제자 */}
+          {members.length > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <button type="button" onClick={() => setShowPayer(v => !v)}
+                className="flex items-center justify-between text-xs font-semibold text-gray-600 hover:text-gray-800 transition-colors">
+                <span className="flex items-center gap-1.5">
+                  결제자
+                  <span className="text-[10px] font-normal text-gray-400">(선택)</span>
+                  {payerId && (() => { const p = members.find(m => m.id === payerId); return p ? <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">{p.name}</span> : null })()}
+                </span>
+                <span className="text-[10px] text-gray-400">{showPayer ? '▲' : '▼'}</span>
+              </button>
+              {showPayer && (
+                <div className="flex gap-2 flex-wrap">
+                  {members.map((m, i) => {
+                    const selected = payerId === m.id
+                    const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                    return (
+                      <button key={m.id} type="button" onClick={() => setPayerId(prev => prev === m.id ? undefined : m.id)}
+                        className={`flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 bg-gray-50 opacity-45'}`}>
+                        <PersonAvatar name={m.name} photoURL={m.photoURL} size={28} colorIndex={ci} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
+                        <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          )}
           {/* 예상 비용 */}
           <div>
             <label className="block text-xs font-semibold text-gray-600 mb-1.5">예상 비용</label>
@@ -807,6 +888,8 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
   const [participantIds,  setParticipantIds] = useState<string[]>(
     item.participantIds ?? members.map(m => m.id)
   )
+  const [payerId,        setPayerId]        = useState<string | undefined>(item.payerId ?? (members.find(m => m.role === 'treasurer') ?? members.find(m => m.role === 'owner'))?.id)
+  const [showPayer,      setShowPayer]      = useState(false)
   const [existingReceipts, setExistingReceipts] = useState<string[]>(item.receipts ?? [])
   const [receiptFiles,     setReceiptFiles]     = useState<File[]>([])
   const [receiptPreviews,  setReceiptPreviews]  = useState<string[]>([])
@@ -857,6 +940,7 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
       price: Number(price) || 0, currency, comment,
       participants: participantIds.length || members.length,
       participantIds,
+      ...(payerId ? { payerId } : {}),
       receipts,
     })
     setUploading(false)
@@ -923,6 +1007,35 @@ function EditPanel({ item, onSave, onClose, defaultCurrency, currencies, members
                   )
                 })}
               </div>
+            </div>
+          )}
+          {/* 결제자 */}
+          {members.length > 1 && (
+            <div className="flex flex-col gap-1.5">
+              <button type="button" onClick={() => setShowPayer(v => !v)}
+                className="flex items-center justify-between text-xs font-semibold text-gray-600 hover:text-gray-800 transition-colors">
+                <span className="flex items-center gap-1.5">
+                  결제자
+                  <span className="text-[10px] font-normal text-gray-400">(선택)</span>
+                  {payerId && (() => { const p = members.find(m => m.id === payerId); return p ? <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">{p.name}</span> : null })()}
+                </span>
+                <span className="text-[10px] text-gray-400">{showPayer ? '▲' : '▼'}</span>
+              </button>
+              {showPayer && (
+                <div className="flex gap-2 flex-wrap">
+                  {members.map((m, i) => {
+                    const selected = payerId === m.id
+                    const ci = m.hexColor ? undefined : (m.colorIndex ?? ((i % (CLAY.length - 1)) + 1))
+                    return (
+                      <button key={m.id} type="button" onClick={() => setPayerId(prev => prev === m.id ? undefined : m.id)}
+                        className={`flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 bg-gray-50 opacity-45'}`}>
+                        <PersonAvatar name={m.name} photoURL={m.photoURL} size={28} colorIndex={ci} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
+                        <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
             </div>
           )}
           <div>
@@ -1018,7 +1131,7 @@ export default function SharePage() {
   const [showParticipantsAcc,    setShowParticipantsAcc]    = useState(false)
   const editFlightInputRef = useRef<HTMLInputElement>(null)
   const editAccInputRef    = useRef<HTMLInputElement>(null)
-  const [activeDayIdx, setActiveDayIdx]= useState(0)
+  const [activeDayIdx, setActiveDayIdx]= useState(-1)
   const [dayItems,     setDayItems]    = useState<Record<string, PlanItem[]>>({})
   const [showAdd,      setShowAdd]     = useState(false)
   const [editingItem,  setEditingItem] = useState<PlanItem | null>(null)
@@ -1134,11 +1247,11 @@ export default function SharePage() {
       }
       setGate('granted')
       const member = (trip.members ?? []).find(m => m.id === user.uid && !m.left)
-      /* 총무만 편집 권한 */
+      /* 총무만 편집 권한 (운전자는 운전경비 섹션만 별도 관리) */
       if (member?.role === 'treasurer') setCanEdit(true)
       /* 이미 등록된 멤버는 PIN 없이 입장 */
       if (member) setPinUnlocked(true)
-      /* 프로필 사진 변경됐으면 members 배열 조용히 동기화 */
+      /* 저장된 사진이 없거나 최신 Google 프로필과 다를 때 Firestore 동기화 */
       if (member && user.photoURL && member.photoURL !== user.photoURL) {
         const updatedMembers = (trip.members ?? []).map(m =>
           m.id === user.uid ? { ...m, photoURL: user.photoURL!, name: user.displayName ?? m.name } : m
@@ -1187,26 +1300,32 @@ export default function SharePage() {
   const autoSelectedRef = useRef(false)
   const tabScrollRef    = useRef<HTMLDivElement>(null)
   const unsubsRef       = useRef<Record<string, () => void>>({})
+
+  /* 당일 탭 자동 선택 */
   useEffect(() => {
     if (!days.length || autoSelectedRef.current) return
-    const today = new Date().toISOString().slice(0, 10)
-    const idx   = days.findIndex(d => d.date === today)
-    if (idx !== -1) {
-      setActiveDayIdx(idx)
-      autoSelectedRef.current = true
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const el = tabScrollRef.current
-        if (!el) return
-        const inner = el.firstElementChild
-        const tabEl = inner?.children[idx] as HTMLElement | undefined
-        if (!tabEl) return
-        const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
-        el.scrollTo({ left: Math.max(0, center) })
-      }))
-    } else if (days.length > 0) {
-      autoSelectedRef.current = true
-    }
+    autoSelectedRef.current = true
+    const n = new Date()
+    const today = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
+    const idx = days.findIndex(d => d.date === today)
+    if (idx !== -1) setActiveDayIdx(idx)
   }, [days])
+
+  /* activeDayIdx가 바뀔 때마다 탭을 중앙으로 스크롤 */
+  useEffect(() => {
+    if (activeDayIdx < 0 || !days.length || gate !== 'granted') return
+    const scroll = () => {
+      const el = tabScrollRef.current
+      if (!el) return
+      const inner = el.firstElementChild
+      const tabEl = inner?.children[activeDayIdx + 1] as HTMLElement | undefined
+      if (!tabEl) return
+      const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
+      el.scrollTo({ left: Math.max(0, center), behavior: 'smooth' })
+    }
+    // 두 번 rAF: 로딩 후 첫 렌더 직후 DOM이 완전히 layout 되기 전 방어
+    requestAnimationFrame(() => requestAnimationFrame(scroll))
+  }, [activeDayIdx, days.length, gate])
 
   /* 아이템 1회 로드 (전체 Day 초기값) */
   useEffect(() => {
@@ -1288,6 +1407,42 @@ export default function SharePage() {
     await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { accommodations })
     setTrip(prev => prev ? { ...prev, accommodations } : prev)
     setEditingAcc(null)
+  }
+
+  const handleSaveDrivingCost = async (data: import('@/components/DrivingCostSection').DrivingCostData) => {
+    if (!trip) return
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { drivingCost: data })
+    setTrip(prev => prev ? { ...prev, drivingCost: data } : prev)
+  }
+
+  const handleUploadDrivingReceipt = async (file: File): Promise<string> => {
+    if (!trip) return ''
+    const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+      import('@/lib/firebase'), import('firebase/storage'),
+    ])
+    const ts = Date.now()
+    const r  = sRef(storage, `users/${trip.uid}/trips/${trip.id}/drivingCost/${ts}_${file.name}`)
+    await uploadBytes(r, file)
+    const url = await getDownloadURL(r)
+    const receipts = [...(trip.drivingCost?.receipts ?? []), url]
+    const next = { ...(trip.drivingCost ?? { km: 0, fuel: 0, toll: 0, driverBenefit: false }), receipts }
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { drivingCost: next })
+    setTrip(prev => prev ? { ...prev, drivingCost: next } : prev)
+    return url
+  }
+
+  const handleDeleteDrivingReceipt = async (url: string) => {
+    if (!trip) return
+    const receipts = (trip.drivingCost?.receipts ?? []).filter(r => r !== url)
+    const next = { ...(trip.drivingCost ?? { km: 0, fuel: 0, toll: 0, driverBenefit: false }), receipts }
+    await updateDoc(doc(db, 'users', trip.uid, 'trips', trip.id), { drivingCost: next })
+    setTrip(prev => prev ? { ...prev, drivingCost: next } : prev)
+    try {
+      const { storage } = await import('@/lib/firebase')
+      const { ref: sRef, deleteObject } = await import('firebase/storage')
+      const path = decodeURIComponent(url.split('/o/')[1]?.split('?')[0] ?? '')
+      if (path) await deleteObject(sRef(storage, path))
+    } catch {}
   }
 
   useEffect(() => {
@@ -1411,10 +1566,9 @@ export default function SharePage() {
 
   const [focusItemId, setFocusItemId] = useState<string | undefined>(undefined)
 
-  const totalSpent = useMemo(
-    () => Object.values(dayItems).flat().reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0),
-    [dayItems, rates]
-  )
+  const totalSpent = useMemo(() => {
+    return Object.values(dayItems).flat().reduce((s, i) => s + toKRW(i.price, i.currency, rates), 0)
+  }, [dayItems, rates])
 
   const settlementFixedKRW = useMemo(() => {
     const flightsKRW = (trip?.flights ?? []).reduce(
@@ -1423,8 +1577,11 @@ export default function SharePage() {
     const accKRW = (trip?.accommodations ?? []).reduce(
       (s, a) => s + (a.price && a.includeInSettlement ? toKRW(a.price, a.currency ?? 'KRW', rates) : 0), 0
     )
-    return flightsKRW + accKRW
-  }, [trip?.flights, trip?.accommodations, rates])
+    const drvKRW = trip?.drivingCost
+      ? toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      : 0
+    return flightsKRW + accKRW + drvKRW
+  }, [trip?.flights, trip?.accommodations, trip?.drivingCost, rates, primaryCurrency])
   const perPersonSpent = useMemo(
     () => Object.values(dayItems).flat().reduce(
       (s, i) => s + toKRW(i.price, i.currency, rates) / (i.participants || trip?.people || 1),
@@ -1476,6 +1633,48 @@ export default function SharePage() {
         }
       })
     })
+    // 비행기: participantIds 기반 분배
+    const activeIds = new Set(trip.members.filter(m => !m.left).map(m => m.id));
+    (trip.flights ?? []).forEach(f => {
+      if (!f.price || !f.includeInSettlement) return
+      const krw = toKRW(f.price, f.currency ?? 'KRW', rates)
+      const pIds = (f.participantIds ?? []).filter(id => activeIds.has(id))
+      if (pIds.length > 0) {
+        const share = krw / pIds.length
+        pIds.forEach(id => { result[id] = (result[id] ?? 0) + share })
+      } else {
+        const share = krw / trip.members.length
+        trip.members.forEach(m => { result[m.id] += share })
+      }
+    });
+    // 숙소: participantIds 기반 분배
+    (trip.accommodations ?? []).forEach(a => {
+      if (!a.price || !a.includeInSettlement) return
+      const krw = toKRW(a.price, a.currency ?? 'KRW', rates)
+      const pIds = (a.participantIds ?? []).filter(id => activeIds.has(id))
+      if (pIds.length > 0) {
+        const share = krw / pIds.length
+        pIds.forEach(id => { result[id] = (result[id] ?? 0) + share })
+      } else {
+        const share = krw / trip.members.length
+        trip.members.forEach(m => { result[m.id] += share })
+      }
+    })
+    // 운전 경비 분배
+    if (trip?.drivingCost) {
+      const drvKRW = toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) {
+        const activeMembers = trip.members.filter(m => !m.left)
+        const driver = activeMembers.find(m => m.isDriver === true || m.role === 'driver')
+        const participants = trip.drivingCost.driverBenefit && driver
+          ? activeMembers.filter(m => m.id !== driver.id)
+          : activeMembers
+        if (participants.length > 0) {
+          const share = drvKRW / participants.length
+          participants.forEach(m => { if (result[m.id] !== undefined) result[m.id] += share })
+        }
+      }
+    }
     return result
   }, [dayItems, rates, trip, primaryCurrency])
 
@@ -1486,33 +1685,39 @@ export default function SharePage() {
     return amounts.some(a => Math.abs(a - first) > 1)
   }, [memberSpent])
 
-  /* 결제자별 실제 결제 금액 */
+  /* 결제자별 실제 결제 금액 — payerId 없으면 총무(없으면 방장) 귀속 */
   const memberPaid = useMemo(() => {
     if (!trip?.members?.length) return {} as Record<string, number>
     const result: Record<string, number> = {}
     trip.members.forEach(m => { result[m.id] = 0 })
-    const ownerIdForPaid = trip.members.find(m => m.role === 'owner')?.id ?? ''
+    const defaultPayerId = (trip.members.find(m => m.role === 'treasurer') ?? trip.members.find(m => m.role === 'owner') ?? trip.members[0])?.id
     Object.entries(dayItems).forEach(([dayId, items]) => {
       const custom = trip && primaryCurrency !== 'KRW' ? (trip.dayRates ?? {})[dayId] : undefined
       const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
       items.forEach(item => {
-        const pid = item.payerId ?? ownerIdForPaid
-        if (result[pid] === undefined) return
+        const pid = item.payerId ?? defaultPayerId
+        if (!pid || result[pid] === undefined) return
         result[pid] += toKRW(item.price || 0, item.currency || 'KRW', r)
       })
     });
     (trip.flights ?? []).forEach(f => {
-      if (!f.price || !f.includeInSettlement) return
-      const pid = f.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(f.price, f.currency ?? 'KRW', rates)
+      if (!f.price || !f.includeInSettlement || !f.payerId) return
+      if (result[f.payerId] === undefined) return
+      result[f.payerId] += toKRW(f.price, f.currency ?? 'KRW', rates)
     });
     (trip.accommodations ?? []).forEach(a => {
-      if (!a.price || !a.includeInSettlement) return
-      const pid = a.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(a.price, a.currency ?? 'KRW', rates)
+      if (!a.price || !a.includeInSettlement || !a.payerId) return
+      if (result[a.payerId] === undefined) return
+      result[a.payerId] += toKRW(a.price, a.currency ?? 'KRW', rates)
     })
+    // 운전 경비 — 운전자가 결제
+    if (trip?.drivingCost) {
+      const drvKRW = toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) {
+        const driver = trip.members.find(m => m.isDriver === true || m.role === 'driver')
+        if (driver && result[driver.id] !== undefined) result[driver.id] += drvKRW
+      }
+    }
     return result
   }, [dayItems, rates, trip, primaryCurrency])
 
@@ -1521,21 +1726,22 @@ export default function SharePage() {
     const itemCount   = Object.values(dayItems).flat().filter(i => i.price > 0).length
     const flightCount = (trip?.flights ?? []).filter(f => f.price && f.includeInSettlement).length
     const accCount    = (trip?.accommodations ?? []).filter(a => a.price && a.includeInSettlement).length
-    return itemCount + flightCount + accCount
-  }, [dayItems, trip?.flights, trip?.accommodations])
+    const drvCount    = trip?.drivingCost && ((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0)) > 0 ? 1 : 0
+    return itemCount + flightCount + accCount + drvCount
+  }, [dayItems, trip?.flights, trip?.accommodations, trip?.drivingCost])
 
   /* 멤버별 결제 항목 목록 */
-  type PaidItemEntry = { type: 'item' | 'flight' | 'acc'; name: string; krw: number; perPersonKrw: number; participantCount: number }
+  type PaidItemEntry = { type: 'item' | 'flight' | 'acc' | 'driving'; name: string; krw: number; perPersonKrw: number; participantCount: number }
   const memberPaidItems = useMemo(() => {
     if (!trip?.members?.length) return {} as Record<string, PaidItemEntry[]>
     const result: Record<string, PaidItemEntry[]> = {}
     trip.members.forEach(m => { result[m.id] = [] })
     const totalActive = trip.members.filter(m => !m.left).length
     const activeSet   = new Set(trip.members.filter(m => !m.left).map(m => m.id))
-    const ownerIdForItems = trip.members.find(m => m.role === 'owner')?.id ?? ''
+    const defaultPayerId2 = (trip.members.find(m => m.role === 'treasurer') ?? trip.members.find(m => m.role === 'owner') ?? trip.members[0])?.id
     Object.values(dayItems).flat().forEach(item => {
-      const pid = item.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      const pid = item.payerId ?? defaultPayerId2
+      if (!pid || !result[pid]) return
       const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
       if (!krw) return
       const validIds = (item.participantIds ?? []).filter(id => activeSet.has(id))
@@ -1543,23 +1749,39 @@ export default function SharePage() {
       result[pid].push({ type: 'item', name: item.name, krw, perPersonKrw: krw / participantCount, participantCount })
     });
     (trip.flights ?? []).forEach(f => {
-      if (!f.price || !f.includeInSettlement) return
-      const pid = f.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      if (!f.price || !f.includeInSettlement || !f.payerId) return
+      if (!result[f.payerId]) return
       const krw = toKRW(f.price, f.currency ?? 'KRW', rates)
       const pIds = (f.participantIds ?? []).filter(id => activeSet.has(id))
       const participantCount = pIds.length > 0 ? pIds.length : totalActive
-      result[pid].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      result[f.payerId].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
     });
     (trip.accommodations ?? []).forEach(a => {
-      if (!a.price || !a.includeInSettlement) return
-      const pid = a.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      if (!a.price || !a.includeInSettlement || !a.payerId) return
+      if (!result[a.payerId]) return
       const krw = toKRW(a.price, a.currency ?? 'KRW', rates)
       const pIds = (a.participantIds ?? []).filter(id => activeSet.has(id))
       const participantCount = pIds.length > 0 ? pIds.length : totalActive
-      result[pid].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      result[a.payerId].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
     })
+    // 운전 경비 항목 추가 (운전자 결제 항목)
+    if (trip?.drivingCost) {
+      const drvKRW = toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) {
+        const activeMembers = trip.members.filter(m => !m.left)
+        const driver = activeMembers.find(m => m.isDriver === true || m.role === 'driver')
+        if (driver && result[driver.id]) {
+          const participants = trip.drivingCost.driverBenefit
+            ? activeMembers.filter(m => m.id !== driver.id)
+            : activeMembers
+          result[driver.id].push({
+            type: 'driving', name: '운전 경비', krw: drvKRW,
+            perPersonKrw: participants.length > 0 ? drvKRW / participants.length : drvKRW,
+            participantCount: participants.length,
+          })
+        }
+      }
+    }
     return result
   }, [dayItems, rates, trip])
 
@@ -1603,6 +1825,28 @@ export default function SharePage() {
         result[id].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
       })
     })
+    // 운전 경비 참여 항목 추가
+    if (trip?.drivingCost) {
+      const drvKRW = toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) {
+        const activeMembers = trip.members.filter(m => !m.left)
+        const driver = activeMembers.find(m => m.isDriver === true || m.role === 'driver')
+        const participants = trip.drivingCost.driverBenefit && driver
+          ? activeMembers.filter(m => m.id !== driver.id)
+          : activeMembers
+        const perPersonKrw = participants.length > 0 ? drvKRW / participants.length : drvKRW
+        participants.forEach(m => {
+          if (result[m.id]) result[m.id].push({
+            type: 'driving', name: '운전 경비', krw: drvKRW,
+            perPersonKrw, participantCount: participants.length,
+          })
+        })
+        // 운전자 혜택 적용 시: 운전자 본인에게 0원 항목 추가 (혜택 명시)
+        if (trip.drivingCost.driverBenefit && driver && result[driver.id] !== undefined) {
+          result[driver.id].push({ type: 'driving', name: '운전 경비', krw: drvKRW, perPersonKrw: 0, participantCount: 0 })
+        }
+      }
+    }
     return result
   }, [dayItems, rates, trip])
 
@@ -1630,11 +1874,23 @@ export default function SharePage() {
     return transfers
   }, [trip?.members, memberPaid, memberSpent, paidItemCount])
 
-  const avgPerPerson = (trip?.members?.length ?? 1) > 1 && totalSpent > 0
-    ? totalSpent / (trip?.members?.length ?? 1)
-    : 0
+  const avgPerPerson = useMemo(() => {
+    if ((trip?.members?.length ?? 1) <= 1 || totalSpent <= 0) return 0
+    const drv = trip?.drivingCost
+      ? toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      : 0
+    return (totalSpent + drv) / (trip?.members?.length ?? 1)
+  }, [totalSpent, trip?.drivingCost, trip?.members?.length, primaryCurrency, rates])
 
-  const budgetPct = trip ? Math.min(100, Math.round((totalSpent / (trip.budget || 1)) * 100)) : 0
+  const displayTotalKRW = useMemo(() => {
+    const drv = trip?.drivingCost
+      ? toKRW((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0), primaryCurrency, rates)
+      : 0
+    return totalSpent + drv
+  }, [totalSpent, trip?.drivingCost, primaryCurrency, rates])
+  const rawBudgetPct = trip ? Math.round((displayTotalKRW / (trip.budget || 1)) * 100) : 0
+  const budgetPct    = Math.min(100, rawBudgetPct)
+  const overageKRW   = trip && rawBudgetPct > 100 ? displayTotalKRW - trip.budget : 0
 
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
     if (!activeDay || !trip) return
@@ -1706,6 +1962,18 @@ export default function SharePage() {
     })
   }
 
+  const handleChangeCat = async (itemId: string, cat: Category) => {
+    if (!activeDay || !trip) return
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).map(i => i.id !== itemId ? i : { ...i, cat }),
+    }))
+    await updateDoc(
+      doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', itemId),
+      { cat }
+    )
+  }
+
   const handleRate = async (itemId: string, stars: number) => {
     if (!activeDay || !trip || !user) return
     setDayItems(prev => ({
@@ -1750,7 +2018,7 @@ export default function SharePage() {
   if (notFound || !trip) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]">
-        <MapPin className="w-8 h-8 text-gray-300" />
+        <MapPin className="w-8 h-8 text-gray-400" />
         <p className="text-sm font-semibold text-gray-500">유효하지 않은 초대 링크예요.</p>
         <Link href="/" className="text-sm text-blue-600 hover:underline">홈으로</Link>
       </div>
@@ -1927,7 +2195,7 @@ export default function SharePage() {
   if (currentMember?.left === true && !pinRequired) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-3 bg-[#F8FAFC]">
-        <LogOut className="w-8 h-8 text-gray-300" />
+        <LogOut className="w-8 h-8 text-gray-400" />
         <p className="text-sm font-semibold text-gray-500">탈퇴한 여행입니다.</p>
         <p className="text-xs text-gray-400">방장에게 참여 링크를 요청해 다시 참여할 수 있어요.</p>
         <Link href="/" className="text-sm text-blue-600 hover:underline">홈으로</Link>
@@ -1938,13 +2206,16 @@ export default function SharePage() {
   const currentName     = user ? (user.displayName || user.email?.split('@')[0] || '나') : (guestName || '나')
   const currentPhotoURL = user?.photoURL ?? undefined
   const isTreasurer     = currentMember?.role === 'treasurer'
+  const isDriver           = !!(currentMember?.isDriver || currentMember?.role === 'driver')
+  const canEditDriving     = currentMember?.role === 'owner' || isTreasurer
+  const canAttachDriving   = canEditDriving || isDriver
 
   /* Firebase Auth 최신 정보 반영 멤버 목록 (탈퇴 멤버 제외) */
   const resolvedMembers = (trip.members ?? []).filter(m => !m.left).map(m => {
     if (m.id !== user?.uid) return m
     return {
       ...m,
-      photoURL:   user?.photoURL ?? m.photoURL,
+      photoURL:   user?.photoURL || m.photoURL || undefined,  // 최신 Auth 사진 우선 (sync 전에도 올바르게 표시)
       name:       user?.displayName ?? m.name,
       hexColor:   avatarHexColor ?? m.hexColor,
       colorIndex: avatarHexColor ? undefined : (avatarColor ?? m.colorIndex),
@@ -1970,6 +2241,7 @@ export default function SharePage() {
         nights={trip.nights}
         isOwner={trip.uid === user?.uid}
         isTreasurer={isTreasurer}
+        isDriver={isDriver}
         user={user}
         members={resolvedMembers}
 
@@ -1988,10 +2260,32 @@ export default function SharePage() {
       <div className="bg-white border-b border-gray-200 flex-shrink-0 z-10 mt-3 shadow-sm">
         <div className="flex items-stretch">
         <div ref={tabScrollRef} className="flex-1 px-4 sm:px-6 overflow-x-auto scrollbar-hide">
-          <div className="flex items-end" style={{ minWidth: days.length * 80 }}>
+          <div className="flex items-end" style={{ minWidth: days.length * 80 + 64 }}>
+            {/* 전체 탭 */}
+            <div className="flex flex-col items-center flex-shrink-0 pt-2" style={{ minWidth: 76, marginRight: 4 }}>
+              <div className="flex items-center justify-center mb-2" style={{ height: 22 }} />
+              <button
+                onClick={() => setActiveDayIdx(-1)}
+                className={`w-full pb-3 text-center border-b-2 transition-colors ${
+                  activeDayIdx === -1 ? 'border-blue-600' : 'border-transparent hover:border-gray-200'
+                }`}
+              >
+                <span className={`flex items-center justify-center gap-1 text-xs font-bold leading-none ${activeDayIdx === -1 ? 'text-blue-600' : 'text-gray-400 hover:text-gray-700'}`}>전체</span>
+                <span className={`block text-[10px] font-medium mt-1 ${activeDayIdx === -1 ? 'text-blue-500' : 'text-gray-400'}`}>{days.length}일 일정</span>
+                <span className={`block text-[10px] font-bold mt-0.5 tabular-nums ${displayTotalKRW > 0 ? (activeDayIdx === -1 ? 'text-blue-600' : 'text-gray-400') : 'invisible'}`}>
+                  {displayTotalKRW > 0
+                    ? (primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                        ? formatLocal(Math.round(displayTotalKRW / rates[primaryCurrency]), primaryCurrency)
+                        : formatKRW(displayTotalKRW))
+                    : '-'}
+                </span>
+              </button>
+            </div>
             {days.map((d, i) => {
               const isActive = i === activeDayIdx
-              const isToday  = d.date === new Date().toISOString().slice(0, 10)
+              const _nd = new Date()
+              const _todayLocal = `${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,'0')}-${String(_nd.getDate()).padStart(2,'0')}`
+              const isToday  = d.date === _todayLocal
               const members  = [
                 ...(trip?.members ?? []).filter(m => !m.left),
                 ...(user && !currentMember
@@ -2040,19 +2334,20 @@ export default function SharePage() {
                       {d.label}
                       {isToday && <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />}
                     </span>
-                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
+                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
                       {formatDate(d.date)}
                     </span>
-                    {(daySpentMap[d.dayId] ?? 0) > 0 && (
-                      <span className={`block text-[10px] font-bold mt-0.5 tabular-nums ${
-                        isActive ? 'text-blue-600' : 'text-gray-400'
-                      }`}>
-                        {primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                          ? formatLocal(Math.round((daySpentMap[d.dayId] ?? 0) / rates[primaryCurrency]), primaryCurrency)
-                          : formatKRW(daySpentMap[d.dayId] ?? 0)
-                        }
-                      </span>
-                    )}
+                    <span className={`block text-[10px] font-bold mt-0.5 tabular-nums ${
+                      (daySpentMap[d.dayId] ?? 0) > 0
+                        ? (isActive ? 'text-blue-600' : 'text-gray-400')
+                        : 'invisible'
+                    }`}>
+                      {(daySpentMap[d.dayId] ?? 0) > 0
+                        ? (primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                            ? formatLocal(Math.round((daySpentMap[d.dayId] ?? 0) / rates[primaryCurrency]), primaryCurrency)
+                            : formatKRW(daySpentMap[d.dayId] ?? 0))
+                        : '-'}
+                    </span>
                   </button>
                 </div>
               )
@@ -2086,14 +2381,26 @@ export default function SharePage() {
         <div className={`${mobileTab === 'map' ? 'hidden' : 'flex'} lg:flex w-full lg:w-[420px] flex-shrink-0 flex-col bg-[#F8FAFC] overflow-hidden lg:border-r border-gray-200`}>
           <div className="px-5 py-4 flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-sm font-bold text-gray-900">{activeDay?.label} · {activeDay ? formatDate(activeDay.date) : ''}</h2>
+              <h2 className="text-sm font-bold text-gray-900">
+                {activeDayIdx === -1 ? '전체 일정' : `${activeDay?.label} · ${activeDay ? formatDate(activeDay.date) : ''}`}
+              </h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                {currentItems.length > 0 ? `${currentItems.length}개 일정` : '일정을 확인하세요'}
-                {daySpent > 0 && ` · ${primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency]
+                {activeDayIdx === -1
+                  ? `${days.length}일 · ${Object.values(dayItems).flat().length}개 일정`
+                  : currentItems.length > 0 ? `${currentItems.length}개 일정` : '일정을 확인하세요'}
+                {activeDayIdx === -1 && displayTotalKRW > 0 && ` · ${
+                  primaryCurrency !== 'KRW' && rates[primaryCurrency]
+                    ? formatLocal(Math.round(displayTotalKRW / rates[primaryCurrency]), primaryCurrency)
+                    : formatKRW(displayTotalKRW)
+                }`}
+                {activeDayIdx !== -1 && daySpent > 0 && ` · ${primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency]
                   ? formatLocal(Math.round(daySpent / effectiveRates[primaryCurrency]), primaryCurrency)
                   : formatKRW(daySpent)}`}
               </p>
-              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && (canEdit || isTreasurer) && (
+              {activeDayIdx === -1 && totalSpent > 0 && primaryCurrency !== 'KRW' && rates[primaryCurrency] && (
+                <p className="text-[11px] text-gray-400 mt-0.5">약 {formatKRW(totalSpent)}</p>
+              )}
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && activeDayIdx !== -1 && (canEdit || isTreasurer) && (
                 <RateWidget
                   currency={primaryCurrency}
                   liveRate={rates[primaryCurrency]}
@@ -2102,7 +2409,7 @@ export default function SharePage() {
                   onReset={() => handleSetDayRate(activeDay.dayId, null)}
                 />
               )}
-              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && !canEdit && !isTreasurer && (() => {
+              {primaryCurrency !== 'KRW' && effectiveRates[primaryCurrency] > 0 && activeDay && activeDayIdx !== -1 && !canEdit && !isTreasurer && (() => {
                 const isCustom = !!(trip?.dayRates ?? {})[activeDay.dayId]
                 const r = effectiveRates[primaryCurrency]
                 return (
@@ -2119,7 +2426,7 @@ export default function SharePage() {
                   </div>
                 )
               })()}
-              {activeDay && (trip.dayBudgets ?? {})[activeDay.dayId] > 0 && (() => {
+              {activeDayIdx !== -1 && activeDay && (trip.dayBudgets ?? {})[activeDay.dayId] > 0 && (() => {
                 const budget = (trip.dayBudgets ?? {})[activeDay.dayId]
                 const pct    = Math.round(daySpent / budget * 100)
                 const { label, cls } = pct >= 100
@@ -2134,7 +2441,7 @@ export default function SharePage() {
                 )
               })()}
             </div>
-            {canEdit && (
+            {canEdit && activeDayIdx !== -1 && (
               <div className="flex items-center gap-1">
                 <button onClick={() => setShowAdd(true)}
                   className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
@@ -2145,9 +2452,63 @@ export default function SharePage() {
             )}
           </div>
           <div className="relative flex-1 overflow-hidden">
-          <div className="absolute inset-0 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
+          <div className="absolute inset-0 overflow-y-auto px-5 pb-16 flex flex-col gap-4">
+
+            {/* ── 전체 일정 요약 뷰 ── */}
+            {/* ── 운전 경비 (전체 일정 뷰 최상단) ── */}
+            {activeDayIdx === -1 && (trip.drivingCost || canAttachDriving) && (
+              <DrivingCostSection
+                members={(trip.members ?? []).filter(m => !m.left)}
+                canEdit={canEditDriving}
+                canAttachReceipt={canAttachDriving}
+                data={trip.drivingCost}
+                currency={primaryCurrency ?? 'KRW'}
+                onSave={handleSaveDrivingCost}
+                onUploadReceipt={handleUploadDrivingReceipt}
+                onDeleteReceipt={handleDeleteDrivingReceipt}
+              />
+            )}
+
+            {activeDayIdx === -1 && (
+              <div className="flex flex-col gap-3">
+                {days.every(d => (dayItems[d.dayId] ?? []).length === 0) && (
+                  <div className="flex flex-col items-center justify-center py-6 gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center">
+                      <MapPin className="w-5 h-5 text-gray-400" />
+                    </div>
+                    <p className="text-sm font-semibold text-gray-400">아직 일정이 없어요</p>
+                  </div>
+                )}
+                {days.map((day, gi) => {
+                  const items = (dayItems[day.dayId] ?? [])
+                  if (items.length === 0) return null
+                  const color = DAY_COLORS[gi % DAY_COLORS.length]
+                  return (
+                    <div key={day.dayId}>
+                      <button
+                        onClick={() => setActiveDayIdx(gi)}
+                        className="flex items-center gap-2 mb-2 hover:opacity-80 transition-opacity"
+                      >
+                        <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: color }} />
+                        <span className="text-xs font-bold text-gray-700">{day.label}</span>
+                        <span className="text-[10px] text-gray-400">{items.length}개</span>
+                      </button>
+                      <div className="flex flex-col gap-1 pl-4">
+                        {items.map((item, ii) => (
+                          <div key={item.id} className="flex items-center gap-2 py-1">
+                            <span className="w-4 h-4 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0" style={{ background: color }}>{ii + 1}</span>
+                            <span className="text-xs text-gray-600 truncate">{item.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
             {/* ── 고정 일정 (비행기 / 숙소) ── */}
-            {activeDay && (
+            {activeDay && activeDayIdx !== -1 && (
               <FixedScheduleSection
                 flights={trip.flights ?? []}
                 accommodations={trip.accommodations ?? []}
@@ -2162,12 +2523,13 @@ export default function SharePage() {
               />
             )}
 
-            {currentItems.length === 0 ? (
+            {activeDayIdx !== -1 && currentItems.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 gap-2 text-gray-400">
                 <MapPin className="w-8 h-8 text-gray-200" />
                 <p className="text-sm">이 날 일정이 없어요</p>
               </div>
-            ) : (
+            )}
+            {activeDayIdx !== -1 && currentItems.length > 0 && (
               <DndContext
                 sensors={dndSensors}
                 collisionDetection={closestCenter}
@@ -2218,12 +2580,12 @@ export default function SharePage() {
                           {slotItems.length === 0 && slot !== '미정' && (
                             canEdit
                               ? <SlotDropZone slot={slot} />
-                              : <div className="flex items-center justify-center py-3 rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-300">일정 없음</div>
+                              : <div className="flex items-center justify-center py-3 rounded-xl border border-dashed border-gray-200 text-[11px] text-gray-400">일정 없음</div>
                           )}
                           {slotItems.map(item => (
                             canEdit
-                              ? <SortableItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
-                              : <ItemCard key={item.id} item={item} canEdit={canEdit} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                              ? <SortableItemCard key={item.id} item={item} canEdit={canEdit || isTreasurer} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} onChangeCat={canEdit || isTreasurer ? handleChangeCat : undefined} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                              : <ItemCard key={item.id} item={item} canEdit={canEdit || isTreasurer} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} onChangeCat={canEdit || isTreasurer ? handleChangeCat : undefined} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                           ))}
                         </div>
                       </div>
@@ -2241,24 +2603,24 @@ export default function SharePage() {
           <div className="border-t border-gray-200 bg-white px-5 py-4 flex-shrink-0">
             {/* 전체 지출 */}
             <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <div className={`flex items-center gap-1.5 text-xs ${overageKRW > 0 ? 'text-red-500' : 'text-gray-500'}`}>
                 <Wallet className="w-3.5 h-3.5" />
                 <span>{trip.budget > 0 ? '전체 예산' : '전체 지출'}</span>
               </div>
               <div className="text-right">
                 {primaryCurrency !== 'KRW' && rates[primaryCurrency] ? (
                   <>
-                    <span className="text-xs font-bold text-gray-700">
-                      {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}
+                    <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                      {formatLocal(Math.round(displayTotalKRW / rates[primaryCurrency]), primaryCurrency)}
                       {trip.budget > 0 && ` / ${formatLocal(Math.round(trip.budget / rates[primaryCurrency]), primaryCurrency)}`}
                     </span>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      ≈ {formatKRW(totalSpent)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
+                      ≈ {formatKRW(displayTotalKRW)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
                     </p>
                   </>
                 ) : (
-                  <span className="text-xs font-bold text-gray-700">
-                    {formatKRW(totalSpent)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
+                  <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
+                    {formatKRW(displayTotalKRW)}{trip.budget > 0 && ` / ${formatKRW(trip.budget)}`}
                   </span>
                 )}
               </div>
@@ -2267,7 +2629,7 @@ export default function SharePage() {
             {trip.budget > 0 && (
               <>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                  <div className={`h-full rounded-full transition-all duration-500 ${budgetPct >= 90 ? 'bg-red-500' : budgetPct >= 70 ? 'bg-amber-500' : 'bg-blue-500'}`}
+                  <div className={`h-full rounded-full transition-all duration-500 ${rawBudgetPct >= 100 ? 'bg-red-500' : rawBudgetPct >= 90 ? 'bg-red-400' : rawBudgetPct >= 70 ? 'bg-amber-500' : 'bg-blue-500'}`}
                     style={{ width: `${budgetPct}%` }} />
                 </div>
                 <p className="text-[11px] text-gray-400 mt-1 text-right">{budgetPct}% 사용</p>
@@ -2282,6 +2644,7 @@ export default function SharePage() {
                 >
                   <span className="flex items-center gap-1 text-[11px] text-gray-400">
                     <Users className="w-3 h-3" />1인 평균
+                    <span className="text-[10px] text-gray-400">(숙박·항공 제외)</span>
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-blue-600">
@@ -2295,6 +2658,7 @@ export default function SharePage() {
                     </span>
                   </div>
                 </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">숙소·항공 경비는 제외된 금액이에요</p>
                 {hasUnevenParticipants && (
                   <p className="text-[10px] text-gray-400 mt-0.5">참여 인원이 다른 장소가 있어요</p>
                 )}
@@ -2419,7 +2783,7 @@ export default function SharePage() {
             <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">일정 참여 기준 · 비행기·숙소 별도 합산</p>
                 {primaryCurrency !== 'KRW' && (
                   <p className="text-[11px] text-blue-500 mt-0.5">
                     {Object.keys(trip?.dayRates ?? {}).length > 0
@@ -2478,9 +2842,17 @@ export default function SharePage() {
 
               {/* 개인별 내역 */}
               <div className="flex flex-col gap-1.5">
-                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
-                  {paidItemCount > 0 ? '개인별 내역' : '내 몫'}
-                </p>
+                <div className="mb-0.5">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    {paidItemCount > 0 ? '개인별 내역' : '내 몫'}
+                  </p>
+                  {paidItemCount > 0 && (
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      <p className="text-[10px] text-gray-400">결제 = 직접 낸 금액 · 내 몫 = 참여 장소별 합산</p>
+                      <p className="text-[10px] text-gray-400">장소마다 인원이 달라 내 몫 금액이 다를 수 있어요</p>
+                    </div>
+                  )}
+                </div>
                 {(trip.members ?? []).map((m, mi) => {
                   const spent    = memberSpent[m.id] ?? 0
                   const paid     = memberPaid[m.id]  ?? 0
@@ -2498,16 +2870,32 @@ export default function SharePage() {
                       >
                         <PersonAvatar name={m.name} size={30} colorIndex={ci} hexColor={m.hexColor} photoURL={m.photoURL} ringColor={m.photoURL ? (m.hexColor ?? CLAY[ci ?? 1]?.base) : undefined} />
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none">
+                          <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none flex-wrap">
                             {m.name}
-                            {m.left && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>}
+                            {m.left ? (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>
+                            ) : (
+                              <>
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                  m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
+                                  : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
+                                  : (m.isDriver || m.role === 'driver') ? 'bg-emerald-50 text-emerald-600'
+                                  : 'bg-gray-100 text-gray-400'
+                                }`}>
+                                  {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
+                                </span>
+                                {m.isDriver && m.role === 'treasurer' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
+                                )}
+                              </>
+                            )}
                             {paidItems.length > 0 && (
                               <span className="text-[10px] text-blue-400 font-normal">{paidItems.length}건 결제</span>
                             )}
                           </span>
                           {paidItemCount > 0 && (
                             <span className="text-[10px] text-gray-400 mt-0.5 block">
-                              낸 돈 {formatKRW(Math.round(paid))} · 내 몫 {formatKRW(Math.round(spent))}
+                              결제 {formatKRW(Math.round(paid))} · 내 몫 {formatKRW(Math.round(spent))}
                             </span>
                           )}
                         </div>
@@ -2522,6 +2910,7 @@ export default function SharePage() {
                                     : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>
                                 }
                               </span>
+                              {net !== 0 && <span className={`text-[10px] font-semibold block ${net > 0 ? 'text-emerald-500' : 'text-red-400'}`}>{net > 0 ? '받을 돈' : '보낼 돈'}</span>}
                               {net !== 0 && (preferredCurrency !== 'KRW' && rates[preferredCurrency]
                                 ? <span className="text-[10px] text-gray-400">{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</span>
                                 : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
@@ -2546,15 +2935,17 @@ export default function SharePage() {
                       {isExpanded && (
                         <div className="px-3 pb-3 flex flex-col gap-3 border-t border-blue-100/60 pt-2.5">
                           <div>
-                            <p className="text-[10px] font-bold text-blue-500 mb-1.5">💳 결제한 항목</p>
+                            <p className="text-[10px] font-bold text-blue-500 mb-1.5 flex items-center gap-1">
+                              <CreditCard className="w-3 h-3" /> 결제한 항목
+                            </p>
                             {paidItems.length === 0 ? (
                               <p className="text-[11px] text-gray-400 pl-0.5">결제 기록 없음</p>
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {paidItems.map((pi, pii) => (
                                   <div key={pii} className="flex items-center gap-2">
-                                    <span className="flex-shrink-0 text-[11px]">
-                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    <span className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                                      {pi.type === 'flight' ? <Plane className="w-3 h-3 text-sky-500" /> : pi.type === 'acc' ? <BedDouble className="w-3 h-3 text-amber-500" /> : pi.type === 'driving' ? <Fuel className="w-3 h-3 text-sky-500" /> : <MapPin className="w-3 h-3 text-rose-400" />}
                                     </span>
                                     <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
                                     <div className="text-right flex-shrink-0">
@@ -2567,20 +2958,31 @@ export default function SharePage() {
                             )}
                           </div>
                           <div>
-                            <p className="text-[10px] font-bold text-emerald-600 mb-1.5">👥 참여한 항목</p>
+                            <p className="text-[10px] font-bold text-emerald-600 mb-1.5 flex items-center gap-1">
+                              <Users className="w-3 h-3" /> 참여한 항목
+                            </p>
                             {participatedItems.length === 0 ? (
                               <p className="text-[11px] text-gray-400 pl-0.5">참여 기록 없음</p>
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {participatedItems.map((pi, pii) => (
                                   <div key={pii} className="flex items-center gap-2">
-                                    <span className="flex-shrink-0 text-[11px]">
-                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    <span className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                                      {pi.type === 'flight' ? <Plane className="w-3 h-3 text-sky-500" /> : pi.type === 'acc' ? <BedDouble className="w-3 h-3 text-amber-500" /> : pi.type === 'driving' ? <Fuel className="w-3 h-3 text-sky-500" /> : <MapPin className="w-3 h-3 text-rose-400" />}
                                     </span>
                                     <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
                                     <div className="text-right flex-shrink-0">
-                                      <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(Math.round(pi.perPersonKrw))}</span>
-                                      <span className="text-[10px] text-gray-400">{pi.participantCount}명 중 1인</span>
+                                      {pi.type === 'driving' && pi.participantCount === 0 ? (
+                                        <>
+                                          <span className="text-[11px] font-semibold text-sky-500 block">0원</span>
+                                          <span className="text-[10px] text-sky-400">운전자 혜택</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(Math.round(pi.perPersonKrw))}</span>
+                                          <span className="text-[10px] text-gray-400">{pi.participantCount}명 중 1인</span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -2603,7 +3005,9 @@ export default function SharePage() {
                     {/* 일정 합계 */}
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] text-gray-500 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[9px]">📋</span>
+                        <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <LayoutList className="w-2.5 h-2.5 text-blue-600" />
+                        </span>
                         일정 합계
                       </span>
                       <div className="text-right">
@@ -2612,6 +3016,13 @@ export default function SharePage() {
                           <p className="text-[10px] text-gray-400">약 {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
                         )}
                       </div>
+                    </div>
+
+                    {/* 고정 비용 구분선 */}
+                    <div className="flex items-center gap-2 my-0.5">
+                      <div className="flex-1 h-px bg-gray-100" />
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">고정 비용 (결제자 기준 정산)</span>
+                      <div className="flex-1 h-px bg-gray-100" />
                     </div>
                   </>
                 )}
@@ -2658,6 +3069,27 @@ export default function SharePage() {
                   )
                 })}
 
+                {/* 운전 경비 */}
+                {trip?.drivingCost && ((trip.drivingCost.fuel || 0) + (trip.drivingCost.toll || 0)) > 0 && (() => {
+                  const drvAmt = (trip.drivingCost!.fuel || 0) + (trip.drivingCost!.toll || 0)
+                  const drvKRW = toKRW(drvAmt, primaryCurrency ?? 'KRW', rates)
+                  const isKRW  = (primaryCurrency ?? 'KRW') === 'KRW'
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <Fuel className="w-2.5 h-2.5 text-sky-600" />
+                        </span>
+                        <span>운전 경비</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-sky-600 block">{formatKRW(drvKRW)}</span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[primaryCurrency!] ?? primaryCurrency}{drvAmt.toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* 총합계 */}
                 <div className="pt-2.5 mt-0.5 border-t border-gray-200 flex items-center justify-between">
                   <span className="text-[12px] font-bold text-gray-700 flex items-center gap-1">
@@ -2674,6 +3106,16 @@ export default function SharePage() {
                     )}
                   </div>
                 </div>
+                {settlementFixedKRW > 0 && (
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    ※ 비행기·숙소는 &apos;정산 포함&apos; 설정한 항목만 합산 · 운전 경비는 항상 포함
+                  </p>
+                )}
+                {trip.drivingCost?.driverBenefit && (
+                  <p className="text-[10px] text-sky-500 leading-relaxed">
+                    ※ 운전자 혜택 적용 · 운전자는 운전 경비 분담에서 제외됩니다
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -3114,11 +3556,14 @@ export default function SharePage() {
             </div>
             <div className="px-5 py-3 max-h-[60dvh] overflow-y-auto divide-y divide-gray-50">
               {resolvedMembers.map((m, i) => {
-                const roleLabel = m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '멤버'
-                const roleCls   = m.role === 'owner'
+                const mIsDriver  = !!(m.isDriver || m.role === 'driver')
+                const roleLabel  = m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : mIsDriver ? '운전자' : '멤버'
+                const roleCls    = m.role === 'owner'
                   ? 'bg-indigo-100 text-indigo-700'
                   : m.role === 'treasurer'
                   ? 'bg-amber-100 text-amber-700'
+                  : mIsDriver
+                  ? 'bg-emerald-100 text-emerald-700'
                   : 'bg-gray-100 text-gray-500'
                 return (
                   <div key={m.id} className="flex items-center gap-3 py-3">
@@ -3131,7 +3576,12 @@ export default function SharePage() {
                       ringColor={m.hexColor ?? CLAY[(m.colorIndex ?? ((i % (CLAY.length - 1)) + 1)) % CLAY.length]?.base}
                     />
                     <span className="flex-1 text-sm font-semibold text-gray-800 truncate">{m.name ?? '알 수 없음'}</span>
-                    <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${roleCls}`}>{roleLabel}</span>
+                      {mIsDriver && m.role === 'treasurer' && (
+                        <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">운전자</span>
+                      )}
+                    </div>
                   </div>
                 )
               })}

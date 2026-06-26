@@ -6,8 +6,8 @@ import {
   ChevronLeft, MapPin, Plus, X,
   GripVertical, Star, Wallet, ChevronRight,
   Edit2, Trash2, Users, Map, Loader2,
-  Share2, Crown, Link2, Copy, Check, Camera,
-  Plane, BedDouble, Pencil, Receipt, Megaphone, ScrollText,
+  Share2, Crown, Link2, Copy, Check, Camera, ImageIcon,
+  Plane, BedDouble, Pencil, Receipt, Megaphone, ScrollText, Car, Fuel, CreditCard, LayoutList,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -44,6 +44,7 @@ import { InfoTooltip } from '@/components/InfoTooltip'
 import { SlotDropZone } from '@/components/SlotDropZone'
 import { type TimeSlot, TIME_SLOTS, SLOT_STYLES, SLOT_DOT } from '@/lib/tripSlots'
 import { LottoGame } from '@/components/LottoGame'
+import { DrivingCostSection } from '@/components/DrivingCostSection'
 
 /* ── 타입 ── */
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
@@ -68,13 +69,14 @@ type PlanItem = {
   receipts?:       string[]
 }
 
-type MemberRole = 'owner' | 'treasurer' | 'member'
+type MemberRole = 'owner' | 'treasurer' | 'driver' | 'member'
 
 type Member = {
   id:           string
   name:         string
   photoURL?:    string
   role:         MemberRole
+  isDriver?:    boolean
   colorIndex?:  number
   hexColor?:    string
   inviteCode?:  string
@@ -117,6 +119,7 @@ type AccommodationItem = {
 
 type TripMeta = {
   city:            string
+  country?:        string
   title?:          string
   startDate:       string
   endDate:         string
@@ -139,6 +142,7 @@ type TripMeta = {
   coverPhotoURL?:       string
   coverPhotoPosition?:  number
   notice?:         string  // legacy — kept for migration
+  drivingCost?:    import('@/components/DrivingCostSection').DrivingCostData
 }
 
 type NoticeItem = {
@@ -288,7 +292,7 @@ function RateWidget({
       </span>
       <button
         onClick={() => { setInput(displayRate.toFixed(2)); setEditing(true) }}
-        className="text-gray-300 hover:text-blue-500 transition-colors"
+        className="text-gray-400 hover:text-blue-500 transition-colors"
         title="환율 수정"
       >
         <Pencil className="w-2.5 h-2.5" />
@@ -323,7 +327,7 @@ function StarRow({
       <span className="flex gap-0.5">
         {[1, 2, 3, 4, 5].map(v => (
           <Star key={v}
-            className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-300 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
+            className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-400 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
             onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
           />
         ))}
@@ -516,10 +520,10 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
               <button
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); onViewReceipts(item.receipts!) }}
-                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-violet-600 bg-violet-50 hover:bg-violet-100"
+                className="flex items-center gap-0.5 bg-violet-50 px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 hover:bg-violet-100"
               >
-                <Camera className="w-2.5 h-2.5" />
-                <span>{item.receipts.length}</span>
+                <ImageIcon className="w-2.5 h-2.5 text-violet-600" />
+                <span className="text-[11px] font-semibold text-violet-600">{item.receipts.length}</span>
               </button>
             )}
             {(!item.receipts || item.receipts.length < 3) && (
@@ -527,10 +531,10 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                 <button
                   onMouseDown={e => e.stopPropagation()}
                   onClick={e => { e.stopPropagation(); cameraRef.current?.click() }}
-                  className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 text-gray-400 bg-gray-100 hover:bg-gray-200 hover:text-gray-600"
+                  className="flex items-center gap-0.5 bg-white border border-violet-200 px-1.5 py-0.5 rounded-full transition-colors flex-shrink-0 hover:bg-violet-50 hover:border-violet-300"
                   title="사진 업로드"
                 >
-                  <Camera className="w-2.5 h-2.5" />
+                  <ImageIcon className="w-2.5 h-2.5 text-violet-400" />
                 </button>
                 <input
                   ref={cameraRef}
@@ -704,7 +708,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
     if (!ids.includes(uid)) return [uid, ...ids]
     return ids
   })
-  const [payerId,        setPayerId]        = useState<string | undefined>(() => members.find(m => m.role === 'owner')?.id)
+  const [payerId,        setPayerId]        = useState<string | undefined>(() => (members.find(m => m.role === 'treasurer') ?? members.find(m => m.role === 'owner'))?.id)
   const [showPayer,      setShowPayer]      = useState(false)
   const [receiptFiles,    setReceiptFiles]    = useState<File[]>([])
   const [receiptPreviews, setReceiptPreviews] = useState<string[]>([])
@@ -1115,8 +1119,8 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                           <div className="fixed inset-0 z-[9]" onClick={() => setShowFlightPriceInfo(false)} />
                           <div className="absolute left-0 top-6 z-10 w-64 bg-gray-900 text-white text-[11px] rounded-2xl p-3.5 shadow-xl leading-relaxed">
                             <p className="font-semibold text-white mb-1.5">정산 포함 안내</p>
-                            <p className="text-gray-300">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 비행기 비용이 1/n 분배로 누적됩니다.</p>
-                            <p className="mt-1.5 text-gray-300">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
+                            <p className="text-gray-400">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 비행기 비용이 1/n 분배로 누적됩니다.</p>
+                            <p className="mt-1.5 text-gray-400">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
                           </div>
                         </>
                       )}
@@ -1206,8 +1210,8 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                           <div className="fixed inset-0 z-[9]" onClick={() => setShowAccPriceInfo(false)} />
                           <div className="absolute left-0 top-6 z-10 w-64 bg-gray-900 text-white text-[11px] rounded-2xl p-3.5 shadow-xl leading-relaxed">
                             <p className="font-semibold text-white mb-1.5">정산 포함 안내</p>
-                            <p className="text-gray-300">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 숙소 비용이 1/n 분배로 누적됩니다.</p>
-                            <p className="mt-1.5 text-gray-300">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
+                            <p className="text-gray-400">· <span className="text-white font-semibold">체크</span> — 정산 금액 팝업에 숙소 비용이 1/n 분배로 누적됩니다.</p>
+                            <p className="mt-1.5 text-gray-400">· <span className="text-white font-semibold">미체크</span> — 카드에만 표시되며 계산에 포함되지 않습니다.</p>
                           </div>
                         </>
                       )}
@@ -1707,7 +1711,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
     if (!allIds.includes(uid)) return [uid, ...allIds]
     return allIds
   })
-  const [payerId,        setPayerId]        = useState<string | undefined>(item.payerId ?? members.find(m => m.role === 'owner')?.id)
+  const [payerId,        setPayerId]        = useState<string | undefined>(item.payerId ?? (members.find(m => m.role === 'treasurer') ?? members.find(m => m.role === 'owner'))?.id)
   const [showPayer,      setShowPayer]      = useState(false)
   const [saving,         setSaving]         = useState(false)
   const [receipts,     setReceipts]     = useState<string[]>(item.receipts ?? [])
@@ -2375,27 +2379,31 @@ function PlannerContent({ tripId }: { tripId: string }) {
     [meta]
   )
 
-  /* ── 당일 자동 선택 + 탭 스크롤 (여행 기간 내인 경우에만, 아니면 전체 유지) ── */
+  /* ── 당일 자동 선택 (여행 기간 내인 경우에만, 아니면 전체 유지) ── */
   const autoSelectedRef = useRef(false)
   useEffect(() => {
     if (!days.length || autoSelectedRef.current) return
     autoSelectedRef.current = true
-    const today = new Date().toISOString().slice(0, 10)
-    const idx   = days.findIndex(d => d.date === today)
-    if (idx !== -1) {
-      setActiveDayIdx(idx)
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        const el = dayTabsScrollRef.current
-        if (!el) return
-        const inner = el.firstElementChild
-        const tabEl = inner?.children[1 + idx] as HTMLElement | undefined // +1: "전체" 탭
-        if (!tabEl) return
-        const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
-        el.scrollTo({ left: Math.max(0, center) })
-      }))
-    }
+    const n = new Date()
+    const today = `${n.getFullYear()}-${String(n.getMonth()+1).padStart(2,'0')}-${String(n.getDate()).padStart(2,'0')}`
+    const idx = days.findIndex(d => d.date === today)
+    if (idx !== -1) setActiveDayIdx(idx)
     // 여행 기간이 아니면 -1(전체) 유지
   }, [days])
+
+  /* activeDayIdx가 바뀔 때마다 탭을 중앙으로 스크롤 */
+  useEffect(() => {
+    if (activeDayIdx < 0 || !days.length) return
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      const el = dayTabsScrollRef.current
+      if (!el) return
+      const inner = el.firstElementChild
+      const tabEl = inner?.children[1 + activeDayIdx] as HTMLElement | undefined
+      if (!tabEl) return
+      const center = tabEl.offsetLeft + tabEl.offsetWidth / 2 - el.clientWidth / 2
+      el.scrollTo({ left: Math.max(0, center), behavior: 'smooth' })
+    }))
+  }, [activeDayIdx, days.length])
 
   /* ── owner photoURL Firestore 동기화 (1회) ── */
   useEffect(() => {
@@ -2491,8 +2499,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const accKRW = (meta?.accommodations ?? []).reduce(
       (s, a) => s + (a.price && a.includeInSettlement ? toKRW(a.price, a.currency ?? 'KRW', rates) : 0), 0
     )
-    return flightsKRW + accKRW
-  }, [meta?.flights, meta?.accommodations, rates])
+    const drvKRW = meta?.drivingCost
+      ? toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      : 0
+    return flightsKRW + accKRW + drvKRW
+  }, [meta?.flights, meta?.accommodations, meta?.drivingCost, primaryCurrency, rates])
 
   // totalSpent = 일정 항목만 (예산 바용)
   const totalSpent = useMemo(
@@ -2559,8 +2570,22 @@ function PlannerContent({ tripId }: { tripId: string }) {
         meta.members.forEach(m => { result[m.id] += share })
       }
     })
+    // 운전 경비: 운전자 혜택 적용 시 운전자 제외
+    if (meta.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      if (drvKRW > 0) {
+        const driver = meta.members.find(m => m.isDriver || m.role === 'driver')
+        const participants = meta.drivingCost.driverBenefit && driver
+          ? meta.members.filter(m => !m.left && m.id !== driver.id)
+          : meta.members.filter(m => !m.left)
+        if (participants.length > 0) {
+          const share = drvKRW / participants.length
+          participants.forEach(m => { if (result[m.id] !== undefined) result[m.id] += share })
+        }
+      }
+    }
     return result
-  }, [dayItems, rates, meta])
+  }, [dayItems, rates, meta, primaryCurrency])
 
   const hasUnevenParticipants = useMemo(() => {
     const amounts = Object.values(memberSpent)
@@ -2569,38 +2594,43 @@ function PlannerContent({ tripId }: { tripId: string }) {
     return amounts.some(a => Math.abs(a - first) > 1)
   }, [memberSpent])
 
-  /* 결제자별 실제 결제 금액 합산 (일정 항목 + 비행기 + 숙소) */
+  /* 결제자별 실제 결제 금액 합산 — payerId 없으면 총무(없으면 방장) 귀속 */
   const memberPaid = useMemo(() => {
     if (!meta?.members?.length) return {} as Record<string, number>
     const result: Record<string, number> = {}
     meta.members.forEach(m => { result[m.id] = 0 })
-    const ownerIdForPaid = (meta.members ?? []).find(m => m.role === 'owner')?.id ?? uid
+    const defaultPayerId = (meta.members.find(m => m.role === 'treasurer') ?? meta.members.find(m => m.role === 'owner') ?? meta.members[0])?.id
     Object.entries(dayItems).forEach(([dayId, items]) => {
       const custom = primaryCurrency !== 'KRW' ? dayRates[dayId] : undefined
       const r = custom ? { ...rates, [primaryCurrency]: custom } : rates
       items.forEach(item => {
-        const pid = item.payerId ?? ownerIdForPaid
-        if (result[pid] === undefined) return
+        const pid = item.payerId ?? defaultPayerId
+        if (!pid || result[pid] === undefined) return
         result[pid] += toKRW(item.price || 0, item.currency || 'KRW', r)
       })
     });
     (meta.flights ?? []).forEach(f => {
-      if (!f.price || !f.includeInSettlement) return
-      const pid = f.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(f.price, f.currency ?? 'KRW', rates)
+      if (!f.price || !f.includeInSettlement || !f.payerId) return
+      if (result[f.payerId] === undefined) return
+      result[f.payerId] += toKRW(f.price, f.currency ?? 'KRW', rates)
     });
     (meta.accommodations ?? []).forEach(a => {
-      if (!a.price || !a.includeInSettlement) return
-      const pid = a.payerId ?? ownerIdForPaid
-      if (result[pid] === undefined) return
-      result[pid] += toKRW(a.price, a.currency ?? 'KRW', rates)
+      if (!a.price || !a.includeInSettlement || !a.payerId) return
+      if (result[a.payerId] === undefined) return
+      result[a.payerId] += toKRW(a.price, a.currency ?? 'KRW', rates)
     })
+    if (meta.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      if (drvKRW) {
+        const driver = meta.members.find(m => m.isDriver || m.role === 'driver')
+        if (driver && result[driver.id] !== undefined) result[driver.id] += drvKRW
+      }
+    }
     return result
-  }, [dayItems, rates, meta?.members, meta?.flights, meta?.accommodations])
+  }, [dayItems, rates, meta?.members, meta?.flights, meta?.accommodations, meta?.drivingCost, primaryCurrency])
 
   /* 멤버별 결제 항목 목록 (정산 팝업 아코디언용) */
-  type PaidItemEntry = { type: 'item' | 'flight' | 'acc'; name: string; krw: number; perPersonKrw: number; participantCount: number }
+  type PaidItemEntry = { type: 'item' | 'flight' | 'acc' | 'driving'; name: string; krw: number; perPersonKrw: number; participantCount: number }
   const memberPaidItems = useMemo(() => {
     if (!meta?.members?.length) return {} as Record<string, PaidItemEntry[]>
     const result: Record<string, PaidItemEntry[]> = {}
@@ -2608,10 +2638,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const totalActive = meta.members.filter(m => !m.left).length
     const activeSet   = new Set(meta.members.filter(m => !m.left).map(m => m.id))
 
-    const ownerIdForItems = meta.members.find(m => m.role === 'owner')?.id ?? ''
+    const defaultPayerId = (meta.members.find(m => m.role === 'treasurer') ?? meta.members.find(m => m.role === 'owner') ?? meta.members[0])?.id
     Object.values(dayItems).flat().forEach(item => {
-      const pid = item.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      const pid = item.payerId ?? defaultPayerId
+      if (!pid || !result[pid]) return
       const krw = toKRW(item.price || 0, item.currency || 'KRW', rates)
       if (!krw) return
       const validIds = (item.participantIds ?? []).filter(id => activeSet.has(id))
@@ -2619,25 +2649,37 @@ function PlannerContent({ tripId }: { tripId: string }) {
       result[pid].push({ type: 'item', name: item.name, krw, perPersonKrw: krw / participantCount, participantCount })
     });
     (meta.flights ?? []).forEach(f => {
-      if (!f.price || !f.includeInSettlement) return
-      const pid = f.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      if (!f.price || !f.includeInSettlement || !f.payerId) return
+      if (!result[f.payerId]) return
       const krw = toKRW(f.price, f.currency ?? 'KRW', rates)
       const pIds = (f.participantIds ?? []).filter(id => activeSet.has(id))
       const participantCount = pIds.length > 0 ? pIds.length : totalActive
-      result[pid].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      result[f.payerId].push({ type: 'flight', name: f.name, krw, perPersonKrw: krw / participantCount, participantCount })
     });
     (meta.accommodations ?? []).forEach(a => {
-      if (!a.price || !a.includeInSettlement) return
-      const pid = a.payerId ?? ownerIdForItems
-      if (!result[pid]) return
+      if (!a.price || !a.includeInSettlement || !a.payerId) return
+      if (!result[a.payerId]) return
       const krw = toKRW(a.price, a.currency ?? 'KRW', rates)
       const pIds = (a.participantIds ?? []).filter(id => activeSet.has(id))
       const participantCount = pIds.length > 0 ? pIds.length : totalActive
-      result[pid].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
+      result[a.payerId].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
     })
+    if (meta.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      if (drvKRW) {
+        const driver = meta.members.find(m => m.isDriver || m.role === 'driver')
+        const driverId = driver?.id
+        if (driverId && result[driverId]) {
+          const participants = meta.drivingCost.driverBenefit && driver
+            ? meta.members.filter(m => !m.left && m.id !== driverId)
+            : meta.members.filter(m => !m.left)
+          const count = participants.length || 1
+          result[driverId].push({ type: 'driving', name: '운전 경비', krw: drvKRW, perPersonKrw: drvKRW / count, participantCount: count })
+        }
+      }
+    }
     return result
-  }, [dayItems, rates, meta])
+  }, [dayItems, rates, meta, primaryCurrency])
 
   /* 멤버별 참여 항목 목록 (정산 팝업 아코디언 👥 섹션용) */
   const memberParticipatedItems = useMemo(() => {
@@ -2680,16 +2722,35 @@ function PlannerContent({ tripId }: { tripId: string }) {
         result[id].push({ type: 'acc', name: a.name, krw, perPersonKrw: krw / participantCount, participantCount })
       })
     })
+    if (meta.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      if (drvKRW) {
+        const driver = meta.members.find(m => m.isDriver || m.role === 'driver')
+        const participants = meta.drivingCost.driverBenefit && driver
+          ? meta.members.filter(m => !m.left && m.id !== driver.id)
+          : meta.members.filter(m => !m.left)
+        const count = participants.length || 1
+        participants.forEach(m => {
+          if (!result[m.id]) return
+          result[m.id].push({ type: 'driving', name: '운전 경비', krw: drvKRW, perPersonKrw: drvKRW / count, participantCount: count })
+        })
+        // 운전자 혜택 적용 시: 운전자 본인에게 0원 항목 추가 (혜택 명시)
+        if (meta.drivingCost.driverBenefit && driver && result[driver.id] !== undefined) {
+          result[driver.id].push({ type: 'driving', name: '운전 경비', krw: drvKRW, perPersonKrw: 0, participantCount: 0 })
+        }
+      }
+    }
     return result
-  }, [dayItems, rates, meta])
+  }, [dayItems, rates, meta, primaryCurrency])
 
   /* 결제 집계 대상 항목 수 (방장 기본 결제자이므로 가격 있는 모든 항목 포함) */
   const paidItemCount = useMemo(() => {
     const itemCount   = Object.values(dayItems).flat().filter(i => i.price > 0).length
     const flightCount = (meta?.flights ?? []).filter(f => f.price && f.includeInSettlement).length
     const accCount    = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement).length
-    return itemCount + flightCount + accCount
-  }, [dayItems, meta?.flights, meta?.accommodations])
+    const drvCount    = meta?.drivingCost && ((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0)) > 0 ? 1 : 0
+    return itemCount + flightCount + accCount + drvCount
+  }, [dayItems, meta?.flights, meta?.accommodations, meta?.drivingCost])
 
   /* 최소 이체 계산 — 순잔액(paid - spent) 기반 greedy */
   const settlementTransfers = useMemo(() => {
@@ -2745,9 +2806,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSettlement])
 
-  const avgPerPerson = (meta?.members?.length ?? 1) > 1 && totalSpent > 0
-    ? totalSpent / (meta?.members?.length ?? 1)
-    : 0
+  const avgPerPerson = useMemo(() => {
+    if ((meta?.members?.length ?? 1) <= 1 || totalSpent <= 0) return 0
+    const drv = meta?.drivingCost
+      ? toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      : 0
+    return (totalSpent + drv) / (meta?.members?.length ?? 1)
+  }, [totalSpent, meta?.drivingCost, meta?.members?.length, primaryCurrency, rates])
 
   /* 일별 지출 합계 (탭 표시용) */
   const daySpentMap = useMemo(() => {
@@ -2769,9 +2834,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }, [rates, dayRates, activeDay, primaryCurrency])
 
   const daySpent = currentItems.reduce((s, i) => s + toKRW(i.price, i.currency, effectiveRates), 0)
-  const rawBudgetPct = meta ? Math.round((totalSpent / (meta.budget || 1)) * 100) : 0
+  const displayTotalKRW = useMemo(() => {
+    const drv = meta?.drivingCost
+      ? toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency ?? 'KRW', rates)
+      : 0
+    return totalSpent + drv
+  }, [totalSpent, meta?.drivingCost, primaryCurrency, rates])
+  const rawBudgetPct = meta ? Math.round((displayTotalKRW / (meta.budget || 1)) * 100) : 0
   const budgetPct    = Math.min(100, rawBudgetPct)
-  const overageKRW   = meta && rawBudgetPct > 100 ? totalSpent - meta.budget : 0
+  const overageKRW   = meta && rawBudgetPct > 100 ? displayTotalKRW - meta.budget : 0
 
   /* ── 아이템 추가 ── */
   const handleAdd = async (partial: Omit<PlanItem, 'id' | 'order'>) => {
@@ -2995,6 +3066,42 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setMeta({ ...meta, accommodations })
   }
 
+  const handleSaveDrivingCost = async (data: import('@/components/DrivingCostSection').DrivingCostData) => {
+    if (!meta) return
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { drivingCost: data })
+    setMeta({ ...meta, drivingCost: data })
+  }
+
+  const handleUploadDrivingReceipt = async (file: File): Promise<string> => {
+    if (!meta) return ''
+    const [{ storage }, { ref: sRef, uploadBytes, getDownloadURL }] = await Promise.all([
+      import('@/lib/firebase'), import('firebase/storage'),
+    ])
+    const ts = Date.now()
+    const r  = sRef(storage, `users/${uid}/trips/${tripId}/drivingCost/${ts}_${file.name}`)
+    await uploadBytes(r, file)
+    const url = await getDownloadURL(r)
+    const receipts = [...(meta.drivingCost?.receipts ?? []), url]
+    const next = { ...(meta.drivingCost ?? { km: 0, fuel: 0, toll: 0, driverBenefit: false }), receipts }
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { drivingCost: next })
+    setMeta({ ...meta, drivingCost: next })
+    return url
+  }
+
+  const handleDeleteDrivingReceipt = async (url: string) => {
+    if (!meta) return
+    const receipts = (meta.drivingCost?.receipts ?? []).filter(r => r !== url)
+    const next = { ...(meta.drivingCost ?? { km: 0, fuel: 0, toll: 0, driverBenefit: false }), receipts }
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { drivingCost: next })
+    setMeta({ ...meta, drivingCost: next })
+    try {
+      const { storage } = await import('@/lib/firebase')
+      const { ref: sRef, deleteObject } = await import('firebase/storage')
+      const path = decodeURIComponent(url.split('/o/')[1]?.split('?')[0] ?? '')
+      if (path) await deleteObject(sRef(storage, path))
+    } catch {}
+  }
+
   const handleUpdateFlight = async (updated: FlightItem) => {
     if (!meta) return
     const flights = (meta.flights ?? []).map(f => f.id === updated.id ? updated : f)
@@ -3097,6 +3204,24 @@ function PlannerContent({ tripId }: { tripId: string }) {
       await setDoc(doc(db, 'shareIndex', newEditCode), { uid, tripId, canEdit: true })
     }
     setMeta({ ...meta, members, ...(needNewCode ? { editCode: newEditCode } : {}) })
+  }
+
+  const setDriver = async (id: string) => {
+    if (!meta) return
+    const target    = meta.members.find(m => m.id === id)
+    const isAlready = !!(target?.isDriver) || target?.role === 'driver'
+    const members = meta.members.map(m => {
+      const { isDriver: _old, ...rest } = m
+      if (m.id === id) {
+        if (!isAlready) return { ...rest, isDriver: true as const }
+        // 해제: isDriver 제거, role이 'driver'였으면 'member'로 복구
+        return { ...rest, role: (rest.role === 'driver' ? 'member' : rest.role) as typeof rest.role }
+      }
+      const newIsDriver = !!_old
+      return newIsDriver ? { ...rest, isDriver: true as const } : rest
+    })
+    await updateDoc(doc(db, 'users', uid, 'trips', tripId), { members })
+    setMeta({ ...meta, members })
   }
 
   const setMemberColor = async (memberId: string, colorIndex: number) => {
@@ -3550,15 +3675,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <span className={`block text-xs font-bold leading-none ${
                   activeDayIdx === -1 ? 'text-blue-600' : 'text-gray-400'
                 }`}>전체</span>
-                <span className={`block text-[10px] font-medium mt-1 ${activeDayIdx === -1 ? 'text-blue-500' : 'text-gray-300'}`}>
+                <span className={`block text-[10px] font-medium mt-1 ${activeDayIdx === -1 ? 'text-blue-500' : 'text-gray-400'}`}>
                   일정
                 </span>
                 {/* 전체 총금액 */}
-                <span className={`block text-[10px] mt-0.5 tabular-nums font-bold ${totalSpent > 0 ? 'text-blue-600' : 'invisible'}`}>
-                  {totalSpent > 0
+                <span className={`block text-[10px] mt-0.5 tabular-nums font-bold ${displayTotalKRW > 0 ? 'text-blue-600' : 'invisible'}`}>
+                  {displayTotalKRW > 0
                     ? (primaryCurrency !== 'KRW' && rates[primaryCurrency]
-                        ? formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)
-                        : formatKRW(totalSpent))
+                        ? formatLocal(Math.round(displayTotalKRW / rates[primaryCurrency]), primaryCurrency)
+                        : formatKRW(displayTotalKRW))
                     : '-'}
                 </span>
               </button>
@@ -3566,7 +3691,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
             {days.map((d, i) => {
               const isActive = i === activeDayIdx
-              const isToday  = d.date === new Date().toISOString().slice(0, 10)
+              const _nd = new Date()
+              const todayLocal = `${_nd.getFullYear()}-${String(_nd.getMonth()+1).padStart(2,'0')}-${String(_nd.getDate()).padStart(2,'0')}`
+              const isToday  = d.date === todayLocal
               const members  = meta?.members ?? []
               const MAX_VISIBLE = 5
               const visible  = members.slice(0, MAX_VISIBLE)
@@ -3629,7 +3756,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       {d.label}
                       {isToday && <span className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />}
                     </span>
-                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-300'}`}>
+                    <span className={`block text-[10px] font-medium mt-1 ${isActive ? 'text-blue-500' : 'text-gray-400'}`}>
                       {formatDate(d.date)}
                     </span>
                     {/* 금액 행 — 항상 같은 높이 유지, 없으면 invisible */}
@@ -3753,17 +3880,36 @@ function PlannerContent({ tripId }: { tripId: string }) {
           <div className="relative flex-1 overflow-hidden">
           <div className="absolute inset-0 overflow-y-auto px-5 pb-5 flex flex-col gap-4">
 
+            {/* ── 운전 경비 (전체 일정 뷰 최상단) ── */}
+            {activeDayIdx === -1 && (() => {
+              const myMember        = (meta.members ?? []).find(m => m.id === uid)
+              const canEditDrv      = !myMember || myMember.role === 'owner' || myMember.role === 'treasurer'
+              const canAttachRecDrv = canEditDrv || !!(myMember?.isDriver) || myMember?.role === 'driver'
+              return (
+                <DrivingCostSection
+                  members={(meta.members ?? []).filter(m => !m.left)}
+                  canEdit={canEditDrv}
+                  canAttachReceipt={canAttachRecDrv}
+                  data={meta.drivingCost}
+                  currency={primaryCurrency ?? 'KRW'}
+                  onSave={handleSaveDrivingCost}
+                  onUploadReceipt={handleUploadDrivingReceipt}
+                  onDeleteReceipt={handleDeleteDrivingReceipt}
+                />
+              )
+            })()}
+
             {/* ── 전체 일정 요약 뷰 ── */}
             {activeDayIdx === -1 && (
               <div className="flex flex-col gap-3">
                 {allDayGroups.every(g => g.items.filter(i => !('markerType' in i && i.markerType === 'special')).length === 0) && (
-                  <div className="flex flex-col items-center justify-center py-14 gap-3">
+                  <div className="flex flex-col items-center justify-center py-6 gap-3">
                     <div className="w-12 h-12 rounded-2xl bg-white border-2 border-dashed border-gray-200 flex items-center justify-center">
-                      <MapPin className="w-5 h-5 text-gray-300" />
+                      <MapPin className="w-5 h-5 text-gray-400" />
                     </div>
                     <div className="text-center">
                       <p className="text-sm font-semibold text-gray-400">아직 일정이 없어요</p>
-                      <p className="text-xs text-gray-300 mt-1">위에서 Day를 선택하고 첫 번째 장소를 추가해보세요</p>
+                      <p className="text-xs text-gray-400 mt-1">위에서 Day를 선택하고 첫 번째 장소를 추가해보세요</p>
                     </div>
                   </div>
                 )}
@@ -3813,7 +3959,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               <div onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
                 className="flex flex-col items-center justify-center py-16 gap-3 cursor-pointer group">
                 <div className="w-12 h-12 rounded-2xl bg-white border-2 border-dashed border-gray-200 group-hover:border-blue-400 flex items-center justify-center transition-colors">
-                  <Plus className="w-5 h-5 text-gray-300 group-hover:text-blue-500 transition-colors" />
+                  <Plus className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
                 </div>
                 <p className="text-sm text-gray-400 group-hover:text-blue-500 transition-colors font-medium">
                   + 첫 번째 일정을 추가하세요
@@ -3918,16 +4064,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 {primaryCurrency !== 'KRW' && rates[primaryCurrency] ? (
                   <>
                     <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
-                      {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}
+                      {formatLocal(Math.round(displayTotalKRW / rates[primaryCurrency]), primaryCurrency)}
                       {meta.budget > 0 && ` / ${formatLocal(Math.round(meta.budget / rates[primaryCurrency]), primaryCurrency)}`}
                     </span>
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      약 {formatKRW(totalSpent)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
+                      약 {formatKRW(displayTotalKRW)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
                     </p>
                   </>
                 ) : (
                   <span className={`text-xs font-bold ${overageKRW > 0 ? 'text-red-500' : 'text-gray-700'}`}>
-                    {formatKRW(totalSpent)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
+                    {formatKRW(displayTotalKRW)}{meta.budget > 0 && ` / ${formatKRW(meta.budget)}`}
                   </span>
                 )}
               </div>
@@ -3969,6 +4115,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 >
                   <span className="flex items-center gap-1 text-[11px] text-gray-400">
                     <Users className="w-3 h-3" />1인 평균
+                    <span className="text-[10px] text-gray-400">(숙박·항공 제외)</span>
                   </span>
                   <div className="flex items-center gap-1.5">
                     <span className="text-[11px] font-semibold text-blue-600">
@@ -3982,6 +4129,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     </span>
                   </div>
                 </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">숙소·항공 경비는 제외된 금액이에요</p>
                 {hasUnevenParticipants && (
                   <p className="text-[10px] text-gray-400 mt-0.5">참여 인원이 다른 장소가 있어요</p>
                 )}
@@ -4004,7 +4152,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           <div className="flex-shrink-0 px-3 py-2 bg-white border-b border-gray-100">
             {activeDayIdx === -1 ? (
               <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5 border border-gray-100">
-                <svg className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                <svg className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
                   <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
                 </svg>
                 <span className="text-xs text-gray-400">Day를 선택하면 장소를 추가할 수 있어요</span>
@@ -4182,7 +4330,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               <div>
                 <div className="flex items-center gap-1.5">
                   <h3 className="text-base font-bold text-gray-900">여행 멤버</h3>
-                  <InfoTooltip text="방장: 모든 권한 · 총무: 일정 추가·편집 가능 · 게스트: 일정 열람만 가능. 아바타의 💛 버튼으로 총무를 지정할 수 있어요." width={230} />
+                  <InfoTooltip text="방장: 모든 권한 · 총무: 일정 추가·편집 가능 · 운전자: 운전 경비 관리 · 게스트: 열람만 가능. 아바타의 💛버튼=총무, 🚗버튼=운전자 지정." width={240} />
                 </div>
                 <p className="text-[11px] text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <span>{(meta.members ?? []).filter(m => !m.left).length} / {meta.people || 1}명 참여 중</span>
@@ -4270,18 +4418,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           />
                         )}
                         {!m.left && m.id.length > 10 && (
-                          <button
-                            type="button"
-                            onClick={() => setTreasurer(m.id)}
-                            title={m.role === 'treasurer' ? '총무 해제' : '총무 지정'}
-                            className={`absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
-                              m.role === 'treasurer'
-                                ? 'bg-amber-400 hover:bg-amber-500'
-                                : 'bg-gray-200 hover:bg-amber-300'
-                            }`}
-                          >
-                            <Wallet className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400 group-hover:text-white'}`} />
-                          </button>
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setTreasurer(m.id)}
+                              title={m.role === 'treasurer' ? '총무 해제' : '총무 지정'}
+                              className={`absolute -top-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                m.role === 'treasurer'
+                                  ? 'bg-amber-400 hover:bg-amber-500'
+                                  : 'bg-gray-200 hover:bg-amber-300'
+                              }`}
+                            >
+                              <Wallet className={`w-3 h-3 ${m.role === 'treasurer' ? 'text-white' : 'text-gray-400'}`} />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setDriver(m.id)}
+                              title={m.isDriver ? '운전자 해제' : '운전자 지정'}
+                              className={`absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center shadow-sm transition-colors ${
+                                m.isDriver
+                                  ? 'bg-sky-500 hover:bg-sky-600'
+                                  : 'bg-gray-200 hover:bg-sky-300'
+                              }`}
+                            >
+                              <Car className={`w-3 h-3 ${m.isDriver ? 'text-white' : 'text-gray-400'}`} />
+                            </button>
+                          </>
                         )}
                       </div>
                     ) : (
@@ -4308,13 +4470,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             탈퇴
                           </span>
                         ) : (
-                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
-                            m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
-                            : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
-                            :                          'bg-gray-100 text-gray-500'
-                          }`}>
-                            {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : '게스트'}
-                          </span>
+                          <>
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                              m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
+                              : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
+                              : (m.isDriver || m.role === 'driver') ? 'bg-emerald-50 text-emerald-600'
+                              :                          'bg-gray-100 text-gray-500'
+                            }`}>
+                              {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
+                            </span>
+                            {m.isDriver && m.role === 'treasurer' && (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
+                            )}
+                          </>
                         )}
                       </div>
                       <p className="text-[11px] mt-0.5 text-gray-400">
@@ -4325,7 +4493,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {m.role !== 'owner' && !m.left && (
                         <button onClick={() => removeMember(m.id)}
-                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-300 hover:text-red-400 transition-colors">
+                          className="w-7 h-7 rounded-lg flex items-center justify-center hover:bg-red-50 text-gray-400 hover:text-red-400 transition-colors">
                           <X className="w-3.5 h-3.5" />
                         </button>
                       )}
@@ -4800,7 +4968,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
             <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
               <div>
                 <h3 className="text-base font-bold text-gray-900">정산 금액</h3>
-                <p className="text-[11px] text-gray-400 mt-0.5">장소별 참여 인원 기준 계산</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">일정 참여 기준 · 비행기·숙소 별도 합산</p>
                 {primaryCurrency !== 'KRW' && (
                   <p className="text-[11px] text-blue-500 mt-0.5">
                     {Object.keys(dayRates).length > 0
@@ -4866,9 +5034,17 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
               {/* ── 개인별 내역 ── */}
               <div className="flex flex-col gap-1.5">
-                <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-0.5">
-                  {paidItemCount > 0 ? '개인별 내역' : '내 몫'}
-                </p>
+                <div className="mb-0.5">
+                  <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">
+                    {paidItemCount > 0 ? '개인별 내역' : '내 몫'}
+                  </p>
+                  {paidItemCount > 0 && (
+                    <div className="mt-0.5 flex flex-col gap-0.5">
+                      <p className="text-[10px] text-gray-400">결제 = 직접 낸 금액 · 내 몫 = 참여 장소별 합산</p>
+                      <p className="text-[10px] text-gray-400">장소마다 인원이 달라 내 몫 금액이 다를 수 있어요</p>
+                    </div>
+                  )}
+                </div>
                 {(meta.members ?? []).map((m, mi) => {
                   const spent    = memberSpent[m.id] ?? 0
                   const paid     = memberPaid[m.id]  ?? 0
@@ -4891,16 +5067,32 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       >
                         <PersonAvatar name={m.name} size={30} colorIndex={ci} hexColor={hexC} photoURL={photoURL} ringColor={photoURL ? (hexC ?? (ci !== undefined ? CLAY[ci % CLAY.length]?.base : undefined)) : undefined} />
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none">
+                          <span className="text-sm font-semibold text-gray-800 flex items-center gap-1.5 leading-none flex-wrap">
                             {m.name}
-                            {m.left && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>}
+                            {m.left ? (
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>
+                            ) : (
+                              <>
+                                <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                                  m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
+                                  : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
+                                  : (m.isDriver || m.role === 'driver') ? 'bg-emerald-50 text-emerald-600'
+                                  : 'bg-gray-100 text-gray-400'
+                                }`}>
+                                  {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
+                                </span>
+                                {m.isDriver && m.role === 'treasurer' && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
+                                )}
+                              </>
+                            )}
                             {paidItems.length > 0 && (
                               <span className="text-[10px] text-blue-400 font-normal">{paidItems.length}건 결제</span>
                             )}
                           </span>
                           {paidItemCount > 0 && (
                             <span className="text-[10px] text-gray-400 mt-0.5 block">
-                              낸 돈 {formatKRW(Math.round(paid))} · 내 몫 {formatKRW(Math.round(spent))}
+                              결제 {formatKRW(Math.round(paid))} · 내 몫 {formatKRW(Math.round(spent))}
                             </span>
                           )}
                         </div>
@@ -4915,6 +5107,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                                     : <>{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</>
                                 }
                               </span>
+                              {net !== 0 && <span className={`text-[10px] font-semibold block ${net > 0 ? 'text-emerald-500' : 'text-red-400'}`}>{net > 0 ? '받을 돈' : '보낼 돈'}</span>}
                               {net !== 0 && (preferredCurrency !== 'KRW' && rates[preferredCurrency]
                                 ? <span className="text-[10px] text-gray-400">{net > 0 ? '+' : ''}{formatKRW(Math.abs(net))}</span>
                                 : primaryCurrency !== 'KRW' && rates[primaryCurrency] && <span className="text-[10px] text-gray-400">약 {net > 0 ? '+' : ''}{formatLocal(Math.round(Math.abs(net) / rates[primaryCurrency]), primaryCurrency)}</span>
@@ -4939,17 +5132,19 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       {/* 아코디언: 결제 + 참여 항목 상세 */}
                       {isExpanded && (
                         <div className="px-3 pb-3 flex flex-col gap-3 border-t border-blue-100/60 pt-2.5">
-                          {/* 💳 결제한 항목 */}
+                          {/* 결제한 항목 */}
                           <div>
-                            <p className="text-[10px] font-bold text-blue-500 mb-1.5">💳 결제한 항목</p>
+                            <p className="text-[10px] font-bold text-blue-500 mb-1.5 flex items-center gap-1">
+                              <CreditCard className="w-3 h-3" /> 결제한 항목
+                            </p>
                             {paidItems.length === 0 ? (
                               <p className="text-[11px] text-gray-400 pl-0.5">결제 기록 없음</p>
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {paidItems.map((pi, pii) => (
                                   <div key={pii} className="flex items-center gap-2">
-                                    <span className="flex-shrink-0 text-[11px]">
-                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    <span className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                                      {pi.type === 'flight' ? <Plane className="w-3 h-3 text-sky-500" /> : pi.type === 'acc' ? <BedDouble className="w-3 h-3 text-amber-500" /> : pi.type === 'driving' ? <Fuel className="w-3 h-3 text-sky-500" /> : <MapPin className="w-3 h-3 text-rose-400" />}
                                     </span>
                                     <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
                                     <div className="text-right flex-shrink-0">
@@ -4962,22 +5157,33 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             )}
                           </div>
 
-                          {/* 👥 참여한 항목 */}
+                          {/* 참여한 항목 */}
                           <div>
-                            <p className="text-[10px] font-bold text-emerald-600 mb-1.5">👥 참여한 항목</p>
+                            <p className="text-[10px] font-bold text-emerald-600 mb-1.5 flex items-center gap-1">
+                              <Users className="w-3 h-3" /> 참여한 항목
+                            </p>
                             {participatedItems.length === 0 ? (
                               <p className="text-[11px] text-gray-400 pl-0.5">참여 기록 없음</p>
                             ) : (
                               <div className="flex flex-col gap-1">
                                 {participatedItems.map((pi, pii) => (
                                   <div key={pii} className="flex items-center gap-2">
-                                    <span className="flex-shrink-0 text-[11px]">
-                                      {pi.type === 'flight' ? '✈️' : pi.type === 'acc' ? '🏨' : '📍'}
+                                    <span className="flex-shrink-0 w-3.5 h-3.5 flex items-center justify-center">
+                                      {pi.type === 'flight' ? <Plane className="w-3 h-3 text-sky-500" /> : pi.type === 'acc' ? <BedDouble className="w-3 h-3 text-amber-500" /> : pi.type === 'driving' ? <Fuel className="w-3 h-3 text-sky-500" /> : <MapPin className="w-3 h-3 text-rose-400" />}
                                     </span>
                                     <span className="flex-1 text-[11px] text-gray-700 truncate">{pi.name}</span>
                                     <div className="text-right flex-shrink-0">
-                                      <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(Math.round(pi.perPersonKrw))}</span>
-                                      <span className="text-[10px] text-gray-400">÷{pi.participantCount}명</span>
+                                      {pi.type === 'driving' && pi.participantCount === 0 ? (
+                                        <>
+                                          <span className="text-[11px] font-semibold text-sky-500 block">0원</span>
+                                          <span className="text-[10px] text-sky-400">운전자 혜택</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <span className="text-[11px] font-semibold text-gray-800 block">{formatKRW(Math.round(pi.perPersonKrw))}</span>
+                                          <span className="text-[10px] text-gray-400">÷{pi.participantCount}명</span>
+                                        </>
+                                      )}
                                     </div>
                                   </div>
                                 ))}
@@ -5001,7 +5207,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     {/* 일정 합계 */}
                     <div className="flex items-center justify-between">
                       <span className="text-[12px] text-gray-500 flex items-center gap-1.5">
-                        <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center text-[9px]">📋</span>
+                        <span className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                          <LayoutList className="w-2.5 h-2.5 text-blue-600" />
+                        </span>
                         일정 합계
                       </span>
                       <div className="text-right">
@@ -5010,6 +5218,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
                           <p className="text-[10px] text-gray-400">약 {formatLocal(Math.round(totalSpent / rates[primaryCurrency]), primaryCurrency)}</p>
                         )}
                       </div>
+                    </div>
+
+                    {/* 고정 비용 구분선 */}
+                    <div className="flex items-center gap-2 my-0.5">
+                      <div className="flex-1 h-px bg-gray-100" />
+                      <span className="text-[10px] text-gray-400 flex-shrink-0">고정 비용 (결제자 기준 정산)</span>
+                      <div className="flex-1 h-px bg-gray-100" />
                     </div>
                   </>
                 )}
@@ -5056,6 +5271,27 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   )
                 })}
 
+                {/* 운전 경비 */}
+                {meta.drivingCost && ((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0)) > 0 && (() => {
+                  const drvAmt = (meta.drivingCost!.fuel || 0) + (meta.drivingCost!.toll || 0)
+                  const drvKRW = toKRW(drvAmt, primaryCurrency ?? 'KRW', rates)
+                  const isKRW  = (primaryCurrency ?? 'KRW') === 'KRW'
+                  return (
+                    <div className="flex items-center justify-between">
+                      <span className="text-[12px] text-gray-500 flex items-center gap-1.5 min-w-0">
+                        <span className="w-5 h-5 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                          <Fuel className="w-2.5 h-2.5 text-sky-600" />
+                        </span>
+                        <span>운전 경비</span>
+                      </span>
+                      <div className="text-right flex-shrink-0 ml-2">
+                        <span className="text-[12px] font-semibold text-sky-600 block">{formatKRW(drvKRW)}</span>
+                        {!isKRW && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[primaryCurrency!] ?? primaryCurrency}{drvAmt.toLocaleString()}</p>}
+                      </div>
+                    </div>
+                  )
+                })()}
+
                 {/* 총합계 */}
                 <div className="pt-2.5 mt-0.5 border-t border-gray-200 flex items-center justify-between">
                   <span className="text-[12px] font-bold text-gray-700 flex items-center gap-1">
@@ -5072,6 +5308,16 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     )}
                   </div>
                 </div>
+                {settlementFixedKRW > 0 && (
+                  <p className="text-[10px] text-gray-400 leading-relaxed">
+                    ※ 비행기·숙소는 &apos;정산 포함&apos; 설정한 항목만 합산 · 운전 경비는 항상 포함
+                  </p>
+                )}
+                {meta.drivingCost?.driverBenefit && (
+                  <p className="text-[10px] text-sky-500 leading-relaxed">
+                    ※ 운전자 혜택 적용 · 운전자는 운전 경비 분담에서 제외됩니다
+                  </p>
+                )}
               </div>
             </div>
           </div>

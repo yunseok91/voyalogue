@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo, Suspense } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2, Users, BarChart2 } from 'lucide-react'
+import { ChevronLeft, Star, MapPin, Wallet, Camera, CheckCircle, ChevronRight, Loader2, Users, BarChart2, Plane, BedDouble, Fuel } from 'lucide-react'
 import { doc, getDoc, collection, getDocs, updateDoc } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { useAuthStore } from '@/features/auth/store'
@@ -11,9 +11,12 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { gradientStyle } from '@/lib/tripGradient'
 import { getRatesInKRW, toKRW, formatKRW, formatLocal } from '@/lib/exchangeRate'
 import { detectCurrencies, CURRENCY_SYMBOLS } from '@/lib/currencyMap'
+import { PersonAvatar, CLAY } from '@/components/PersonAvatar'
 
 /* ── 타입 ── */
 type FixedItem = {
+  id?:              string
+  name?:            string
   price?:           number
   currency?:        string
   includeInSettlement?: boolean
@@ -37,6 +40,7 @@ type TripMeta = {
     name:        string
     photoURL?:   string
     role?:       string
+    isDriver?:   boolean
     colorIndex?: number
     hexColor?:   string
     left?:       boolean
@@ -44,6 +48,7 @@ type TripMeta = {
   flights?:        FixedItem[]
   accommodations?: FixedItem[]
   dayBudgets?:     Record<string, number>
+  drivingCost?:    { km: number; fuel: number; toll: number; driverBenefit: boolean }
 }
 
 type PlanItem = {
@@ -121,7 +126,7 @@ const CHART_HEX: Record<string, string> = {
 }
 
 const ROLE_LABEL: Record<string, string> = {
-  owner: '방장', treasurer: '총무', member: '멤버',
+  owner: '방장', treasurer: '총무', driver: '운전자', member: '멤버',
 }
 
 /* ── 본체 ── */
@@ -201,6 +206,15 @@ function SummaryContent({ tripId }: { tripId: string }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [!!meta])
 
+  /* 기본 통화 감지 — totalSpent보다 먼저 선언 필요 */
+  const primaryCurrency = useMemo(() => {
+    if (!meta) return 'KRW'
+    return (meta as TripMeta & { currency?: string }).currency
+      ?? detectCurrencies(meta.city)[0]
+      ?? 'KRW'
+  }, [meta])
+  const isOverseas = primaryCurrency !== 'KRW'
+
   /* ── 파생 데이터 (rates 포함) ── */
   const totalSpent = useMemo(() => {
     const items = allItems.reduce((s, i) => s + toKRW(i.price ?? 0, i.currency || 'KRW', rates), 0)
@@ -208,8 +222,11 @@ function SummaryContent({ tripId }: { tripId: string }) {
       .reduce((s, f) => s + toKRW(f.price!, f.currency ?? 'KRW', rates), 0)
     const accs = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement)
       .reduce((s, a) => s + toKRW(a.price!, a.currency ?? 'KRW', rates), 0)
-    return items + flights + accs
-  }, [allItems, rates, meta])
+    const drv = meta?.drivingCost
+      ? toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency, rates)
+      : 0
+    return items + flights + accs + drv
+  }, [allItems, rates, meta, primaryCurrency])
 
   const budgetPct = meta ? Math.min(100, Math.round((totalSpent / (meta.budget || 1)) * 100)) : 0
 
@@ -226,15 +243,6 @@ function SummaryContent({ tripId }: { tripId: string }) {
       .slice(0, 4)
   }, [allItems])
 
-  /* 기본 통화 감지 */
-  const primaryCurrency = useMemo(() => {
-    if (!meta) return 'KRW'
-    return (meta as TripMeta & { currency?: string }).currency
-      ?? detectCurrencies(meta.city)[0]
-      ?? 'KRW'
-  }, [meta])
-  const isOverseas = primaryCurrency !== 'KRW'
-
   const totalSpentLocal = useMemo(() => {
     if (!isOverseas) return 0
     const rate = rates[primaryCurrency] ?? 1
@@ -250,7 +258,10 @@ function SummaryContent({ tripId }: { tripId: string }) {
       .reduce((s, f) => s + toLocal(f.price!, f.currency ?? 'KRW'), 0)
     const accs = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement)
       .reduce((s, a) => s + toLocal(a.price!, a.currency ?? 'KRW'), 0)
-    return items + flights + accs
+    const drv = meta?.drivingCost
+      ? (meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0)
+      : 0
+    return items + flights + accs + drv
   }, [allItems, rates, primaryCurrency, isOverseas, meta])
 
   /* 카테고리별 지출 합계 */
@@ -261,8 +272,12 @@ function SummaryContent({ tripId }: { tripId: string }) {
       const cat = CHART_CATS.includes(i.cat as typeof CHART_CATS[number]) ? i.cat : '기타'
       result[cat] = (result[cat] ?? 0) + krw
     })
+    if (meta?.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) result['교통'] = (result['교통'] ?? 0) + drvKRW
+    }
     return result
-  }, [allItems, rates])
+  }, [allItems, rates, meta, primaryCurrency])
 
   /* 날별 × 카테고리 지출 (스택드 바용) */
   const dayCatSummary = useMemo(() =>
@@ -340,8 +355,23 @@ function SummaryContent({ tripId }: { tripId: string }) {
     })
     addFixed(meta?.flights ?? [])
     addFixed(meta?.accommodations ?? [])
+    // 운전 경비 분배
+    if (meta?.drivingCost) {
+      const drvKRW = toKRW((meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0), primaryCurrency, rates)
+      if (drvKRW > 0) {
+        const activeMembers = members
+        const driver = activeMembers.find((m: { id: string; isDriver?: boolean; role?: string }) => m.isDriver === true || m.role === 'driver')
+        const participants = meta.drivingCost.driverBenefit && driver
+          ? activeMembers.filter((m: { id: string }) => m.id !== driver.id)
+          : activeMembers
+        if (participants.length > 0) {
+          const share = drvKRW / participants.length
+          participants.forEach((m: { id: string }) => { if (result[m.id] !== undefined) result[m.id] += share })
+        }
+      }
+    }
     return result
-  }, [allItems, rates, meta])
+  }, [allItems, rates, meta, primaryCurrency])
 
   /* 멤버별 지출 (현지 통화) — 해외 여행 전용, 비행기·숙소 포함 */
   const memberSpentLocal = useMemo(() => {
@@ -595,6 +625,79 @@ function SummaryContent({ tripId }: { tripId: string }) {
             </div>
           )}
 
+          {/* ── 고정 경비 내역 (비행기 · 숙소 · 운전 경비) ── */}
+          {!itemsLoading && (() => {
+            const fixedFlights = (meta?.flights ?? []).filter(f => f.price && f.includeInSettlement)
+            const fixedAccs    = (meta?.accommodations ?? []).filter(a => a.price && a.includeInSettlement)
+            const drvAmt       = meta?.drivingCost ? (meta.drivingCost.fuel || 0) + (meta.drivingCost.toll || 0) : 0
+            if (fixedFlights.length === 0 && fixedAccs.length === 0 && drvAmt === 0) return null
+            return (
+              <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <Wallet className="w-4 h-4 text-sky-600" />
+                  <h2 className="text-sm font-bold text-gray-900">고정 경비</h2>
+                  <span className="text-xs text-gray-400 ml-1">비행기 · 숙소 · 운전</span>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {fixedFlights.map(f => {
+                    const cur = f.currency ?? 'KRW'
+                    const krw = toKRW(f.price!, cur, rates)
+                    return (
+                      <div key={f.id} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                            <Plane className="w-3 h-3 text-sky-600" />
+                          </span>
+                          <span className="truncate">{f.name}</span>
+                        </span>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <span className="text-sm font-semibold text-sky-600">{formatKRW(krw)}</span>
+                          {cur !== 'KRW' && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[cur] ?? cur}{f.price!.toLocaleString()}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {fixedAccs.map(a => {
+                    const cur = a.currency ?? 'KRW'
+                    const krw = toKRW(a.price!, cur, rates)
+                    return (
+                      <div key={a.id} className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                            <BedDouble className="w-3 h-3 text-amber-600" />
+                          </span>
+                          <span className="truncate">{a.name}</span>
+                        </span>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <span className="text-sm font-semibold text-amber-600">{formatKRW(krw)}</span>
+                          {cur !== 'KRW' && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[cur] ?? cur}{a.price!.toLocaleString()}</p>}
+                        </div>
+                      </div>
+                    )
+                  })}
+                  {drvAmt > 0 && (() => {
+                    const drvKRW = toKRW(drvAmt, primaryCurrency, rates)
+                    const isKRW  = primaryCurrency === 'KRW'
+                    return (
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600 flex items-center gap-2 min-w-0">
+                          <span className="w-6 h-6 rounded-full bg-sky-100 flex items-center justify-center flex-shrink-0">
+                            <Fuel className="w-3 h-3 text-sky-600" />
+                          </span>
+                          <span>운전 경비</span>
+                        </span>
+                        <div className="text-right flex-shrink-0 ml-2">
+                          <span className="text-sm font-semibold text-sky-600">{formatKRW(drvKRW)}</span>
+                          {!isKRW && <p className="text-[10px] text-gray-400">{CURRENCY_SYMBOLS[primaryCurrency] ?? primaryCurrency}{drvAmt.toLocaleString()}</p>}
+                        </div>
+                      </div>
+                    )
+                  })()}
+                </div>
+              </div>
+            )
+          })()}
+
           {/* 멤버별 지출 */}
           {!itemsLoading && activeMembers.length > 1 && (
             <div className="bg-white rounded-2xl border border-gray-200 p-5 sm:p-6">
@@ -617,17 +720,22 @@ function SummaryContent({ tripId }: { tripId: string }) {
                         <div key={m.id}>
                           <div className="flex items-center justify-between mb-1">
                             <div className="flex items-center gap-2 min-w-0">
-                              <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center text-xs font-bold text-gray-500 overflow-hidden">
-                                {m.photoURL
-                                  ? <img src={m.photoURL} alt={m.name} className="w-full h-full object-cover" />
-                                  : m.name.slice(0, 1)
-                                }
-                              </div>
+                              <PersonAvatar
+                                name={m.name}
+                                photoURL={(isMe ? (user?.photoURL || m.photoURL) : m.photoURL) ?? undefined}
+                                size={24}
+                                colorIndex={m.hexColor ? undefined : (m.colorIndex ?? undefined)}
+                                hexColor={m.hexColor}
+                                ringColor={m.hexColor ?? (m.colorIndex !== undefined ? CLAY[m.colorIndex % CLAY.length]?.base : undefined)}
+                              />
                               <span className="text-sm font-semibold text-gray-900 truncate">
                                 {m.name}
                                 {isMe && <span className="text-xs text-blue-500 ml-1">(나)</span>}
                               </span>
                               <span className="text-[11px] text-gray-400 flex-shrink-0">{ROLE_LABEL[m.role ?? 'member']}</span>
+                              {(m.isDriver || m.role === 'driver') && m.role !== 'driver' && (
+                                <span className="text-[11px] text-gray-400 flex-shrink-0">· 운전자</span>
+                              )}
                             </div>
                             <div className="flex flex-col items-end flex-shrink-0 ml-2">
                               {isOverseas && (
@@ -911,7 +1019,7 @@ function SummaryContent({ tripId }: { tripId: string }) {
               {reviewList.map(([reviewUid, r]) => {
                 const member = activeMembers.find(m => m.id === reviewUid)
                 const photo  = reviewUid === user!.uid
-                  ? (user!.photoURL ?? member?.photoURL ?? null)
+                  ? (user!.photoURL ?? member?.photoURL ?? null)  // Auth 사진 우선
                   : (member?.photoURL ?? null)
                 const isMe   = reviewUid === user!.uid
                 return (

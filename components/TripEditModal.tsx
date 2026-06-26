@@ -55,7 +55,7 @@ export function TripEditModal({
   onClose, onSave,
 }: Props) {
   const [form, setForm] = useState({
-    title:     initTitle,
+    title:     initTitle ?? '',
     startDate: initStart,
     endDate:   initEnd,
     people:    initPeople,
@@ -98,8 +98,10 @@ export function TripEditModal({
     setCoverRemoved(true)
   }
 
+  const dateInvalid = form.startDate && form.endDate && new Date(form.endDate) < new Date(form.startDate)
+
   const handleSave = async () => {
-    if (!form.startDate || !form.endDate || saving) return
+    if (!form.startDate || !form.endDate || saving || dateInvalid) return
     setSaving(true)
     try {
       let finalCoverURL: string | undefined = coverRemoved ? undefined : (initCoverURL ?? undefined)
@@ -282,7 +284,9 @@ export function TripEditModal({
           </div>
 
           {form.startDate && form.endDate && (
-            <p className="text-xs text-gray-400 text-center -mt-2">{nights}박 {nights + 1}일</p>
+            dateInvalid
+              ? <p className="text-xs text-red-500 font-medium text-center -mt-2">종료일이 시작일보다 빠릅니다</p>
+              : <p className="text-xs text-gray-400 text-center -mt-2">{nights}박 {nights + 1}일</p>
           )}
 
           {/* 현지 통화 */}
@@ -499,7 +503,7 @@ export function TripEditModal({
           </button>
           <button
             onClick={handleSave}
-            disabled={saving || !form.startDate || !form.endDate}
+            disabled={saving || !form.startDate || !form.endDate || !!dateInvalid}
             className="flex-1 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-1"
           >
             {saving

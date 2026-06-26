@@ -93,11 +93,12 @@ export function PersonAvatar({ name, photoURL, size = 40, showName = false, clas
             />
           ) : (
             <svg viewBox="0 0 44 44" width={size} height={size} xmlns="http://www.w3.org/2000/svg">
+              <rect width="44" height="44" fill={base} />
               <path
                 d="M 7 44 Q 7 30 14.5 27 Q 18 25.5 22 25.5 Q 26 25.5 29.5 27 Q 37 30 37 44 Z"
-                fill={base}
+                fill="rgba(255,255,255,0.65)"
               />
-              <circle cx="22" cy="14" r="11" fill={base} />
+              <circle cx="22" cy="14" r="11" fill="rgba(255,255,255,0.65)" />
             </svg>
           )}
         </div>

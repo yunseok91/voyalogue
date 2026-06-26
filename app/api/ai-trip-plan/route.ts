@@ -246,7 +246,7 @@ ${accommodationBooked
     /* ── Gemini API 호출 ── */
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
     const geminiRes = await ai.models.generateContent({
-      model:    'gemini-2.5-flash',
+      model:    'gemini-2.0-flash',
       contents: userPrompt,
       config: {
         systemInstruction,
