@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import {
   ChevronLeft, MapPin, Plus, X,
-  GripVertical, Star, Wallet, ChevronRight,
+  GripVertical, Star, Wallet, ChevronRight, ChevronDown,
   Edit2, Trash2, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera, ImageIcon,
   Plane, BedDouble, Pencil, Receipt, Megaphone, ScrollText, Car, Fuel, CreditCard, LayoutList,
@@ -54,7 +54,7 @@ type PlanItem = {
   name:         string
   timeSlot:     TimeSlot
   startTime?:   string   // HH:MM (optional)
-  cat:          Category
+  cat:          string
   price:        number
   currency:     string
   comment:      string
@@ -182,6 +182,30 @@ const CAT_DISPLAY: Record<Category, string> = {
   쇼핑: '쇼핑',
   교통: '교통',
   기타: '기타',
+}
+
+const CATEGORY_TAGS: [Category, string][] = [
+  ['식사', '카페'], ['식사', '레스토랑'], ['식사', '야시장'], ['식사', '편의점'], ['식사', '바/술집'],
+  ['장소', '관광지'], ['장소', '박물관'], ['장소', '해변'], ['장소', '공원'], ['장소', '전망대'],
+  ['쇼핑', '마트'], ['쇼핑', '면세점'], ['쇼핑', '기념품'], ['쇼핑', '약국'], ['쇼핑', '시장'],
+  ['교통', '택시'], ['교통', '지하철'], ['교통', '버스'], ['교통', '렌터카'], ['교통', '기차'], ['교통', '자전거'], ['교통', '오토바이'],
+  ['기타', '숙박'], ['기타', '입장권'], ['기타', '투어'], ['기타', '팁'], ['기타', '보험'],
+]
+
+const CAT_TAG_STYLE: Record<Category, string> = {
+  식사: 'bg-orange-50 border-orange-200 text-orange-600',
+  장소: 'bg-blue-50 border-blue-200 text-blue-600',
+  쇼핑: 'bg-pink-50 border-pink-200 text-pink-600',
+  교통: 'bg-teal-50 border-teal-200 text-teal-600',
+  기타: 'bg-gray-50 border-gray-200 text-gray-500',
+}
+
+const TAG_PARENT: Record<string, Category> = Object.fromEntries(
+  CATEGORY_TAGS.map(([cat, tag]) => [tag, cat])
+)
+
+function parentCat(c: string): Category {
+  return TAG_PARENT[c] ?? (CATEGORIES.includes(c as Category) ? c as Category : '기타')
 }
 
 /* HH:MM → { label: "오전 9:30" | "오후 2:30", isPM: bool } */
@@ -348,7 +372,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   onDelete:          (id: string) => void
   onEdit:            (item: PlanItem) => void
   onQuickEdit:       (item: PlanItem) => void
-  onChangeCat:       (id: string, cat: Category) => void
+  onChangeCat:       (id: string, cat: string) => void
   onRate:            (id: string, v: number) => void
   onFocusMap:        (id: string) => void
   onViewReceipts:    (receipts: string[]) => void
@@ -361,6 +385,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   dragHandleProps?:  Record<string, unknown>
 }) {
   const [showCatPick,  setShowCatPick]  = useState(false)
+  const [popupCat,     setPopupCat]     = useState<Category>('장소')
   const [showPP,       setShowPP]       = useState(false)
   const catRef    = useRef<HTMLDivElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
@@ -509,26 +534,47 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
           <div className="relative" ref={catRef}>
             <button
               onMouseDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
-              className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
+              onClick={e => { e.stopPropagation(); setPopupCat(parentCat(item.cat)); setShowCatPick(v => !v) }}
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[parentCat(item.cat)]}`}
             >
-              {CAT_DISPLAY[item.cat] ?? item.cat}
+              {(CAT_DISPLAY as Record<string, string>)[item.cat] ?? item.cat}
             </button>
             {showCatPick && (
               <div
-                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2"
-                style={{ width: 148 }}
+                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3"
+                style={{ width: 210 }}
                 onMouseDown={e => e.stopPropagation()}
               >
-                <div className="grid grid-cols-2 gap-1">
+                {/* 대분류 */}
+                <div className="grid grid-cols-2 gap-1 mb-2">
                   {CATEGORIES.map(c => (
                     <button
                       key={c}
-                      onClick={() => { onChangeCat(item.id, c); setShowCatPick(false) }}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                      onClick={() => {
+                        if (popupCat === c) {
+                          onChangeCat(item.id, c)
+                          setShowCatPick(false)
+                        } else {
+                          setPopupCat(c)
+                        }
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${popupCat === c ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${c === item.cat ? 'bg-white' : CAT_DOTS[c]}`} />
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${popupCat === c ? 'bg-white' : CAT_DOTS[c]}`} />
                       {CAT_DISPLAY[c]}
+                    </button>
+                  ))}
+                </div>
+                {/* 소분류 태그 */}
+                <div className="border-t border-gray-100 pt-2 flex flex-wrap gap-1">
+                  {CATEGORY_TAGS.filter(([tc]) => tc === popupCat).map(([tc, tag]) => (
+                    <button key={tag}
+                      onClick={() => { onChangeCat(item.id, tag); setShowCatPick(false) }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
+                        item.cat === tag ? CAT_TAG_STYLE[tc] : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      {tag}
                     </button>
                   ))}
                 </div>
@@ -583,7 +629,7 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
   onDelete:         (id: string) => void
   onEdit:           (item: PlanItem) => void
   onQuickEdit:      (item: PlanItem) => void
-  onChangeCat:      (id: string, cat: Category) => void
+  onChangeCat:      (id: string, cat: string) => void
   onRate:           (id: string, v: number) => void
   onFocusMap:       (id: string) => void
   onViewReceipts:   (receipts: string[]) => void
@@ -693,7 +739,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [name,          setName]          = useState(defaultPlace?.name ?? '')
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>('미정')
   const [startTime,      setStartTime]      = useState('')
-  const [cat,            setCat]            = useState<Category>('장소')
+  const [cat,            setCat]            = useState<string>('장소')
   const [price,          setPrice]          = useState('')
   const [currency,       setCurrency]       = useState(defaultCurrency)
   const [comment,        setComment]        = useState('')
@@ -1290,14 +1336,27 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                   ))}
                 </div>
               </div>
-              <div className="flex flex-col gap-1">
+              <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold text-gray-600">카테고리</label>
                 <div className="flex gap-2 flex-wrap">
                   {CATEGORIES.map(c => (
                     <button key={c} type="button" onClick={() => setCat(c)}
                       className={`px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                        cat === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                        parentCat(cat) === c ? 'bg-gray-900 text-white border-gray-900' : 'border-gray-200 text-gray-600 hover:border-gray-400'
                       }`}>{CAT_DISPLAY[c]}</button>
+                  ))}
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {CATEGORY_TAGS.filter(([tagCat]) => tagCat === parentCat(cat)).map(([tagCat, tag]) => (
+                    <button key={tag} type="button"
+                      onClick={() => setCat(tag)}
+                      className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                        cat === tag
+                          ? CAT_TAG_STYLE[tagCat]
+                          : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:text-gray-600'
+                      }`}>
+                      {tag}
+                    </button>
                   ))}
                 </div>
               </div>
@@ -1691,7 +1750,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
   const [name,           setName]           = useState(item.name)
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>(item.timeSlot)
   const [startTime,      setStartTime]      = useState(item.startTime ?? '')
-  const [cat,            setCat]            = useState<Category>(item.cat)
+  const [cat,            setCat]            = useState<string>(item.cat)
   const [price,          setPrice]          = useState(item.price > 0 ? String(item.price) : '')
   const [currency,       setCurrency]       = useState(item.currency)
   const [comment,        setComment]        = useState(item.comment)
@@ -1848,18 +1907,31 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
               ))}
             </div>
           </div>
-          <div className="flex flex-col gap-1">
+          <div className="flex flex-col gap-1.5">
             <label className="text-[12px] font-semibold text-gray-600">카테고리</label>
             <div className="flex gap-2 flex-wrap">
               {CATEGORIES.map(c => (
                 <button key={c} type="button" onClick={() => setCat(c)}
                   className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-sm font-semibold border transition-colors ${
-                    cat === c
+                    parentCat(cat) === c
                       ? `${CAT_COLORS[c]} border-transparent`
                       : 'border-gray-200 text-gray-600 hover:border-gray-400'
                   }`}>
                   <span className={`w-1.5 h-1.5 rounded-full ${CAT_DOTS[c]}`} />
                   {CAT_DISPLAY[c]}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5 flex-wrap">
+              {CATEGORY_TAGS.filter(([tagCat]) => tagCat === parentCat(cat)).map(([tagCat, tag]) => (
+                <button key={tag} type="button"
+                  onClick={() => setCat(tag)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-all ${
+                    cat === tag
+                      ? CAT_TAG_STYLE[tagCat]
+                      : 'border-gray-200 text-gray-400 bg-white hover:border-gray-300 hover:text-gray-600'
+                  }`}>
+                  {tag}
                 </button>
               ))}
             </div>
@@ -2085,7 +2157,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [checkInput,    setCheckInput]    = useState('')
   const [checkEditId,   setCheckEditId]   = useState<string | null>(null)
   const [checkEditVal,  setCheckEditVal]  = useState('')
-  const [showMembers,   setShowMembers]   = useState(false)
+  const [showMembers,      setShowMembers]      = useState(false)
+  const [showLinkSection,  setShowLinkSection]  = useState(false)
   const [copied,        setCopied]        = useState<'view' | 'edit' | 'join' | null>(null)
   const [joinPinInput,  setJoinPinInput]  = useState('')
   const [pinSaved,      setPinSaved]      = useState(false)
@@ -2927,7 +3000,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   }
 
   /* ── 카테고리 빠른 변경 ── */
-  const handleChangeCat = async (itemId: string, cat: Category) => {
+  const handleChangeCat = async (itemId: string, cat: string) => {
     if (!activeDay) return
     await updateDoc(
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', itemId),
@@ -4588,100 +4661,100 @@ function PlannerContent({ tripId }: { tripId: string }) {
               )}
             </div>
 
-            {/* 초대 링크 */}
-            <div className="border-t border-gray-100 px-4 sm:px-5 pb-5 pt-4 flex flex-col gap-2 flex-shrink-0">
-              <div className="flex items-center gap-1.5 mb-1">
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">참여 링크</p>
-                <InfoTooltip text="링크를 공유해 친구·가족을 여행에 초대하세요. PIN 링크는 4자리 비밀번호 입력 후 일정을 열람할 수 있고, 뷰어 링크는 PIN 없이 바로 열람 가능합니다." width={240} />
+            {/* 뽑기 버튼 — 멤버 목록 바로 아래, 2열 컴팩트 */}
+            {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (!meta.endDate || new Date(meta.endDate) >= new Date(new Date().toDateString())) && (
+              <div className="border-t border-gray-100 px-4 pt-3 pb-2 flex gap-2 flex-shrink-0">
+                <button
+                  onClick={() => setShowPick(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-violet-200 bg-violet-50 hover:bg-violet-100 active:scale-95 transition-all text-xs font-bold text-violet-700"
+                >
+                  <PickIcon className="w-3.5 h-3.5" />총무 뽑기
+                </button>
+                <button
+                  onClick={() => setShowDriverPick(true)}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 active:scale-95 transition-all text-xs font-bold text-emerald-700"
+                >
+                  <Car className="w-3.5 h-3.5" />운전자 뽑기
+                </button>
+              </div>
+            )}
+
+            {/* 참여 링크 — 아코디언 */}
+            <div className="border-t border-gray-100 px-4 sm:px-5 pb-4 flex-shrink-0">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => setShowLinkSection(v => !v)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') setShowLinkSection(v => !v) }}
+                className="w-full flex items-center justify-between py-3 cursor-pointer"
+              >
+                <div className="flex items-center gap-1.5">
+                  <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wider">참여 링크</p>
+                  <InfoTooltip text="링크를 공유해 친구·가족을 여행에 초대하세요. PIN 링크는 4자리 비밀번호 입력 후 일정을 열람할 수 있고, 뷰어 링크는 PIN 없이 바로 열람 가능합니다." width={240} />
+                </div>
+                <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${showLinkSection ? 'rotate-180' : ''}`} />
               </div>
 
-              {/* PIN 참여 링크 */}
-              <div className="rounded-2xl border border-blue-200 bg-blue-50/60 overflow-hidden">
-                <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <Share2 className="w-3.5 h-3.5 text-blue-600" />
+              {showLinkSection && (
+                <div className="flex flex-col gap-2 pb-1">
+                  {/* PIN 참여 링크 */}
+                  <div className="rounded-2xl border border-blue-200 bg-blue-50/60 overflow-hidden">
+                    <div className="px-3.5 pt-3 pb-2.5 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-blue-100 flex items-center justify-center flex-shrink-0">
+                        <Share2 className="w-3.5 h-3.5 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-blue-700">멤버 참여 링크</p>
+                        <p className="text-[11px] text-blue-400">PIN 설정으로 보안 강화 (선택 사항)</p>
+                      </div>
+                    </div>
+                    <div className="px-3.5 pb-2.5 flex items-center gap-2">
+                      <span className="text-[11px] font-semibold text-blue-500 flex-shrink-0">PIN</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={4}
+                        placeholder="4자리"
+                        value={joinPinInput}
+                        onChange={e => setJoinPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                        className="w-20 px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-center text-sm font-black text-blue-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all tracking-widest"
+                      />
+                      <button
+                        onClick={() => saveJoinPin(joinPinInput)}
+                        disabled={joinPinInput.length !== 4}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-40 flex items-center gap-1"
+                      >
+                        {pinSaved ? <><Check className="w-3 h-3" />저장됨</> : '저장'}
+                      </button>
+                    </div>
+                    <div className="px-3.5 pb-3">
+                      <button
+                        onClick={copyJoinLink}
+                        className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        {copied === 'join'
+                          ? <><Check className="w-3.5 h-3.5" />복사됨</>
+                          : <><Copy className="w-3.5 h-3.5" />링크 복사</>}
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-blue-700">멤버 참여 링크</p>
-                    <p className="text-[11px] text-blue-400">PIN 설정으로 보안 강화 (선택 사항)</p>
-                  </div>
-                </div>
-                {/* PIN 직접 입력 */}
-                <div className="px-3.5 pb-2.5 flex items-center gap-2">
-                  <span className="text-[11px] font-semibold text-blue-500 flex-shrink-0">PIN</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={4}
-                    placeholder="4자리"
-                    value={joinPinInput}
-                    onChange={e => setJoinPinInput(e.target.value.replace(/\D/g, '').slice(0, 4))}
-                    className="w-20 px-3 py-1.5 rounded-lg border border-blue-200 bg-white text-center text-sm font-black text-blue-700 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all tracking-widest"
-                  />
-                  <button
-                    onClick={() => saveJoinPin(joinPinInput)}
-                    disabled={joinPinInput.length !== 4}
-                    className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold transition-colors disabled:opacity-40 flex items-center gap-1"
-                  >
-                    {pinSaved ? <><Check className="w-3 h-3" />저장됨</> : '저장'}
-                  </button>
-                </div>
-                <div className="px-3.5 pb-3">
-                  <button
-                    onClick={copyJoinLink}
-                    className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
-                  >
-                    {copied === 'join'
-                      ? <><Check className="w-3.5 h-3.5" />복사됨</>
-                      : <><Copy className="w-3.5 h-3.5" />링크 복사</>}
-                  </button>
-                </div>
-              </div>
 
-              {/* 총무·운전자 뽑기 — 방장 + 2명 이상 + 여행 종료 전 */}
-              {(meta.members ?? []).find(m => m.id === uid)?.role === 'owner' && (meta.members ?? []).filter(m => !m.left).length >= 2 && (!meta.endDate || new Date(meta.endDate) >= new Date(new Date().toDateString())) && (
-                <>
-                  <button
-                    onClick={() => setShowPick(true)}
-                    className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-violet-200 bg-violet-50 hover:bg-violet-100 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-violet-100 group-hover:bg-violet-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <PickIcon className="w-4 h-4 text-violet-600" />
+                  {/* 뷰어 링크 */}
+                  <button onClick={() => copyLink('view')}
+                    className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors group">
+                    <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition-colors">
+                      <Link2 className="w-3.5 h-3.5 text-gray-500" />
                     </div>
                     <div className="flex-1 text-left">
-                      <p className="text-xs font-bold text-violet-700">총무 뽑기</p>
-                      <p className="text-[11px] text-violet-400">랜덤 게임으로 총무를 정해요</p>
+                      <p className="text-xs font-semibold text-gray-700">뷰어 링크 복사</p>
+                      <p className="text-[11px] text-gray-400">PIN 없이 일정 열람만 가능 (편집 불가)</p>
                     </div>
+                    {copied === 'view'
+                      ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
                   </button>
-                  <button
-                    onClick={() => setShowDriverPick(true)}
-                    className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-emerald-200 bg-emerald-50 hover:bg-emerald-100 transition-colors group"
-                  >
-                    <div className="w-8 h-8 rounded-xl bg-emerald-100 group-hover:bg-emerald-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                      <Car className="w-4 h-4 text-emerald-600" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <p className="text-xs font-bold text-emerald-700">운전자 뽑기</p>
-                      <p className="text-[11px] text-emerald-400">랜덤 게임으로 운전자를 정해요</p>
-                    </div>
-                  </button>
-                </>
+                </div>
               )}
-
-              {/* 뷰어 링크 */}
-              <button onClick={() => copyLink('view')}
-                className="flex items-center gap-3 px-3.5 py-3 rounded-2xl border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-colors group">
-                <div className="w-8 h-8 rounded-xl bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center flex-shrink-0 transition-colors">
-                  <Link2 className="w-3.5 h-3.5 text-gray-500" />
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-xs font-semibold text-gray-700">뷰어 링크 복사</p>
-                  <p className="text-[11px] text-gray-400">PIN 없이 일정 열람만 가능 (편집 불가)</p>
-                </div>
-                {copied === 'view'
-                  ? <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                  : <Copy className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />}
-              </button>
             </div>
 
           </div>

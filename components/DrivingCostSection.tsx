@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useCallback } from 'react'
-import { Car, Fuel, X, Upload, ImageIcon, MapPin, Navigation, Clock } from 'lucide-react'
+import { Car, Fuel, X, Upload, ImageIcon, MapPin, Navigation, Clock, Move } from 'lucide-react'
 import { formatKRW } from '@/lib/exchangeRate'
 import Image from 'next/image'
 
@@ -113,11 +113,16 @@ function PlaceInput({
 }
 
 export type DrivingCostData = {
-  km:            number
-  fuel:          number
-  toll:          number
-  driverBenefit: boolean
-  receipts?:     string[]
+  km:             number
+  fuel:           number
+  toll:           number
+  driverBenefit:  boolean
+  receipts?:      string[]
+  coverPosition?: number
+  origin?:        string
+  destination?:   string
+  originCoords?:  { lat: number; lng: number }
+  destCoords?:    { lat: number; lng: number }
 }
 
 type MemberInfo = { id: string; name: string; role: string; isDriver?: boolean }
@@ -153,7 +158,11 @@ export function DrivingCostSection({
   const [routeError,    setRouteError]    = useState<string | null>(null)
   const [routeInfo,     setRouteInfo]     = useState<{ km: number; toll: number; duration: number } | null>(null)
   const [lightboxIdx,   setLightboxIdx]   = useState<number | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [dragging,      setDragging]      = useState(false)
+  const [coverPosY,     setCoverPosY]     = useState(50)
+  const fileInputRef  = useRef<HTMLInputElement>(null)
+  const dragStartY    = useRef(0)
+  const dragStartPos  = useRef(50)
 
   const driver            = members.find(m => m.isDriver === true || m.role === 'driver')
   const activeMemberCount = members.length
@@ -172,13 +181,25 @@ export function DrivingCostSection({
     setFuel(data?.fuel ?? 0)
     setToll(data?.toll ?? 0)
     setDriverBenefit(data?.driverBenefit ?? false)
-    setOrigin('')
-    setDestination('')
-    setOriginCoords(null)
-    setDestCoords(null)
+    setOrigin(data?.origin ?? '')
+    setDestination(data?.destination ?? '')
+    setOriginCoords(data?.originCoords ?? null)
+    setDestCoords(data?.destCoords ?? null)
     setRouteError(null)
-    setRouteInfo(null)
+    setRouteInfo(data?.km ? { km: data.km, toll: data.toll ?? 0, duration: 0 } : null)
+    setCoverPosY(data?.coverPosition ?? 50)
     setOpen(true)
+  }
+
+  function baseData(): DrivingCostData {
+    return {
+      km, fuel, toll, driverBenefit,
+      receipts:      data?.receipts,
+      coverPosition: coverPosY,
+      origin,        destination,
+      originCoords:  originCoords ?? undefined,
+      destCoords:    destCoords   ?? undefined,
+    }
   }
 
   async function fetchRoute() {
@@ -204,10 +225,10 @@ export function DrivingCostSection({
       setKm(kmVal)
       setToll(tollVal)
       setRouteInfo({ km: kmVal, toll: tollVal, duration: json.duration })
-      // 계산 결과를 즉시 저장 (모달 닫혀도 유지되도록)
-      await onSave({ km: kmVal, fuel, toll: tollVal, driverBenefit, receipts: data?.receipts })
+      // 저장 실패가 경로 계산 성공 메시지를 덮지 않도록 분리
+      onSave({ ...baseData(), km: kmVal, toll: tollVal }).catch(() => {})
     } catch {
-      setRouteError('네트워크 오류가 발생했습니다.')
+      setRouteError('경로 계산 중 오류가 발생했습니다.')
     } finally {
       setFetching(false)
     }
@@ -216,7 +237,7 @@ export function DrivingCostSection({
   async function handleSave() {
     setSaving(true)
     try {
-      await onSave({ km, fuel, toll, driverBenefit, receipts: data?.receipts })
+      await onSave(baseData())
       setOpen(false)
     } finally {
       setSaving(false)
@@ -312,32 +333,79 @@ export function DrivingCostSection({
             />
             <div className="flex-shrink-0 border-b border-gray-200">
               {receipts.length > 0 ? (
-                <div className="relative w-full h-48 bg-gray-100 overflow-hidden group">
+                <div
+                  className={`relative w-full h-48 bg-gray-100 overflow-hidden select-none ${dragging ? 'cursor-grabbing' : canAttachReceipt ? 'cursor-grab' : ''}`}
+                  onMouseDown={e => {
+                    if (!canAttachReceipt) return
+                    e.preventDefault()
+                    setDragging(true)
+                    dragStartY.current  = e.clientY
+                    dragStartPos.current = coverPosY
+                    const onMove = (ev: MouseEvent) => {
+                      const delta = (dragStartY.current - ev.clientY) / 2
+                      setCoverPosY(Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                    }
+                    const onUp = () => {
+                      setDragging(false)
+                      window.removeEventListener('mousemove', onMove)
+                      window.removeEventListener('mouseup', onUp)
+                    }
+                    window.addEventListener('mousemove', onMove)
+                    window.addEventListener('mouseup', onUp)
+                  }}
+                  onTouchStart={e => {
+                    if (!canAttachReceipt) return
+                    e.stopPropagation()
+                    dragStartY.current   = e.touches[0].clientY
+                    dragStartPos.current = coverPosY
+                  }}
+                  onTouchMove={e => {
+                    if (!canAttachReceipt) return
+                    e.stopPropagation()
+                    const delta = (dragStartY.current - e.touches[0].clientY) / 2
+                    setCoverPosY(Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                  }}
+                  style={{ touchAction: 'none' }}
+                >
                   <Image
                     src={receipts[0]} alt="대표 이미지" fill
-                    className="object-cover cursor-pointer"
+                    className="object-cover pointer-events-none"
+                    style={{ objectPosition: `center ${coverPosY}%` }}
                     sizes="100vw"
-                    onClick={() => setLightboxIdx(0)}
+                    draggable={false}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                  {(canEdit || canAttachReceipt) && onDeleteReceipt && (
-                    <button
-                      onClick={() => onDeleteReceipt(receipts[0])}
-                      className="absolute top-3 right-3 w-7 h-7 bg-black/60 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    >
-                      <X className="w-4 h-4 text-white" />
-                    </button>
+
+                  {/* 위치 조정 힌트 */}
+                  {canAttachReceipt && !dragging && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="flex items-center gap-1.5 bg-black/40 backdrop-blur-sm text-white text-[11px] font-semibold px-3 py-1.5 rounded-full opacity-80">
+                        <Move className="w-3 h-3" />드래그로 위치 조정
+                      </div>
+                    </div>
                   )}
-                  {canAttachReceipt && onUploadReceipt && receipts.length < 5 && (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="absolute bottom-3 right-3 flex items-center gap-1.5 px-3 py-1.5 bg-black/50 hover:bg-black/70 rounded-full text-white text-xs font-semibold transition-colors disabled:opacity-50"
-                    >
-                      <Upload className="w-3 h-3" />
-                      {uploading ? '업로드 중...' : '추가'}
-                    </button>
-                  )}
+
+                  {/* 변경 / 제거 버튼 */}
+                  <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 pointer-events-auto">
+                    {canAttachReceipt && onUploadReceipt && receipts.length < 5 && (
+                      <button
+                        onClick={e => { e.stopPropagation(); fileInputRef.current?.click() }}
+                        disabled={uploading}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-white/90 rounded-full text-xs font-semibold text-gray-700 hover:bg-white transition-colors shadow-sm disabled:opacity-50"
+                      >
+                        <Upload className="w-3 h-3" />
+                        {uploading ? '업로드 중...' : '추가'}
+                      </button>
+                    )}
+                    {(canEdit || canAttachReceipt) && onDeleteReceipt && (
+                      <button
+                        onClick={e => { e.stopPropagation(); onDeleteReceipt(receipts[0]) }}
+                        className="flex items-center gap-1 px-2.5 py-1 bg-red-500/90 rounded-full text-xs font-semibold text-white hover:bg-red-500 transition-colors shadow-sm"
+                      >
+                        <X className="w-3 h-3" />제거
+                      </button>
+                    )}
+                  </div>
                 </div>
               ) : canAttachReceipt ? (
                 <button
