@@ -3827,7 +3827,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
       const hexC = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
       const clay = ci !== undefined ? CLAY[ci % CLAY.length] : CLAY[0]
-      const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
+      const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || m.photoURL || undefined) : m.photoURL
       return { name: m.name, baseColor: hexC ?? clay.base, photoURL: photoURL ?? undefined }
     })
   }, [meta?.members, avatarColor, avatarHexColor, user?.photoURL])
@@ -4112,7 +4112,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     {isActive && visible.length > 0 && (
                       <>
                         {visible.map((m, mi) => {
-                          const mPhoto = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
+                          const mPhoto = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || m.photoURL || undefined) : m.photoURL
                           const mHex   = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
                           const mCi    = m.role === 'owner'
                             ? (avatarHexColor ? undefined : (avatarColor ?? 0))
@@ -4862,11 +4862,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       <div className="relative flex-shrink-0">
                         <PersonAvatar
                           name={m.name}
-                          photoURL={auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL}
+                          photoURL={resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || m.photoURL || undefined}
                           size={42}
                           colorIndex={effectiveColorIdx}
                           hexColor={effectiveHex}
-                          ringColor={(auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) ? ringC : undefined}
+                          ringColor={(resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || m.photoURL || undefined) ? ringC : undefined}
                         />
                         <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-blue-500 rounded-full flex items-center justify-center shadow-sm">
                           <Crown className="w-3 h-3 text-white" />
@@ -5453,8 +5453,8 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     const tci = to.role   === 'owner' ? (avatarHexColor ? undefined : (avatarColor ?? 0)) : (to.hexColor   ? undefined : (to.colorIndex   ?? ((toIdx   % (CLAY.length - 1)) + 1)))
                     const fHex   = from.role === 'owner' ? (avatarHexColor ?? undefined) : from.hexColor
                     const tHex   = to.role   === 'owner' ? (avatarHexColor ?? undefined) : to.hexColor
-                    const fPhoto = from.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? from.photoURL) : from.photoURL
-                    const tPhoto = to.role   === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? to.photoURL)   : to.photoURL
+                    const fPhoto = from.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || from.photoURL || undefined) : from.photoURL
+                    const tPhoto = to.role   === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || to.photoURL || undefined)   : to.photoURL
                     const fRing  = fHex ?? (fci !== undefined ? CLAY[fci % CLAY.length]?.base : undefined)
                     const tRing  = tHex ?? (tci !== undefined ? CLAY[tci % CLAY.length]?.base : undefined)
                     return (
@@ -5509,7 +5509,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                     : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                   const hexC     = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                  const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? user?.photoURL ?? m.photoURL) : m.photoURL
+                  const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || user?.photoURL || m.photoURL || undefined) : m.photoURL
                   return (
                     <div key={m.id} className={`rounded-xl border transition-colors ${isExpanded ? 'border-blue-100 bg-blue-50/40' : 'border-gray-100 bg-gray-50/60'} ${m.left ? 'opacity-50' : ''}`}>
                       {/* 헤더 행 */}
