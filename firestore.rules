@@ -21,9 +21,10 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/shareIndex/$(t.editCode));
     }
 
-    // User document itself: owner or admin
+    // User document itself: 본인 write / 어드민 full, 인증 유저는 read 허용 (프로필 사진·이름 조회용)
     match /users/{uid} {
-      allow read, write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
+      allow read:  if request.auth != null;
+      allow write: if (request.auth != null && request.auth.uid == uid) || isAdmin();
     }
 
     // All nested paths: owner or admin
