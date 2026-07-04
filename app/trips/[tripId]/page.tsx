@@ -1262,7 +1262,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {flightPhotoPreviews.map((url, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <div key={i} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                       <img src={url} alt="" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => handleFlightPhotoRemove(i)}
                         className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -1271,7 +1271,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     </div>
                   ))}
                   {flightPhotoPreviews.length < 3 && (
-                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                    <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                       <Camera className="w-4 h-4 text-gray-400" />
                       <span className="text-[9px] text-gray-400">추가</span>
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handleFlightPhotoAdd} />
@@ -1384,7 +1384,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {accPhotoPreviews.map((url, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <div key={i} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                       <img src={url} alt="" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => handleAccPhotoRemove(i)}
                         className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -1393,7 +1393,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     </div>
                   ))}
                   {accPhotoPreviews.length < 3 && (
-                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                    <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                       <Camera className="w-4 h-4 text-gray-400" />
                       <span className="text-[9px] text-gray-400">추가</span>
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handleAccPhotoAdd} />
@@ -1623,7 +1623,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                 </label>
                 <div className="flex gap-2 flex-wrap">
                   {receiptPreviews.map((url, i) => (
-                    <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                    <div key={i} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                       <img src={url} alt="" className="w-full h-full object-cover" />
                       <button type="button" onClick={() => handleReceiptRemove(i)}
                         className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -1632,7 +1632,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     </div>
                   ))}
                   {receiptPreviews.length < 3 && (
-                    <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                    <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                       <Camera className="w-4 h-4 text-gray-400" />
                       <span className="text-[9px] text-gray-400">추가</span>
                       <input type="file" accept="image/*" multiple className="hidden" onChange={handleReceiptAdd} />
@@ -2182,7 +2182,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
             </label>
             <div className="flex gap-2 flex-wrap">
               {receipts.map((url, i) => (
-                <div key={`ex-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                <div key={`ex-${i}`} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <button type="button" onClick={() => removeExisting(i)}
                     className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -2191,7 +2191,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                 </div>
               ))}
               {newPreviews.map((url, i) => (
-                <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                <div key={`new-${i}`} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <button type="button" onClick={() => removeNew(i)}
                     className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -2200,7 +2200,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                 </div>
               ))}
               {receipts.length + newFiles.length < 3 && (
-                <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                   <Camera className="w-4 h-4 text-gray-400" />
                   <span className="text-[9px] text-gray-400">추가</span>
                   <input type="file" accept="image/*" multiple className="hidden" onChange={handleReceiptAdd} />
@@ -2628,6 +2628,28 @@ function PlannerContent({ tripId }: { tripId: string }) {
     updateDoc(doc(db, 'users', uid, 'trips', tripId), { members: updated }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, resolvedPhotoURL, user?.photoURL])
+
+  /* ── 비 owner 멤버 photoURL 최신화 (가입 유저 한정) ── */
+  useEffect(() => {
+    if (!meta?.members) return
+    const registered = meta.members.filter(m => m.role !== 'owner' && m.id.length >= 15)
+    if (!registered.length) return
+    Promise.all(
+      registered.map(m => getDoc(doc(db, 'users', m.id)).then(s => ({ id: m.id, photoURL: s.exists() ? (s.data().photoURL as string | undefined) : undefined })))
+    ).then(results => {
+      let changed = false
+      const members = meta.members.map(m => {
+        const r = results.find(r => r.id === m.id)
+        if (!r || !r.photoURL || r.photoURL === m.photoURL) return m
+        changed = true
+        return { ...m, photoURL: r.photoURL }
+      })
+      if (!changed) return
+      setMeta(prev => prev ? { ...prev, members } : prev)
+      updateDoc(doc(db, 'users', uid, 'trips', tripId), { members }).catch(() => {})
+    }).catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [meta?.members?.map(m => m.id).join(',')])
 
   /* ── 전체 Day items 1회 로드 ── */
   useEffect(() => {
@@ -5952,7 +5974,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </div>
               <div className="flex gap-2 flex-wrap">
                 {(editingFlight.photos ?? []).map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                  <div key={i} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => setEditingFlight(prev => prev ? { ...prev, photos: prev.photos?.filter((_, j) => j !== i) } : prev)}
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -5961,7 +5983,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                 ))}
                 {editFlightNewPreviews.map((url, i) => (
-                  <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                  <div key={`new-${i}`} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => {
                       URL.revokeObjectURL(url)
@@ -5973,7 +5995,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                 ))}
                 {(editingFlight.photos?.length ?? 0) + editFlightNewPreviews.length < 3 && (
-                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                  <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                     <Camera className="w-4 h-4 text-gray-400" />
                     <span className="text-[9px] text-gray-400">추가</span>
                     <input ref={editFlightCameraRef} type="file" accept="image/*" multiple className="hidden" onChange={e => {
@@ -6157,7 +6179,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               </div>
               <div className="flex gap-2 flex-wrap">
                 {(editingAcc.photos ?? []).map((url, i) => (
-                  <div key={i} className="relative w-16 h-16 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
+                  <div key={i} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-gray-200 flex-shrink-0">
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => setEditingAcc(prev => prev ? { ...prev, photos: prev.photos?.filter((_, j) => j !== i) } : prev)}
                       className="absolute top-0.5 right-0.5 w-4 h-4 bg-black/60 rounded-full flex items-center justify-center">
@@ -6166,7 +6188,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                 ))}
                 {editAccNewPreviews.map((url, i) => (
-                  <div key={`new-${i}`} className="relative w-16 h-16 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
+                  <div key={`new-${i}`} className="relative w-20 h-20 sm:w-24 sm:h-24 rounded-xl overflow-hidden border border-blue-200 flex-shrink-0">
                     <img src={url} alt="" className="w-full h-full object-cover" />
                     <button type="button" onClick={() => {
                       URL.revokeObjectURL(url)
@@ -6178,7 +6200,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   </div>
                 ))}
                 {(editingAcc.photos?.length ?? 0) + editAccNewPreviews.length < 3 && (
-                  <label className="w-16 h-16 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
+                  <label className="w-20 h-20 sm:w-24 sm:h-24 rounded-xl border-2 border-dashed border-gray-200 hover:border-blue-400 flex flex-col items-center justify-center cursor-pointer gap-0.5 transition-colors flex-shrink-0">
                     <Camera className="w-4 h-4 text-gray-400" />
                     <span className="text-[9px] text-gray-400">추가</span>
                     <input ref={editAccCameraRef} type="file" accept="image/*" multiple className="hidden" onChange={e => {
