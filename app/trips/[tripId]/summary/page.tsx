@@ -503,10 +503,13 @@ function SummaryContent({ tripId }: { tripId: string }) {
             </>
           )}
 
-          {/* 여행 완료 뱃지 — 우상단 */}
+          {/* 여행 상태 뱃지 */}
           <div className="absolute top-4 left-4 flex items-center gap-1.5">
-            <span className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white">
-              <MapPin className="w-3 h-3" /> {tripEnded ? '여행 완료' : '여행 중'}
+            <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 flex items-center gap-1 ${
+              tripEnded ? 'bg-white/20 backdrop-blur-sm text-white' : 'bg-green-500 text-white'
+            }`}>
+              {!tripEnded && <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />}
+              {tripEnded ? '여행 완료' : '여행중'}
             </span>
           </div>
 

@@ -2616,7 +2616,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     }))
   }, [activeDayIdx, days.length])
 
-  /* ── owner photoURL Firestore 동기화 (1회) ── */
+  /* ── owner photoURL Firestore + local state 동기화 ── */
   useEffect(() => {
     const myPhoto = resolvedPhotoURL || user?.photoURL
     if (!meta || !myPhoto) return
@@ -2625,6 +2625,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const updated = meta.members.map(m =>
       m.role === 'owner' ? { ...m, photoURL: myPhoto } : m
     )
+    setMeta(prev => prev ? { ...prev, members: updated } : prev)
     updateDoc(doc(db, 'users', uid, 'trips', tripId), { members: updated }).catch(() => {})
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [meta?.members?.find(m => m.role === 'owner')?.photoURL, resolvedPhotoURL, user?.photoURL])
@@ -4040,7 +4041,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         user={user}
         members={(meta.members ?? []).filter(m => !m.left).map(m =>
           m.role === 'owner'
-            ? { ...m, photoURL: user?.photoURL ?? m.photoURL,
+            ? { ...m, photoURL: resolvedPhotoURL || user?.photoURL || m.photoURL || undefined,
                 colorIndex: avatarHexColor ? undefined : (avatarColor ?? 0),
                 hexColor: avatarHexColor ?? undefined }
             : m
