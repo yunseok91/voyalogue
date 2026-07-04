@@ -7,7 +7,9 @@
       "Bash(firebase deploy *)",
       "Bash(find /Users/yunseok/Downloads/voyagelogue -name \"firebase.json\" 2>/dev/null)",
       "Read(//Users/yunseok/Downloads/voyagelogue/**)",
-      "Bash(npx firebase *)"
+      "Bash(npx firebase *)",
+      "Bash(npx next *)",
+      "Bash(python3 -)"
     ]
   },
   "mcpServers": {

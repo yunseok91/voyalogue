@@ -144,6 +144,7 @@ type TripMeta = {
   dayBudgets?:     Record<string, number>   // dayId → KRW
   coverPhotoURL?:       string
   coverPhotoPosition?:  number
+  coverPhotoScale?:     number
   notice?:         string  // legacy — kept for migration
   drivingCost?:    import('@/components/DrivingCostSection').DrivingCostData
 }
@@ -4034,6 +4035,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         gradient={meta.gradient}
         coverPhotoURL={meta.coverPhotoURL}
         coverPhotoPosition={meta.coverPhotoPosition}
+        coverPhotoScale={meta.coverPhotoScale}
         startDate={meta.startDate}
         endDate={meta.endDate}
         nights={meta.nights}
@@ -5125,7 +5127,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                       autoFocus
                       value={checkEditVal}
                       onChange={e => setCheckEditVal(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') saveCheckEdit(c.id); if (e.key === 'Escape') setCheckEditId(null) }}
+                      onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') saveCheckEdit(c.id); if (e.key === 'Escape') setCheckEditId(null) }}
                       onBlur={() => saveCheckEdit(c.id)}
                       className="flex-1 text-sm px-2 py-0.5 rounded border border-blue-400 outline-none bg-blue-50/50"
                     />
@@ -5156,7 +5158,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   placeholder="새 항목 추가…"
                   value={checkInput}
                   onChange={e => setCheckInput(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') addCheckItem() }}
+                  onKeyDown={e => { if (e.nativeEvent.isComposing) return; if (e.key === 'Enter') addCheckItem() }}
                   className="flex-1 px-3 py-2 rounded-lg border border-gray-200 text-sm outline-none focus:border-blue-500 transition-all"
                 />
                 <button
@@ -5366,6 +5368,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           initialDayBudgets={dayBudgets}
           coverPhotoURL={meta.coverPhotoURL}
           coverPhotoPosition={meta.coverPhotoPosition}
+          coverPhotoScale={meta.coverPhotoScale}
           uid={uid}
           tripId={tripId}
           onClose={() => setShowEdit(false)}
@@ -5384,6 +5387,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               dayBudgets:         data.dayBudgets,
               coverPhotoURL:      data.coverPhotoURL ?? null,
               coverPhotoPosition: data.coverPhotoPosition ?? 50,
+              coverPhotoScale:    data.coverPhotoScale ?? 1,
             })
             for (let i = 0; i < data.days; i++) {
               const d = new Date(start)
@@ -5408,6 +5412,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
               dayBudgets:    data.dayBudgets,
               coverPhotoURL:      data.coverPhotoURL,
               coverPhotoPosition: data.coverPhotoPosition ?? 50,
+              coverPhotoScale:    data.coverPhotoScale ?? 1,
             } : prev)
           }}
         />

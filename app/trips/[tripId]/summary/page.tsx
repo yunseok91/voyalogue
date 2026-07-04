@@ -33,8 +33,9 @@ type TripMeta = {
   people:             number
   gradient:           string
   budget:             number
-  coverPhotoURL?:     string
+  coverPhotoURL?:      string
   coverPhotoPosition?: number
+  coverPhotoScale?:    number
   members?:           Array<{
     id:          string
     name:        string
@@ -457,10 +458,11 @@ function SummaryContent({ tripId }: { tripId: string }) {
     : 0
 
   /* 히어로 카드 — 사진/그라디언트 배경 스타일 */
+  const coverScale = meta.coverPhotoScale ?? 1
   const heroBgStyle: React.CSSProperties = meta.coverPhotoURL
     ? {
         backgroundImage: `url(${meta.coverPhotoURL})`,
-        backgroundSize: 'cover',
+        backgroundSize: coverScale > 1 ? `${coverScale * 100}% auto` : 'cover',
         backgroundPosition: `center ${meta.coverPhotoPosition ?? 50}%`,
       }
     : { background: gradientStyle(meta.gradient) }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { ImagePlus, X, Loader2, Move, ChevronRight } from 'lucide-react'
+import { ImagePlus, X, Loader2, Move, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react'
 import { CURRENCY_SYMBOLS, CURRENCY_NAMES } from '@/lib/currencyMap'
 
 export type TripEditFormData = {
@@ -16,6 +16,7 @@ export type TripEditFormData = {
   dayBudgets:          Record<string, number>
   coverPhotoURL?:      string
   coverPhotoPosition?: number
+  coverPhotoScale?:    number
 }
 
 type DayMeta = { dayId: string; label: string; date: string }
@@ -32,6 +33,7 @@ type Props = {
   initialDayBudgets?:  Record<string, number>
   coverPhotoURL?:      string
   coverPhotoPosition?: number
+  coverPhotoScale?:    number
   uid?:                string
   tripId?:             string
   onClose:        () => void
@@ -50,6 +52,7 @@ export function TripEditModal({
   initialDayBudgets    = {},
   coverPhotoURL:       initCoverURL,
   coverPhotoPosition:  initCoverPos = 50,
+  coverPhotoScale:     initCoverScale = 1,
   uid,
   tripId,
   onClose, onSave,
@@ -69,12 +72,15 @@ export function TripEditModal({
   const [coverPhotoFile,     setCoverPhotoFile]     = useState<File | null>(null)
   const [coverPhotoPreview,  setCoverPhotoPreview]  = useState<string | null>(initCoverURL ?? null)
   const [coverPhotoPosition, setCoverPhotoPosition] = useState(initCoverPos ?? 50)
+  const [coverPhotoScale,    setCoverPhotoScale]    = useState(initCoverScale ?? 1)
   const [coverRemoved,       setCoverRemoved]       = useState(false)
   const [saving,             setSaving]             = useState(false)
   const [dragging,           setDragging]           = useState(false)
-  const fileInputRef   = useRef<HTMLInputElement>(null)
-  const dragStartY     = useRef(0)
-  const dragStartPos   = useRef(50)
+  const fileInputRef      = useRef<HTMLInputElement>(null)
+  const dragStartY        = useRef(0)
+  const dragStartPos      = useRef(50)
+  const pinchStartDist    = useRef(0)
+  const pinchStartScale   = useRef(1)
 
   const nights = form.startDate && form.endDate
     ? Math.max(0, Math.round(
@@ -87,6 +93,7 @@ export function TripEditModal({
     if (!file) return
     setCoverPhotoFile(file)
     setCoverRemoved(false)
+    setCoverPhotoScale(1)
     const url = URL.createObjectURL(file)
     setCoverPhotoPreview(url)
     e.target.value = ''
@@ -130,6 +137,7 @@ export function TripEditModal({
         dayBudgets:    dayBudgetsLocal,
         coverPhotoURL:      finalCoverURL,
         coverPhotoPosition: coverPhotoPreview ? coverPhotoPosition : undefined,
+        coverPhotoScale:    coverPhotoPreview ? coverPhotoScale : undefined,
       })
       onClose()
     } catch { /* silent */ } finally {
@@ -158,7 +166,7 @@ export function TripEditModal({
               <div className="flex flex-col gap-2">
                 {/* 드래그로 위치 조정 */}
                 <div
-                  className={`relative -mx-6 h-[120px] sm:h-[130px] overflow-hidden select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+                  className={`relative rounded-xl overflow-hidden select-none ${dragging ? 'cursor-grabbing' : 'cursor-grab'}`}
                   onMouseDown={e => {
                     e.preventDefault()
                     setDragging(true)
@@ -178,22 +186,41 @@ export function TripEditModal({
                   }}
                   onTouchStart={e => {
                     e.stopPropagation()
-                    dragStartY.current   = e.touches[0].clientY
-                    dragStartPos.current = coverPhotoPosition
+                    if (e.touches.length === 2) {
+                      const dx = e.touches[0].clientX - e.touches[1].clientX
+                      const dy = e.touches[0].clientY - e.touches[1].clientY
+                      pinchStartDist.current  = Math.sqrt(dx * dx + dy * dy)
+                      pinchStartScale.current = coverPhotoScale
+                    } else {
+                      dragStartY.current   = e.touches[0].clientY
+                      dragStartPos.current = coverPhotoPosition
+                    }
                   }}
                   onTouchMove={e => {
                     e.stopPropagation()
-                    const delta = (dragStartY.current - e.touches[0].clientY) / 2
-                    setCoverPhotoPosition(Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                    if (e.touches.length === 2) {
+                      const dx   = e.touches[0].clientX - e.touches[1].clientX
+                      const dy   = e.touches[0].clientY - e.touches[1].clientY
+                      const dist = Math.sqrt(dx * dx + dy * dy)
+                      const ratio = dist / (pinchStartDist.current || 1)
+                      setCoverPhotoScale(Math.min(3, Math.max(1, pinchStartScale.current * ratio)))
+                    } else {
+                      const delta = (dragStartY.current - e.touches[0].clientY) / 2
+                      setCoverPhotoPosition(Math.min(100, Math.max(0, dragStartPos.current + delta)))
+                    }
                   }}
-                  style={{ touchAction: 'none' }}
+                  style={{ touchAction: 'none', height: 196 }}
                 >
                   <img
                     src={coverPhotoPreview}
                     alt="커버"
                     draggable={false}
                     className="w-full h-full object-cover pointer-events-none"
-                    style={{ objectPosition: `center ${coverPhotoPosition}%` }}
+                    style={{
+                      objectPosition: `center ${coverPhotoPosition}%`,
+                      transform: `scale(${coverPhotoScale})`,
+                      transformOrigin: 'center center',
+                    }}
                   />
                   {/* 위치 조정 힌트 */}
                   {!dragging && (
@@ -203,6 +230,28 @@ export function TripEditModal({
                       </div>
                     </div>
                   )}
+                  {/* 줌 버튼 — 좌하단 */}
+                  <div className="absolute bottom-2 left-2 flex items-center gap-1 pointer-events-auto">
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setCoverPhotoScale(s => Math.max(1, Math.round((s - 0.25) * 100) / 100)) }}
+                      disabled={coverPhotoScale <= 1}
+                      className="w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-30 hover:bg-black/70 transition-colors"
+                    >
+                      <ZoomOut className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-white text-[10px] font-bold bg-black/40 backdrop-blur-sm px-1.5 py-0.5 rounded-full tabular-nums">
+                      {Math.round(coverPhotoScale * 100)}%
+                    </span>
+                    <button
+                      type="button"
+                      onClick={e => { e.stopPropagation(); setCoverPhotoScale(s => Math.min(3, Math.round((s + 0.25) * 100) / 100)) }}
+                      disabled={coverPhotoScale >= 3}
+                      className="w-7 h-7 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white disabled:opacity-30 hover:bg-black/70 transition-colors"
+                    >
+                      <ZoomIn className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                   {/* 변경/제거 버튼 — 우상단 */}
                   <div className="absolute top-2 right-2 flex items-center gap-1.5 pointer-events-auto">
                     <button

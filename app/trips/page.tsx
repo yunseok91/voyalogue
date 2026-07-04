@@ -41,6 +41,7 @@ type Trip = {
   budget?:        number
   coverPhotoURL?:      string
   coverPhotoPosition?: number
+  coverPhotoScale?:    number
   members?:            Array<{ id: string; name: string; role: string; photoURL?: string; hexColor?: string; colorIndex?: number; left?: boolean }>
   pendingDelete?:      boolean
   deletedAt?:          { toMillis(): number } | null
@@ -712,7 +713,7 @@ function TripsContent() {
             <select
               value={roleFilter}
               onChange={e => handleRoleFilter(e.target.value as RoleFilter)}
-              className="appearance-none pl-3 pr-7 py-2 rounded-lg border border-gray-200 text-xs font-semibold text-gray-500 bg-gray-50 cursor-pointer hover:border-gray-300 hover:bg-white transition-colors focus:outline-none focus:border-blue-400"
+              className="appearance-none pl-4 pr-7 py-2 rounded-lg border border-gray-200 text-sm font-semibold text-gray-600 bg-white cursor-pointer hover:border-blue-400 hover:text-blue-600 transition-all focus:outline-none focus:border-blue-400"
             >
               <option value="all">전체 역할</option>
               <option value="owner">방장</option>
@@ -726,13 +727,7 @@ function TripsContent() {
         {dbLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-white rounded-2xl border border-gray-200 overflow-hidden animate-pulse">
-                <div className="h-[120px] bg-gray-200" />
-                <div className="px-5 py-4 flex items-center justify-between">
-                  <div className="h-4 w-20 bg-gray-200 rounded" />
-                  <div className="h-6 w-14 bg-gray-200 rounded-full" />
-                </div>
-              </div>
+              <div key={i} className="bg-gray-200 rounded-2xl h-[190px] sm:h-[200px] animate-pulse" />
             ))}
           </div>
         ) : totalTrips === 0 ? (
@@ -836,144 +831,122 @@ function TripsContent() {
               {currentTrips.map(trip => {
                 const isOngoing  = trip.status === 'ongoing'
                 const isUpcoming = trip.status === 'upcoming'
-                const badge = isOngoing  ? { label: '여행중', cls: 'bg-green-500 text-white' }
-                            : isUpcoming ? { label: `D-${getDday(trip.startDate)}`, cls: 'bg-blue-50 text-blue-600' }
-                            :              { label: '완료', cls: 'bg-gray-100 text-gray-500' }
-                const isDark = getIsDark(trip)
-
-                /* 텍스트 색상 — isDark 기준 */
-                const clrTitle    = isDark ? 'text-gray-900'   : 'text-white'
-                const clrSub      = isDark ? 'text-gray-600'   : 'text-white/85'
-                const clrDate     = isDark ? 'text-gray-500'   : 'text-white/80'
-                const clrIcon     = isDark ? 'text-gray-700'   : 'text-white/80'
-                const clrBtn      = isDark ? 'bg-black/10 hover:bg-black/20 text-gray-800' : 'bg-black/20 hover:bg-black/40 text-white'
-                const clrToggle   = isDark
-                  ? 'bg-black/10 hover:bg-black/20 text-gray-800 ring-1 ring-black/10'
-                  : 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20'
-
-                /* 대표 사진이 있으면 배경으로, 없으면 그라데이션 */
-                const hasCover = !!trip.coverPhotoURL
+                const badge = isOngoing  ? '여행중'
+                            : isUpcoming ? `D-${getDday(trip.startDate)}`
+                            :              '완료'
+                const isPending   = !!trip.pendingDelete
+                const isDone      = !isOngoing && !isUpcoming && !isPending
+                const deletedAtMs = trip.deletedAt?.toMillis() ?? Date.now()
+                const remainHours = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
+                const hasCover    = !!trip.coverPhotoURL
+                const coverScale  = trip.coverPhotoScale ?? 1
                 const cardBgStyle = hasCover
                   ? {
-                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${trip.coverPhotoURL})`,
-                      backgroundSize: 'cover',
+                      backgroundImage:    `url(${trip.coverPhotoURL})`,
+                      backgroundSize:     coverScale > 1 ? `${coverScale * 100}% auto` : 'cover',
                       backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%`,
                     }
                   : { background: gradientStyle(trip.gradient) }
-                const effClrTitle  = hasCover ? 'text-white'                    : clrTitle
-                const effClrSub    = hasCover ? 'text-white/85'                 : clrSub
-                const effClrDate   = hasCover ? 'text-white/75'                 : clrDate
-                const effClrIcon   = hasCover ? 'text-white/80'                 : clrIcon
-                const effClrBtn    = hasCover ? 'bg-black/20 hover:bg-black/40 text-white' : clrBtn
-                const effClrToggle = hasCover ? 'bg-white/20 hover:bg-white/30 text-white ring-1 ring-white/20' : clrToggle
 
-                const isPending = !!trip.pendingDelete
-                const isDone     = !isOngoing && !isUpcoming && !isPending
-                const deletedAtMs = trip.deletedAt?.toMillis() ?? Date.now()
-                const remainHours = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
+                const nightsLabel = trip.nights === 0 ? '당일치기' : `${trip.nights}박 ${trip.days}일`
+                const dateRange   = formatRange(trip.startDate, trip.endDate)
 
                 return (
-                  <div key={trip.id} className={`group relative ${isPending ? '' : 'cursor-pointer'}`}
-                    onClick={isPending ? undefined : () => window.location.href = `/trips/${trip.id}`}>
-                    <div className={`rounded-2xl border overflow-hidden transition-all ${
-                      isPending ? 'border-red-200 bg-white' : isOngoing ? 'bg-white border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : isDone ? 'bg-gray-50 border-gray-200 group-hover:shadow-sm group-hover:-translate-y-0.5' : 'bg-white border-gray-200 group-hover:shadow-md group-hover:-translate-y-0.5'
-                    }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
-                      <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={isDone ? { ...cardBgStyle, filter: 'grayscale(60%) brightness(0.88)' } : cardBgStyle}>
-                        <div className="flex items-start justify-between">
-                          <Crown className={`w-5 h-5 sm:w-6 sm:h-6 ${effClrIcon}`} />
-                          {!isPending && (
-                            <div className="flex items-center gap-1.5">
-                              {trip.isSample && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25 text-white backdrop-blur-sm">
-                                  샘플
-                                </span>
-                              )}
-                              {!hasCover && (
-                                <button
-                                  onClick={e => toggleTextColor(e, trip)}
-                                  title={isDark ? '흰색 텍스트로 전환' : '검은색 텍스트로 전환'}
-                                  className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-black transition-all ${effClrToggle}`}
-                                >
-                                  A
-                                </button>
-                              )}
-                              {!hasCover && (
-                                <label
-                                  title="색상 변경"
-                                  onClick={e => e.stopPropagation()}
-                                  style={{ cursor: 'pointer', position: 'relative', display: 'flex' }}
-                                >
-                                  <input
-                                    type="color"
-                                    defaultValue={parseGradientHex(trip.gradient).from}
-                                    onChange={e => handleColorApply(e.target.value, trip.id)}
-                                    style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
-                                  />
-                                  <div className={`w-6 h-6 flex items-center justify-center rounded-full transition-all ${effClrToggle}`}>
-                                    <Palette className="w-3.5 h-3.5" />
-                                  </div>
-                                </label>
-                              )}
-                              <button
-                                onClick={e => handleDelete(e, trip.id)}
-                                className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
-                                title="여행 삭제"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
+                  <div
+                    key={trip.id}
+                    className={`group relative bg-white rounded-2xl overflow-hidden border transition-all duration-200 ${
+                      isPending
+                        ? 'border-red-100 opacity-50 grayscale pointer-events-none'
+                        : isDone
+                        ? 'cursor-pointer border-gray-100 shadow-sm opacity-70 hover:opacity-100 hover:shadow-xl hover:-translate-y-0.5'
+                        : isOngoing
+                        ? 'cursor-pointer border-green-200 ring-2 ring-green-300/60 shadow-sm hover:shadow-xl hover:-translate-y-0.5'
+                        : 'cursor-pointer border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-0.5'
+                    }`}
+                    onClick={isPending ? undefined : () => window.location.href = `/trips/${trip.id}`}
+                  >
+                    {/* 이미지 영역 */}
+                    <div className="relative h-[180px] sm:h-[196px] overflow-hidden">
+                      <div className="absolute inset-0" style={{
+                        ...cardBgStyle,
+                        ...(isDone ? { filter: 'grayscale(50%) brightness(0.8)' } : {}),
+                      }} />
+
+                      {/* 여행중 배지 — 좌상단 */}
+                      {isOngoing && (
+                        <div className="absolute top-3 left-3 z-10">
+                          <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-500 text-white shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />
+                            여행중
+                          </span>
                         </div>
-                        <div>
-                          <p className={`font-bold text-base leading-snug ${effClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                            {trip.title || trip.city}
-                          </p>
-                          {trip.title && (
-                            <p className={`text-xs font-medium mt-0.5 ${effClrSub}`}>{trip.city}</p>
-                          )}
-                          <p className={`text-xs mt-1 font-medium ${effClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
+                      )}
+                      {trip.isSample && (
+                        <div className="absolute top-3 left-3 z-10 ml-[80px]">
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-black/40 text-white backdrop-blur-sm">샘플</span>
                         </div>
-                      </div>
-                      <div className={`px-4 sm:px-5 py-3 sm:py-4 flex items-center gap-2 ${isDone ? 'bg-gray-50' : 'bg-white'}`}>
-                        <span className={`text-sm font-semibold flex-1 ${isPending ? 'text-gray-400' : isDone ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
-                        {!isPending && (
-                          <>
-                            <button
-                              onClick={e => openCardEdit(e, trip)}
-                              title="여행 수정"
-                              className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all flex-shrink-0"
-                            >
-                              <Edit2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
-                            </button>
-                            <button
-                              onClick={e => handleCopyTrip(e, trip)}
-                              title="여행 복사"
-                              className="sm:opacity-0 sm:group-hover:opacity-100 w-10 h-10 sm:w-7 sm:h-7 flex items-center justify-center rounded-full text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-all flex-shrink-0"
-                              disabled={copyingId === trip.id}
-                            >
-                              {copyingId === trip.id
-                                ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                : <Copy className="w-3.5 h-3.5" />
-                              }
-                            </button>
-                          </>
-                        )}
+                      )}
+
+                      {/* 컨트롤 버튼 — hover 시 우상단 */}
+                      {!isPending && (
+                        <div className="absolute top-2.5 right-2.5 flex items-center gap-1 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                          {!hasCover && (
+                            <label onClick={e => e.stopPropagation()} className="cursor-pointer relative flex" title="색상 변경">
+                              <input type="color" defaultValue={parseGradientHex(trip.gradient).from}
+                                onChange={e => handleColorApply(e.target.value, trip.id)}
+                                style={{ position: 'absolute', top: 0, left: '50%', transform: 'translateX(-50%)', width: 1, height: 1, opacity: 0, pointerEvents: 'none' }}
+                              />
+                              <div className="w-7 h-7 rounded-full bg-black/35 hover:bg-black/55 text-white backdrop-blur-sm flex items-center justify-center">
+                                <Palette className="w-3.5 h-3.5" />
+                              </div>
+                            </label>
+                          )}
+                          <button onClick={e => openCardEdit(e, trip)} title="수정"
+                            className="w-7 h-7 rounded-full bg-black/35 hover:bg-black/55 text-white backdrop-blur-sm flex items-center justify-center">
+                            <Edit2 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={e => handleCopyTrip(e, trip)} title="복사" disabled={copyingId === trip.id}
+                            className="w-7 h-7 rounded-full bg-black/35 hover:bg-black/55 text-white backdrop-blur-sm flex items-center justify-center">
+                            {copyingId === trip.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                          <button onClick={e => handleDelete(e, trip.id)} title="삭제"
+                            className="w-7 h-7 rounded-full bg-red-500/80 hover:bg-red-500 text-white backdrop-blur-sm flex items-center justify-center">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 정보 바 — 흰 배경 */}
+                    <div className="px-4 py-3.5">
+                      <p className="font-bold text-[15px] text-gray-900 leading-tight truncate" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                        {trip.title || trip.city}
+                      </p>
+                      {trip.title && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{trip.city}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-gray-700">{nightsLabel}</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">{dateRange}</p>
+                        </div>
                         {isPending
-                          ? <span className="text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 bg-red-100 text-red-500">삭제 예정</span>
-                          : <span className={`text-xs font-semibold px-3 py-1 rounded-full flex-shrink-0 ${badge.cls}`}>{badge.label}</span>
+                          ? <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-500 flex-shrink-0">삭제 예정</span>
+                          : isUpcoming
+                          ? <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{badge}</span>
+                          : isDone
+                          ? <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">완료</span>
+                          : null
                         }
                       </div>
                     </div>
+
+                    {/* 삭제 예정 오버레이 */}
                     {isPending && (
-                      <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
-                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">
-                          {remainHours}시간 후 삭제
-                        </span>
-                        <button
-                          onClick={e => handleRestore(e, trip.id)}
-                          className="text-[11px] font-bold px-4 py-1.5 rounded-full bg-white text-gray-800 hover:bg-gray-50 shadow-lg transition-all pointer-events-auto"
-                        >
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 pointer-events-auto">
+                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">{remainHours}시간 후 삭제</span>
+                        <button onClick={e => handleRestore(e, trip.id)}
+                          className="text-[11px] font-bold px-4 py-1.5 rounded-full bg-white text-gray-800 hover:bg-gray-50 shadow-lg transition-all">
                           복원하기
                         </button>
                       </div>
@@ -1038,16 +1011,11 @@ function TripsContent() {
                 const isOngoing  = trip.status === 'ongoing'
                 const isUpcoming = trip.status === 'upcoming'
                 const isDone = !isOngoing && !isUpcoming
-                const badge = isOngoing  ? { label: '여행중', cls: 'bg-green-500 text-white' }
-                            : isUpcoming ? { label: `D-${getDday(trip.startDate)}`, cls: 'bg-blue-50 text-blue-600' }
-                            :              { label: '완료', cls: 'bg-gray-100 text-gray-500' }
-                const isDark = trip.textDark ?? false
-                const clrTitle = isDark ? 'text-gray-900' : 'text-white'
-                const clrSub   = isDark ? 'text-gray-600' : 'text-white/85'
-                const clrDate  = isDark ? 'text-gray-500' : 'text-white/80'
-                const clrIcon  = isDark ? 'text-gray-700' : 'text-white/80'
-                const isTreasurer = trip.myRole === 'treasurer'
-                const myIsDriver  = !!(trip as InvitedTrip).myIsDriver
+                const badge = isOngoing  ? '여행중'
+                            : isUpcoming ? `D-${getDday(trip.startDate)}`
+                            :              '완료'
+                const isTreasurer   = trip.myRole === 'treasurer'
+                const myIsDriver    = !!(trip as InvitedTrip).myIsDriver
                 const activeMembers = (trip.members ?? []).filter(m => !m.left)
                 const visibleMembers = activeMembers
                   .slice(0, 4)
@@ -1055,115 +1023,128 @@ function TripsContent() {
                     ? { ...m, photoURL: resolvedPhotoURL || user.photoURL || m.photoURL, name: user.displayName ?? m.name }
                     : m
                   )
-                const extraCount = Math.max(0, activeMembers.length - 4)
-                const isPending    = !!trip.pendingDelete
-                const deletedAtMs  = trip.deletedAt?.toMillis() ?? Date.now()
-                const remainHours  = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
-                const hasCover = !!trip.coverPhotoURL
-                const invCardBgStyle = hasCover
+                const extraCount  = Math.max(0, activeMembers.length - 4)
+                const isPending   = !!trip.pendingDelete
+                const deletedAtMs = trip.deletedAt?.toMillis() ?? Date.now()
+                const remainHours = Math.max(1, Math.ceil(((deletedAtMs + 24 * 60 * 60 * 1000) - Date.now()) / (60 * 60 * 1000)))
+                const hasCover    = !!trip.coverPhotoURL
+                const coverScale  = (trip as Trip & { coverPhotoScale?: number }).coverPhotoScale ?? 1
+                const invBgStyle  = hasCover
                   ? {
-                      backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.55) 100%), url(${trip.coverPhotoURL})`,
-                      backgroundSize: 'cover',
+                      backgroundImage:    `url(${trip.coverPhotoURL})`,
+                      backgroundSize:     coverScale > 1 ? `${coverScale * 100}% auto` : 'cover',
                       backgroundPosition: `center ${trip.coverPhotoPosition ?? 50}%`,
                     }
                   : { background: gradientStyle(trip.gradient) }
-                const invClrTitle = hasCover ? 'text-white'    : clrTitle
-                const invClrSub   = hasCover ? 'text-white/85' : clrSub
-                const invClrDate  = hasCover ? 'text-white/75' : clrDate
-                const invClrIcon  = hasCover ? 'text-white/80' : clrIcon
+
+                const nightsLabel = trip.nights === 0 ? '당일치기' : `${trip.nights}박 ${trip.days}일`
+                const dateRange   = formatRange(trip.startDate, trip.endDate)
 
                 return (
-                  <div key={trip.id} className={`group relative ${!isPending ? 'cursor-pointer' : ''}`}
-                    onClick={!isPending ? () => window.location.href = `/share/${trip.viewCode}` : undefined}>
-                    <div className={`rounded-2xl border overflow-hidden transition-all ${
-                      isPending ? 'border-red-200 bg-white' : isOngoing ? 'bg-white border-green-300 ring-1 ring-green-200 group-hover:shadow-md group-hover:-translate-y-0.5' : isDone ? 'bg-gray-50 border-gray-200 group-hover:shadow-sm' : 'bg-white border-indigo-100 ring-1 ring-indigo-50 group-hover:shadow-md group-hover:-translate-y-0.5'
-                    }`} style={isPending ? { filter: 'grayscale(80%)', opacity: 0.45 } : {}}>
-                      <div className="h-[120px] sm:h-[130px] p-4 sm:p-5 flex flex-col justify-between relative"
-                        style={isDone ? { ...invCardBgStyle, filter: 'grayscale(60%) brightness(0.88)' } : invCardBgStyle}>
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <User className={`w-5 h-5 sm:w-6 sm:h-6 flex-shrink-0 ${invClrIcon}`} />
-                            {(isTreasurer || myIsDriver) ? (
-                              <div className="flex items-center gap-1">
-                                {isTreasurer && (
-                                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-white shadow-sm">
-                                    <Wallet className="w-2.5 h-2.5" />총무
-                                  </span>
-                                )}
-                                {myIsDriver && (
-                                  <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-white shadow-sm">
-                                    <Car className="w-2.5 h-2.5" />운전자
-                                  </span>
-                                )}
-                              </div>
-                            ) : (
-                              <span className="text-[11px] font-bold px-2 py-0.5 rounded-full backdrop-blur-sm text-white bg-white/20">
-                                게스트
-                              </span>
+                  <div
+                    key={trip.id}
+                    className={`group relative bg-white rounded-2xl overflow-hidden border transition-all duration-200 ${
+                      isPending
+                        ? 'border-red-100 opacity-50 grayscale pointer-events-none'
+                        : isDone
+                        ? 'cursor-pointer border-gray-100 shadow-sm opacity-70 hover:opacity-100 hover:shadow-xl hover:-translate-y-0.5'
+                        : isOngoing
+                        ? 'cursor-pointer border-green-200 ring-2 ring-green-300/60 shadow-sm hover:shadow-xl hover:-translate-y-0.5'
+                        : 'cursor-pointer border-gray-100 shadow-sm hover:shadow-xl hover:-translate-y-0.5'
+                    }`}
+                    onClick={!isPending ? () => window.location.href = `/share/${trip.viewCode}` : undefined}
+                  >
+                    {/* 이미지 영역 */}
+                    <div className="relative h-[180px] sm:h-[196px] overflow-hidden">
+                      <div className="absolute inset-0" style={{
+                        ...invBgStyle,
+                        ...(isDone ? { filter: 'grayscale(50%) brightness(0.8)' } : {}),
+                      }} />
+
+                      {/* 여행중 배지 — 좌상단 */}
+                      {isOngoing && (
+                        <div className="absolute top-3 left-3 z-10">
+                          <span className="flex items-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-full bg-green-500 text-white shadow-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse flex-shrink-0" />
+                            여행중
+                          </span>
+                        </div>
+                      )}
+
+                      {/* 역할 배지 — 좌상단 (여행중 아닐 때) */}
+                      {!isOngoing && (
+                        <div className="absolute top-3 left-3 z-10 flex items-center gap-1">
+                          {isTreasurer && (
+                            <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-amber-400/90 text-white backdrop-blur-sm">
+                              <Wallet className="w-2.5 h-2.5" />총무
+                            </span>
+                          )}
+                          {myIsDriver && (
+                            <span className="flex items-center gap-1 text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/90 text-white backdrop-blur-sm">
+                              <Car className="w-2.5 h-2.5" />운전자
+                            </span>
+                          )}
+                          {!isTreasurer && !myIsDriver && (
+                            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-black/30 backdrop-blur-sm text-white/90">게스트</span>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 탈퇴 버튼 — 우상단 hover */}
+                      {!isPending && (
+                        <div className="absolute top-2.5 right-2.5 z-10 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                          <button onClick={e => handleLeaveInvited(e, trip)} title="여행 탈퇴"
+                            className="w-7 h-7 rounded-full bg-red-500/80 hover:bg-red-500 text-white backdrop-blur-sm flex items-center justify-center">
+                            <LogOut className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 정보 바 — 흰 배경 */}
+                    <div className="px-4 py-3.5">
+                      <p className="font-bold text-[15px] text-gray-900 leading-tight truncate" style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
+                        {trip.title || trip.city}
+                      </p>
+                      {trip.title && (
+                        <p className="text-xs text-gray-400 mt-0.5 truncate">{trip.city}</p>
+                      )}
+                      <div className="flex items-center justify-between mt-2 gap-2">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-semibold text-gray-700 flex-shrink-0">{nightsLabel}</p>
+                            {visibleMembers.length > 0 && (
+                              <button onClick={e => { e.preventDefault(); e.stopPropagation(); setMemberPopupTrip(trip) }}
+                                className="flex items-center hover:opacity-80 transition-opacity flex-shrink-0">
+                                <div className="flex -space-x-1">
+                                  {visibleMembers.map(m => (
+                                    <PersonAvatar key={m.id} name={m.name ?? '?'} photoURL={m.photoURL} size={18} stacked ringColor="white" />
+                                  ))}
+                                  {extraCount > 0 && (
+                                    <div className="w-[18px] h-[18px] rounded-full bg-gray-200 border border-white flex items-center justify-center text-[8px] font-bold text-gray-500">+{extraCount}</div>
+                                  )}
+                                </div>
+                              </button>
                             )}
                           </div>
-                          {!isPending && (
-                            <div className="flex items-center gap-1.5">
-                              <button
-                                onClick={e => handleLeaveInvited(e, trip)}
-                                className="sm:opacity-0 sm:group-hover:opacity-100 w-7 h-7 flex items-center justify-center rounded-full transition-all bg-red-500 hover:bg-red-600 text-white shadow-sm"
-                                title="여행 탈퇴"
-                              >
-                                <LogOut className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          )}
+                          <p className="text-[11px] text-gray-400 mt-0.5">{dateRange}</p>
                         </div>
-                        <div>
-                          <p className={`font-bold text-base leading-snug ${invClrTitle}`} style={{ fontFamily: 'Space Grotesk, sans-serif' }}>
-                            {trip.title || trip.city}
-                          </p>
-                          {trip.title && (
-                            <p className={`text-xs font-medium mt-0.5 ${invClrSub}`}>{trip.city}</p>
-                          )}
-                          <p className={`text-xs mt-1 font-medium ${invClrDate}`}>{formatRange(trip.startDate, trip.endDate)}</p>
-                        </div>
-                      </div>
-                      <div className={`px-4 sm:px-5 py-3 sm:py-4 flex items-center justify-between ${isDone ? 'bg-gray-50' : 'bg-white'}`}>
-                        <span className={`text-sm font-semibold ${isDone ? 'text-gray-400' : 'text-gray-700'}`}>{trip.nights}박 {trip.days}일</span>
-                        {/* 멤버 아바타 스택 — 클릭 시 멤버 목록 팝업 */}
-                        {visibleMembers.length > 0 ? (
-                          <button
-                            onClick={e => { e.preventDefault(); setMemberPopupTrip(trip) }}
-                            className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
-                          >
-                            <div className="flex -space-x-1.5">
-                              {visibleMembers.map(m => (
-                                <PersonAvatar
-                                  key={m.id}
-                                  name={m.name ?? '?'}
-                                  photoURL={m.photoURL}
-                                  size={22}
-                                  stacked
-                                  ringColor="white"
-                                />
-                              ))}
-                              {extraCount > 0 && (
-                                <div className="w-[22px] h-[22px] rounded-full bg-gray-200 border-2 border-white flex items-center justify-center text-[9px] font-bold text-gray-500">
-                                  +{extraCount}
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-xs text-gray-400 font-medium">{activeMembers.length}명</span>
-                          </button>
-                        ) : (
-                          <span className={`text-xs font-semibold px-3 py-1 rounded-full ${badge.cls}`}>{badge.label}</span>
-                        )}
+                        {isPending
+                          ? <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-red-100 text-red-500 flex-shrink-0">삭제 예정</span>
+                          : isUpcoming
+                          ? <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600 flex-shrink-0">{badge}</span>
+                          : isDone
+                          ? <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-400 flex-shrink-0">완료</span>
+                          : null
+                        }
                       </div>
                     </div>
+
+                    {/* 삭제 예정 오버레이 */}
                     {isPending && (
-                      <div className="absolute inset-0 z-10 rounded-2xl flex flex-col items-center justify-center gap-2 pointer-events-none">
-                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">
-                          {remainHours}시간 후 삭제
-                        </span>
-                        <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/90 text-gray-600 shadow">
-                          방장이 여행을 삭제했습니다
-                        </span>
+                      <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2">
+                        <span className="text-[11px] font-bold px-3 py-1.5 rounded-full bg-red-500 text-white shadow-md">{remainHours}시간 후 삭제</span>
+                        <span className="text-[11px] font-semibold px-3 py-1 rounded-full bg-white/90 text-gray-600 shadow">방장이 여행을 삭제했습니다</span>
                       </div>
                     )}
                   </div>
@@ -1201,6 +1182,7 @@ function TripsContent() {
           budgetKRW={editTarget.budget}
           coverPhotoURL={editTarget.coverPhotoURL}
           coverPhotoPosition={editTarget.coverPhotoPosition}
+          coverPhotoScale={editTarget.coverPhotoScale}
           uid={user.uid}
           tripId={editTarget.id}
           onClose={() => setEditTarget(null)}
@@ -1216,6 +1198,7 @@ function TripsContent() {
               budget:        data.budgetKRW,
               coverPhotoURL:      data.coverPhotoURL ?? null,
               coverPhotoPosition: data.coverPhotoPosition ?? 50,
+              coverPhotoScale:    data.coverPhotoScale ?? 1,
             })
             setTrips(prev => prev.map(t => t.id === editTarget.id
               ? { ...t,
@@ -1229,6 +1212,7 @@ function TripsContent() {
                   budget:             data.budgetKRW,
                   coverPhotoURL:      data.coverPhotoURL,
                   coverPhotoPosition: data.coverPhotoPosition,
+                  coverPhotoScale:    data.coverPhotoScale,
                 }
               : t
             ))

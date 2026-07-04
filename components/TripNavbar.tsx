@@ -105,6 +105,7 @@ type Props = {
   gradient:            string
   coverPhotoURL?:      string
   coverPhotoPosition?: number
+  coverPhotoScale?:    number
   startDate:           string
   endDate:             string
   nights:              number
@@ -126,7 +127,7 @@ type Props = {
 }
 
 export function TripNavbar({
-  city, title, gradient, coverPhotoURL, coverPhotoPosition,
+  city, title, gradient, coverPhotoURL, coverPhotoPosition, coverPhotoScale,
   startDate, endDate, nights,
   isOwner, isTreasurer, isDriver, user,
   members, currentMember,
@@ -145,8 +146,9 @@ export function TripNavbar({
     ? 'bg-sky-500 text-white'
     : 'bg-gray-100 text-gray-600'
 
+  const scale = coverPhotoScale ?? 1
   const swatchStyle = coverPhotoURL
-    ? { backgroundImage: `url(${coverPhotoURL})`, backgroundSize: 'cover', backgroundPosition: `center ${coverPhotoPosition ?? 50}%` }
+    ? { backgroundImage: `url(${coverPhotoURL})`, backgroundSize: scale > 1 ? `${scale * 100}% auto` : 'cover', backgroundPosition: `center ${coverPhotoPosition ?? 50}%` }
     : { background: gradientStyle(gradient) }
 
   const closeMenu = () => setShowMenu(false)
