@@ -40,8 +40,9 @@ type TripMeta = {
     id:          string
     name:        string
     photoURL?:   string
-    role?:       string
-    isDriver?:   boolean
+    role?:        string
+    isDriver?:    boolean
+    isTreasurer?: boolean
     colorIndex?: number
     hexColor?:   string
     left?:       boolean
@@ -738,6 +739,9 @@ function SummaryContent({ tripId }: { tripId: string }) {
                                 {isMe && <span className="text-xs text-blue-500 ml-1">(나)</span>}
                               </span>
                               <span className="text-[11px] text-gray-400 flex-shrink-0">{ROLE_LABEL[m.role ?? 'member']}</span>
+                              {m.role === 'owner' && m.isTreasurer && (
+                                <span className="text-[11px] text-gray-400 flex-shrink-0">· 총무</span>
+                              )}
                               {(m.isDriver || m.role === 'driver') && m.role !== 'driver' && (
                                 <span className="text-[11px] text-gray-400 flex-shrink-0">· 운전자</span>
                               )}

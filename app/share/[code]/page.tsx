@@ -43,7 +43,7 @@ import { PickGame } from '@/components/PickGame'
 type Category = '식사' | '장소' | '쇼핑' | '교통' | '기타'
 type MemberRole = 'owner' | 'treasurer' | 'driver' | 'member'
 
-type Member = { id: string; name: string; photoURL?: string; role: MemberRole; isDriver?: boolean; colorIndex?: number; hexColor?: string; left?: boolean }
+type Member = { id: string; name: string; photoURL?: string; role: MemberRole; isDriver?: boolean; isTreasurer?: boolean; colorIndex?: number; hexColor?: string; left?: boolean }
 
 type FlightItem = {
   id:          string
@@ -128,7 +128,27 @@ const CAT_DOTS: Record<Category, string> = {
   기타: 'bg-gray-400',
 }
 const CAT_DISPLAY: Record<Category, string> = {
-  식사: '식사', 장소: '관광', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
+  식사: '식사', 장소: '장소', 쇼핑: '쇼핑', 교통: '교통', 기타: '기타',
+}
+const CATEGORY_TAGS: [Category, string][] = [
+  ['식사', '카페'], ['식사', '레스토랑'], ['식사', '야시장'], ['식사', '편의점'], ['식사', '바/술집'],
+  ['장소', '관광지'], ['장소', '박물관'], ['장소', '해변'], ['장소', '공원'], ['장소', '전망대'],
+  ['쇼핑', '마트'], ['쇼핑', '면세점'], ['쇼핑', '기념품'], ['쇼핑', '약국'], ['쇼핑', '시장'],
+  ['교통', '택시'], ['교통', '지하철'], ['교통', '버스'], ['교통', '렌터카'], ['교통', '기차'], ['교통', '자전거'], ['교통', '오토바이'],
+  ['기타', '숙박'], ['기타', '입장권'], ['기타', '투어'], ['기타', '팁'], ['기타', '보험'], ['기타', '집'],
+]
+const CAT_TAG_STYLE: Record<Category, string> = {
+  식사: 'bg-orange-50 border-orange-200 text-orange-600',
+  장소: 'bg-blue-50 border-blue-200 text-blue-600',
+  쇼핑: 'bg-pink-50 border-pink-200 text-pink-600',
+  교통: 'bg-teal-50 border-teal-200 text-teal-600',
+  기타: 'bg-gray-50 border-gray-200 text-gray-500',
+}
+const TAG_PARENT: Record<string, Category> = Object.fromEntries(
+  CATEGORY_TAGS.map(([cat, tag]) => [tag, cat])
+)
+function parentCat(c: string): Category {
+  return TAG_PARENT[c] ?? (CATEGORIES.includes(c as Category) ? c as Category : '기타')
 }
 
 function parseItemTime(hhmm: string): { label: string; isPM: boolean } {
@@ -248,7 +268,7 @@ function RateWidget({
 }
 
 /* ── 아이템 행 (읽기 전용 / 편집 공통) ── */
-function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, onChangeCat, mapIndex, onFocusMap, dragHandleProps }: {
+function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit, onDelete, onRate, onChangeCat, mapIndex, onFocusMap, dragHandleProps, selectMode, selected, onToggleSelect }: {
   item: PlanItem; canEdit: boolean; myUid?: string; totalPeople?: number; memberIds?: string[]
   rates?: Record<string, number>
   onEdit?: (item: PlanItem) => void
@@ -258,10 +278,14 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
   mapIndex?: number
   onFocusMap?: (id: string) => void
   dragHandleProps?: Record<string, unknown>
+  selectMode?: boolean
+  selected?: boolean
+  onToggleSelect?: (id: string) => void
 }) {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null)
   const [showPP,  setShowPP]  = useState(false)
   const [showCatPick, setShowCatPick] = useState(false)
+  const [popupCat,    setPopupCat]    = useState<Category>('장소')
   const catRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -287,10 +311,27 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
 
   return (
     <div
-      className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
-      onClick={() => { if (item.lat && item.lng && onFocusMap) onFocusMap(item.id) }}
+      className={`group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border transition-all ${
+        selectMode
+          ? selected ? 'border-blue-400 bg-blue-50/40 cursor-pointer' : 'border-gray-100 cursor-pointer opacity-70'
+          : 'border-gray-100 hover:border-blue-200 hover:shadow-sm cursor-pointer'
+      }`}
+      onClick={() => {
+        if (selectMode) { onToggleSelect?.(item.id); return }
+        if (item.lat && item.lng && onFocusMap) onFocusMap(item.id)
+      }}
     >
-      {dragHandleProps && (
+      {selectMode ? (
+        <div onClick={e => { e.stopPropagation(); onToggleSelect?.(item.id) }} className="flex-shrink-0 mt-0.5 p-0.5 flex items-center justify-center">
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'}`}>
+            {selected && (
+              <svg viewBox="0 0 12 12" width="9" height="9" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      ) : dragHandleProps ? (
         <button
           {...dragHandleProps}
           onClick={e => e.stopPropagation()}
@@ -298,7 +339,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         >
           <GripVertical className="w-4 h-4" />
         </button>
-      )}
+      ) : null}
       <div className="flex-1 min-w-0">
         {/* 이름 + 맵 인덱스 배지 */}
         <div className="flex items-start gap-2 mb-1">
@@ -391,23 +432,49 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
           <div className="relative" ref={catRef}>
             {canEdit && onChangeCat ? (
               <button
-                onMouseDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); setShowCatPick(v => !v) }}
-                className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[item.cat]}`}
+                onPointerDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); setPopupCat(parentCat(item.cat)); setShowCatPick(v => !v) }}
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[parentCat(item.cat)]}`}
               >
-                {CAT_DISPLAY[item.cat] ?? item.cat}
+                {(CAT_DISPLAY as Record<string, string>)[item.cat] ?? item.cat}
               </button>
             ) : (
-              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[item.cat]}`}>{CAT_DISPLAY[item.cat] ?? item.cat}</span>
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${CAT_COLORS[parentCat(item.cat)]}`}>{(CAT_DISPLAY as Record<string, string>)[item.cat] ?? item.cat}</span>
             )}
             {showCatPick && (
-              <div className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-2" style={{ width: 148 }} onMouseDown={e => e.stopPropagation()}>
-                <div className="grid grid-cols-2 gap-1">
+              <div
+                className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3"
+                style={{ width: 210 }}
+                onPointerDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
+              >
+                <div className="grid grid-cols-2 gap-1 mb-2">
                   {CATEGORIES.map(c => (
-                    <button key={c} onClick={() => { onChangeCat!(item.id, c); setShowCatPick(false) }}
-                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${c === item.cat ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}>
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CAT_DOTS[c]}`} />
+                    <button
+                      key={c}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (popupCat === c) { onChangeCat!(item.id, c); setShowCatPick(false) }
+                        else setPopupCat(c)
+                      }}
+                      className={`flex items-center gap-1.5 px-2.5 py-2 rounded-xl text-[11px] font-semibold transition-colors text-left ${popupCat === c ? 'bg-gray-900 text-white' : 'hover:bg-gray-100 text-gray-600'}`}
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${popupCat === c ? 'bg-white' : CAT_DOTS[c]}`} />
                       {CAT_DISPLAY[c]}
+                    </button>
+                  ))}
+                </div>
+                <div className="border-t border-gray-100 pt-2 flex flex-wrap gap-1">
+                  {CATEGORY_TAGS.filter(([tc]) => tc === popupCat).map(([tc, tag]) => (
+                    <button key={tag}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); onChangeCat!(item.id, tag as Category); setShowCatPick(false) }}
+                      className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
+                        item.cat === tag ? CAT_TAG_STYLE[tc] : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
+                      }`}
+                    >
+                      {tag}
                     </button>
                   ))}
                 </div>
@@ -521,7 +588,7 @@ function SortableItemCard(props: Parameters<typeof ItemCard>[0]) {
   }
   return (
     <div ref={setNodeRef} style={style}>
-      <ItemCard {...props} dragHandleProps={{ ...attributes, ...listeners }} />
+      <ItemCard {...props} dragHandleProps={props.selectMode ? undefined : { ...attributes, ...listeners }} />
     </div>
   )
 }
@@ -1160,6 +1227,8 @@ export default function SharePage() {
   const [showMemberPopup,  setShowMemberPopup]  = useState(false)
   const [showPick,        setShowPick]        = useState(false)
   const [showDriverPick,  setShowDriverPick]  = useState(false)
+  const [selectMode,      setSelectMode]      = useState(false)
+  const [selectedIds,     setSelectedIds]     = useState<Set<string>>(new Set())
 
   /* 방장이 게임 종료 시 팝업 강제 닫기 */
   useEffect(() => {
@@ -1939,6 +2008,17 @@ export default function SharePage() {
     })
   }
 
+  const handleBatchDelete = async () => {
+    if (!activeDay || !trip || selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setDayItems(prev => ({ ...prev, [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => !ids.includes(i.id)) }))
+    const batch = writeBatch(db)
+    ids.forEach(id => batch.delete(doc(db, 'users', trip.uid, 'trips', trip.id, 'days', activeDay.dayId, 'items', id)))
+    await batch.commit()
+    setSelectedIds(new Set())
+    setSelectMode(false)
+  }
+
   const handleEditSave = async (itemId: string, patch: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
     if (!activeDay || !trip) return
     /* 로컬 상태 즉시 반영 */
@@ -2445,11 +2525,24 @@ export default function SharePage() {
             </div>
             {canEdit && activeDayIdx !== -1 && (
               <div className="flex items-center gap-1">
-                <button onClick={() => setShowAdd(true)}
-                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> 추가
+                {!selectMode && (
+                  <button onClick={() => setShowAdd(true)}
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> 추가
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectMode(v => !v); setSelectedIds(new Set()) }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-colors ${
+                    selectMode
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                  }`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {selectMode ? '취소' : '삭제'}
                 </button>
-                <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />
+                {!selectMode && <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />}
               </div>
             )}
           </div>
@@ -2586,7 +2679,7 @@ export default function SharePage() {
                           )}
                           {slotItems.map(item => (
                             canEdit
-                              ? <SortableItemCard key={item.id} item={item} canEdit={canEdit || isTreasurer} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} onChangeCat={canEdit || isTreasurer ? handleChangeCat : undefined} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
+                              ? <SortableItemCard key={item.id} item={item} canEdit={canEdit || isTreasurer} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} onChangeCat={canEdit || isTreasurer ? handleChangeCat : undefined} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} selectMode={selectMode} selected={selectedIds.has(item.id)} onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })} />
                               : <ItemCard key={item.id} item={item} canEdit={canEdit || isTreasurer} myUid={user?.uid} totalPeople={(trip?.members ?? []).filter(m => !m.left).length || trip?.people || 1} memberIds={(trip?.members ?? []).filter(m => !m.left).map(m => m.id)} rates={rates} onEdit={setEditingItem} onDelete={handleDelete} onRate={handleRate} onChangeCat={canEdit || isTreasurer ? handleChangeCat : undefined} mapIndex={mapIndexMap[item.id]} onFocusMap={id => setFocusItemId(id)} />
                           ))}
                         </div>
@@ -2886,7 +2979,10 @@ export default function SharePage() {
                                 }`}>
                                   {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
                                 </span>
-                                {m.isDriver && m.role === 'treasurer' && (
+                                {m.role === 'owner' && m.isTreasurer && (
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-amber-50 text-amber-600">총무</span>
+                                )}
+                                {m.isDriver && (m.role === 'treasurer' || m.role === 'owner') && (
                                   <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
                                 )}
                               </>
@@ -3797,6 +3893,32 @@ export default function SharePage() {
           </div>
         </div>
       )}
+
+      {/* 일괄 삭제 floating bar */}
+      {selectMode && canEdit && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-5 py-4 bg-white border-t border-gray-200 shadow-xl">
+          <span className="text-sm font-semibold text-gray-700">
+            {selectedIds.size > 0 ? `${selectedIds.size}개 선택됨` : '항목을 선택하세요'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}
+              className="px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 text-gray-600 hover:border-gray-300 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleBatchDelete}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }

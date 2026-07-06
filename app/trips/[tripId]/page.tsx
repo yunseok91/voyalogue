@@ -510,7 +510,11 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
               <button
                 onMouseDown={e => e.stopPropagation()}
                 onClick={e => { e.stopPropagation(); setShowPP(v => !v) }}
-                className="flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all whitespace-nowrap text-blue-600 bg-blue-50 hover:bg-blue-100"
+                className={`flex items-center gap-0.5 text-[11px] font-semibold px-1.5 py-0.5 rounded-full transition-all whitespace-nowrap ${
+                  actualPart < totalPeople
+                    ? 'text-red-600 bg-red-50 hover:bg-red-100'
+                    : 'text-blue-600 bg-blue-50 hover:bg-blue-100'
+                }`}
               >
                 <Users className="w-2.5 h-2.5 flex-shrink-0" />
                 <span>÷{actualPart}</span>
@@ -518,6 +522,9 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                   <span className="ml-0.5">= {formatKRW(perPersonKRW)}</span>
                 )}
               </button>
+              {actualPart < totalPeople && !showPP && (
+                <span className="text-[10px] font-bold text-red-500">일부만 참여</span>
+              )}
             </div>
           )}
 
@@ -845,9 +852,17 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   const [flightPrice,          setFlightPrice]          = useState('')
   const [flightCurrency,       setFlightCurrency]       = useState(defaultCurrency)
   const [flightIncludeInSettlement, setFlightIncludeInSettlement] = useState(true)
+  const [flightParticipantIds,  setFlightParticipantIds]  = useState<string[]>([])
+  const [showFlightParticipants,setShowFlightParticipants] = useState(false)
+  const [flightPayerId,         setFlightPayerId]         = useState<string | undefined>()
+  const [showFlightPayer,       setShowFlightPayer]       = useState(false)
   const [accPrice,             setAccPrice]             = useState('')
   const [accCurrency,          setAccCurrency]          = useState(defaultCurrency)
   const [accIncludeInSettlement,   setAccIncludeInSettlement]   = useState(true)
+  const [accParticipantIds,    setAccParticipantIds]    = useState<string[]>([])
+  const [showAccParticipants,  setShowAccParticipants]  = useState(false)
+  const [accPayerId,           setAccPayerId]           = useState<string | undefined>()
+  const [showAccPayer,         setShowAccPayer]         = useState(false)
   const [showFlightPriceInfo,  setShowFlightPriceInfo]  = useState(false)
   const [showAccPriceInfo,     setShowAccPriceInfo]     = useState(false)
 
@@ -1047,11 +1062,14 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         }
         const photosField = flightPhotoURLs.length > 0 ? { photos: flightPhotoURLs } : {}
         const toAdd: Omit<FlightItem, 'id'>[] = []
-        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc, ...fCostBase, ...photosField })
-        if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc, ...(inEnabled ? {} : fCostBase) })
+        const fParticipants = flightParticipantIds.length > 0 ? { participantIds: flightParticipantIds } : {}
+        const fPayer = flightPayerId ? { payerId: flightPayerId } : {}
+        if (inEnabled)  toAdd.push({ name: flightName.trim(), type: 'inbound',  dayId: inDayId,  departTime: inDepart,  arriveTime: inArrive,  ...loc, ...fCostBase, ...photosField, ...fParticipants, ...fPayer })
+        if (outEnabled) toAdd.push({ name: flightName.trim(), type: 'outbound', dayId: outDayId, departTime: outDepart, arriveTime: outArrive, ...loc, ...(inEnabled ? {} : fCostBase), ...fParticipants, ...fPayer })
         await onAddFlight(toAdd)
         setFlightName(''); setInDepart(''); setInArrive(''); setOutDepart(''); setOutArrive('')
         setFlightLat(null); setFlightLng(null); setFlightPrice(''); setFlightIncludeInSettlement(true)
+        setFlightParticipantIds([]); setFlightPayerId(undefined); setShowFlightParticipants(false); setShowFlightPayer(false)
         flightPhotoPreviews.forEach(u => URL.revokeObjectURL(u))
         setFlightPhotos([]); setFlightPhotoPreviews([])
         showDoneScreen(flightName.trim()); return
@@ -1078,9 +1096,12 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
         }
         const photosField = accPhotoURLs.length > 0 ? { photos: accPhotoURLs } : {}
         await onAddAccommodation({ name: accName.trim(), checkInDayId, checkInTime, checkOutDayId, checkOutTime,
-          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}), ...aCost, ...photosField })
+          ...(accLat !== null ? { lat: accLat, lng: accLng ?? 0 } : {}), ...aCost, ...photosField,
+          ...(accParticipantIds.length > 0 ? { participantIds: accParticipantIds } : {}),
+          ...(accPayerId ? { payerId: accPayerId } : {}) })
         setAccName(''); setCheckInTime(''); setCheckOutTime(''); setAccLat(null); setAccLng(null)
         setAccPrice(''); setAccIncludeInSettlement(true)
+        setAccParticipantIds([]); setAccPayerId(undefined); setShowAccParticipants(false); setShowAccPayer(false)
         accPhotoPreviews.forEach(u => URL.revokeObjectURL(u))
         setAccPhotos([]); setAccPhotoPreviews([])
         showDoneScreen(accName.trim()); return
@@ -1334,6 +1355,66 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
                 </div>
               </div>
+              {Number(flightPrice) > 0 && flightIncludeInSettlement && members.length > 1 && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <button type="button" onClick={() => setShowFlightParticipants(v => !v)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                      <span>참여 인원 <span className="text-gray-400">(미선택 시 전원)</span>
+                        {flightParticipantIds.length > 0 && (
+                          <span className="ml-1.5 font-semibold text-blue-600">{flightParticipantIds.length}명</span>
+                        )}
+                      </span>
+                      <span className="text-gray-400 text-[10px]">{showFlightParticipants ? '▲' : '▼'}</span>
+                    </button>
+                    {showFlightParticipants && (
+                      <div className="flex gap-2 flex-wrap px-1">
+                        {members.map(m => {
+                          const selected = flightParticipantIds.includes(m.id)
+                          return (
+                            <button key={m.id} type="button"
+                              onClick={() => {
+                                const newIds = selected ? flightParticipantIds.filter(id => id !== m.id) : [...flightParticipantIds, m.id]
+                                setFlightParticipantIds(newIds)
+                              }}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                              <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                              <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button type="button" onClick={() => setShowFlightPayer(v => !v)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                      <span>결제자 <span className="text-gray-400">(선택)</span>
+                        {flightPayerId && (() => {
+                          const m = members.find(m => m.id === flightPayerId)
+                          return m ? <span className="ml-1.5 font-semibold text-emerald-600">{m.name}</span> : null
+                        })()}
+                      </span>
+                      <span className="text-gray-400 text-[10px]">{showFlightPayer ? '▲' : '▼'}</span>
+                    </button>
+                    {showFlightPayer && (
+                      <div className="flex gap-2 flex-wrap px-1">
+                        {members.map(m => {
+                          const selected = flightPayerId === m.id
+                          return (
+                            <button key={m.id} type="button"
+                              onClick={() => setFlightPayerId(selected ? undefined : m.id)}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                              <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                              <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold text-gray-600">
                   사진 첨부 <span className="font-normal text-gray-400">(최대 3장)</span>
@@ -1456,6 +1537,66 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                     className="flex-1 px-4 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all" />
                 </div>
               </div>
+              {Number(accPrice) > 0 && accIncludeInSettlement && members.length > 1 && (
+                <>
+                  <div className="flex flex-col gap-1.5">
+                    <button type="button" onClick={() => setShowAccParticipants(v => !v)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                      <span>참여 인원 <span className="text-gray-400">(미선택 시 전원)</span>
+                        {accParticipantIds.length > 0 && (
+                          <span className="ml-1.5 font-semibold text-blue-600">{accParticipantIds.length}명</span>
+                        )}
+                      </span>
+                      <span className="text-gray-400 text-[10px]">{showAccParticipants ? '▲' : '▼'}</span>
+                    </button>
+                    {showAccParticipants && (
+                      <div className="flex gap-2 flex-wrap px-1">
+                        {members.map(m => {
+                          const selected = accParticipantIds.includes(m.id)
+                          return (
+                            <button key={m.id} type="button"
+                              onClick={() => {
+                                const newIds = selected ? accParticipantIds.filter(id => id !== m.id) : [...accParticipantIds, m.id]
+                                setAccParticipantIds(newIds)
+                              }}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-blue-400 bg-blue-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                              <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                              <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <button type="button" onClick={() => setShowAccPayer(v => !v)}
+                      className="flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-[12px] text-gray-600 hover:bg-gray-100 transition-colors">
+                      <span>결제자 <span className="text-gray-400">(선택)</span>
+                        {accPayerId && (() => {
+                          const m = members.find(m => m.id === accPayerId)
+                          return m ? <span className="ml-1.5 font-semibold text-emerald-600">{m.name}</span> : null
+                        })()}
+                      </span>
+                      <span className="text-gray-400 text-[10px]">{showAccPayer ? '▲' : '▼'}</span>
+                    </button>
+                    {showAccPayer && (
+                      <div className="flex gap-2 flex-wrap px-1">
+                        {members.map(m => {
+                          const selected = accPayerId === m.id
+                          return (
+                            <button key={m.id} type="button"
+                              onClick={() => setAccPayerId(selected ? undefined : m.id)}
+                              className={`flex flex-col items-center gap-1 p-2 rounded-xl border-2 transition-all ${selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 opacity-50 hover:opacity-75'}`}>
+                              <PersonAvatar name={m.name} photoURL={m.photoURL} size={32} colorIndex={m.hexColor ? undefined : (m.colorIndex ?? 0)} hexColor={m.hexColor} ringColor={m.photoURL ? (m.hexColor ?? CLAY[(m.colorIndex ?? 0) % CLAY.length]?.base) : undefined} />
+                              <span className="text-[10px] font-semibold text-gray-700 max-w-[48px] truncate">{m.name}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
               <div className="flex flex-col gap-1.5">
                 <label className="text-[12px] font-semibold text-gray-600">
                   사진 첨부 <span className="font-normal text-gray-400">(최대 3장)</span>
@@ -3262,6 +3403,39 @@ function PlannerContent({ tripId }: { tripId: string }) {
     setMovingItem(null)
   }
 
+  /* ── 전체 일정 참여자 전원으로 초기화 ── */
+  const handleResetAllParticipants = async () => {
+    if (!meta?.members) return
+    const activeIds = meta.members.filter(m => !m.left).map(m => m.id)
+    if (activeIds.length === 0) return
+    const batch = writeBatch(db)
+    let changed = false
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      items.forEach(item => {
+        const hasAll = !item.participantIds || activeIds.every(id => item.participantIds!.includes(id))
+        if (!hasAll) {
+          batch.update(doc(db, 'users', uid, 'trips', tripId, 'days', dayId, 'items', item.id), {
+            participantIds: activeIds,
+            participants: activeIds.length,
+          })
+          changed = true
+        }
+      })
+    })
+    if (!changed) return
+    await batch.commit()
+    setDayItems(prev => {
+      const next = { ...prev }
+      Object.keys(next).forEach(dayId => {
+        next[dayId] = next[dayId].map(item => {
+          const hasAll = !item.participantIds || activeIds.every(id => item.participantIds!.includes(id))
+          return hasAll ? item : { ...item, participantIds: activeIds, participants: activeIds.length }
+        })
+      })
+      return next
+    })
+  }
+
   /* ── 일괄 삭제 ── */
   const handleBatchDelete = async () => {
     if (!activeDay || !meta || selectedIds.size === 0) return
@@ -4714,7 +4888,15 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 </div>
                 <p className="text-[10px] text-gray-400 mt-0.5">숙소·항공 경비는 제외된 금액이에요</p>
                 {hasUnevenParticipants && (
-                  <p className="text-[10px] text-gray-400 mt-0.5">참여 인원이 다른 장소가 있어요</p>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <p className="text-[10px] font-bold text-red-500">참여 인원이 다른 장소가 있어요</p>
+                    <button
+                      onClick={handleResetAllParticipants}
+                      className="text-[10px] text-blue-500 hover:text-blue-700 font-semibold underline"
+                    >
+                      전원으로 초기화
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -5071,15 +5253,13 @@ function PlannerContent({ tripId }: { tripId: string }) {
                     )}
 
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
+                      <p className="text-sm font-semibold text-gray-900 truncate">{m.name}</p>
+                      <div className="flex items-center gap-1 flex-wrap mt-1">
                         {m.left ? (
-                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-gray-100 text-gray-400">
-                            탈퇴
-                          </span>
+                          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-400">탈퇴</span>
                         ) : (
                           <>
-                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${
+                            <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
                               m.role === 'owner'      ? 'bg-blue-50 text-blue-600'
                               : m.role === 'treasurer' ? 'bg-amber-50 text-amber-600'
                               : (m.isDriver || m.role === 'driver') ? 'bg-emerald-50 text-emerald-600'
@@ -5088,10 +5268,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                               {m.role === 'owner' ? '방장' : m.role === 'treasurer' ? '총무' : (m.isDriver || m.role === 'driver') ? '운전자' : '게스트'}
                             </span>
                             {m.role === 'owner' && m.isTreasurer && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-amber-50 text-amber-600">총무</span>
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-amber-50 text-amber-600">총무</span>
                             )}
                             {m.isDriver && (m.role === 'treasurer' || m.role === 'owner') && (
-                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 bg-emerald-50 text-emerald-600">운전자</span>
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-emerald-50 text-emerald-600">운전자</span>
                             )}
                           </>
                         )}
