@@ -9,7 +9,8 @@
       "Read(//Users/yunseok/Downloads/voyagelogue/**)",
       "Bash(npx firebase *)",
       "Bash(npx next *)",
-      "Bash(python3 -)"
+      "Bash(python3 -)",
+      "Bash(grep -n \"Lightbox\\\\|lightbox\\\\|</main>\\\\|</div>\\\\s*$\\\\|{movingItem\\\\|{selectMode\" /Users/yunseok/Downloads/voyagelogue/voyalogue/app/trips/\\\\[tripId\\\\]/page.tsx)"
     ]
   },
   "mcpServers": {

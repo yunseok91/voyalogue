@@ -85,7 +85,7 @@ export function PickGame({ tripId, ownerUid, myUid, members, onClose, onAssign, 
       ready:        { [myUid]: true },
       result:       null,
       startedAt:    Date.now(),
-      seed:         Date.now(),
+      seed:         (Date.now() ^ (Math.random() * 0xFFFFFFFF | 0)) >>> 0,
     }
     updateDoc(tripRef, { [field]: initial })
     notifyStart(participants)
@@ -113,7 +113,7 @@ export function PickGame({ tripId, ownerUid, myUid, members, onClose, onAssign, 
 
   const handleSelectGame = (type: GameType) => {
     if (!pick) return
-    const seed = Date.now()
+    const seed = (Date.now() ^ (Math.random() * 0xFFFFFFFF | 0)) >>> 0
 
     if (type === 'random') {
       const rand = mulberry32(seed)
@@ -246,9 +246,7 @@ export function PickGame({ tripId, ownerUid, myUid, members, onClose, onAssign, 
 
   const handleAssign = () => {
     if (!pick?.result) return
-    if (pick.result !== ownerUid || !isTreasurer) {
-      onAssign(pick.result)
-    }
+    onAssign(pick.result)
     updateDoc(tripRef, { [field]: null })
     onClose()
   }

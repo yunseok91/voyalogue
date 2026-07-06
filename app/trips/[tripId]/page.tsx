@@ -7,7 +7,7 @@ import {
   GripVertical, Star, Wallet, ChevronRight, ChevronDown,
   Edit2, Trash2, Users, Map, Loader2,
   Share2, Crown, Link2, Copy, Check, Camera, ImageIcon,
-  Plane, BedDouble, Pencil, Receipt, Megaphone, ScrollText, Car, Fuel, CreditCard, LayoutList,
+  Plane, BedDouble, Pencil, Receipt, Megaphone, ScrollText, Car, Fuel, CreditCard, LayoutList, ArrowLeftRight,
 } from 'lucide-react'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -370,7 +370,7 @@ function StarRow({
 }
 
 /* ── 아이템 행 ── */
-function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit, dragHandleProps }: {
+function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit, dragHandleProps, selectMode, selected, onToggleSelect, onMoveDay }: {
   item:              PlanItem
   myUid:             string
   onDelete:          (id: string) => void
@@ -387,6 +387,10 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   memberIds?:        string[]
   canEdit:           boolean
   dragHandleProps?:  Record<string, unknown>
+  selectMode?:       boolean
+  selected?:         boolean
+  onToggleSelect?:   (id: string) => void
+  onMoveDay?:        (item: PlanItem) => void
 }) {
   const [showCatPick,  setShowCatPick]  = useState(false)
   const [popupCat,     setPopupCat]     = useState<Category>('장소')
@@ -420,17 +424,41 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
 
   return (
     <div
-      className="group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border border-gray-100 hover:border-blue-200 hover:shadow-sm transition-all cursor-pointer"
-      onClick={() => { if (item.lat && item.lng) onFocusMap(item.id) }}
+      className={`group flex items-start gap-2 px-3 py-3 bg-white rounded-xl border transition-all ${
+        selectMode
+          ? selected ? 'border-blue-400 bg-blue-50/40 cursor-pointer' : 'border-gray-100 cursor-pointer opacity-70'
+          : 'border-gray-100 hover:border-blue-200 hover:shadow-sm cursor-pointer'
+      }`}
+      onClick={() => {
+        if (selectMode) { onToggleSelect?.(item.id); return }
+        if (item.lat && item.lng) onFocusMap(item.id)
+      }}
     >
-      {/* 드래그 핸들 */}
-      <span
-        {...dragHandleProps}
-        onClick={e => e.stopPropagation()}
-        className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 mt-0.5 p-0.5"
-      >
-        <GripVertical className="w-4 h-4 text-gray-200 group-hover:text-gray-400 transition-colors" />
-      </span>
+      {/* 체크박스 (선택 모드) / 드래그 핸들 (일반 모드) */}
+      {selectMode ? (
+        <div
+          onClick={e => { e.stopPropagation(); onToggleSelect?.(item.id) }}
+          className="flex-shrink-0 mt-0.5 p-0.5 flex items-center justify-center"
+        >
+          <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+            selected ? 'bg-blue-600 border-blue-600' : 'border-gray-300'
+          }`}>
+            {selected && (
+              <svg viewBox="0 0 12 12" width="9" height="9" fill="none">
+                <path d="M2 6l3 3 5-5" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+          </div>
+        </div>
+      ) : (
+        <span
+          {...dragHandleProps}
+          onClick={e => e.stopPropagation()}
+          className="touch-none cursor-grab active:cursor-grabbing flex-shrink-0 mt-0.5 p-0.5"
+        >
+          <GripVertical className="w-4 h-4 text-gray-200 group-hover:text-gray-400 transition-colors" />
+        </span>
+      )}
 
       <div className="flex-1 min-w-0">
         {/* 이름 + 맵 인덱스 배지 */}
@@ -537,7 +565,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         <div className="flex items-center gap-1">
           <div className="relative" ref={catRef}>
             <button
-              onMouseDown={e => e.stopPropagation()}
+              onPointerDown={e => e.stopPropagation()}
               onClick={e => { e.stopPropagation(); setPopupCat(parentCat(item.cat)); setShowCatPick(v => !v) }}
               className={`text-[10px] font-bold px-2 py-0.5 rounded-full hover:opacity-75 transition-opacity ${CAT_COLORS[parentCat(item.cat)]}`}
             >
@@ -547,14 +575,17 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
               <div
                 className="absolute right-0 top-7 z-30 bg-white rounded-2xl shadow-2xl border border-gray-100 p-3"
                 style={{ width: 210 }}
-                onMouseDown={e => e.stopPropagation()}
+                onPointerDown={e => e.stopPropagation()}
+                onClick={e => e.stopPropagation()}
               >
                 {/* 대분류 */}
                 <div className="grid grid-cols-2 gap-1 mb-2">
                   {CATEGORIES.map(c => (
                     <button
                       key={c}
-                      onClick={() => {
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => {
+                        e.stopPropagation()
                         if (popupCat === c) {
                           onChangeCat(item.id, c)
                           setShowCatPick(false)
@@ -573,7 +604,8 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                 <div className="border-t border-gray-100 pt-2 flex flex-wrap gap-1">
                   {CATEGORY_TAGS.filter(([tc]) => tc === popupCat).map(([tc, tag]) => (
                     <button key={tag}
-                      onClick={() => { onChangeCat(item.id, tag); setShowCatPick(false) }}
+                      onPointerDown={e => e.stopPropagation()}
+                      onClick={e => { e.stopPropagation(); onChangeCat(item.id, tag); setShowCatPick(false) }}
                       className={`px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${
                         item.cat === tag ? CAT_TAG_STYLE[tc] : 'border-gray-200 text-gray-500 hover:border-gray-300 bg-white'
                       }`}
@@ -610,15 +642,27 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
               )}
             </div>
           )}
-          {canEdit && (
-            <button
-              onPointerDown={e => e.stopPropagation()}
-              onClick={e => { e.stopPropagation(); onEdit(item) }}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
-            >
-              <Edit2 className="w-3.5 h-3.5" />
-              <span>수정</span>
-            </button>
+          {canEdit && !selectMode && (
+            <>
+              {onMoveDay && (
+                <button
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); onMoveDay(item) }}
+                  className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg transition-all"
+                  title="Day 이동"
+                >
+                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+              <button
+                onPointerDown={e => e.stopPropagation()}
+                onClick={e => { e.stopPropagation(); onEdit(item) }}
+                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
+              >
+                <Edit2 className="w-3.5 h-3.5" />
+                <span>수정</span>
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -627,7 +671,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
 }
 
 /* ── Sortable 아이템 행 ── */
-function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit }: {
+function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRate, onFocusMap, onViewReceipts, onUploadReceipt, mapIndex, rates, totalPeople, memberIds, canEdit, selectMode, selected, onToggleSelect, onMoveDay }: {
   item:             PlanItem
   myUid:            string
   onDelete:         (id: string) => void
@@ -643,6 +687,10 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
   totalPeople:      number
   memberIds?:       string[]
   canEdit:          boolean
+  selectMode?:      boolean
+  selected?:        boolean
+  onToggleSelect?:  (id: string) => void
+  onMoveDay?:       (item: PlanItem) => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id })
   return (
@@ -673,6 +721,10 @@ function SortableItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeC
         memberIds={memberIds}
         canEdit={canEdit}
         dragHandleProps={{ ...attributes, ...listeners }}
+        selectMode={selectMode}
+        selected={selected}
+        onToggleSelect={onToggleSelect}
+        onMoveDay={onMoveDay}
       />
     </div>
   )
@@ -1102,6 +1154,31 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
               )
             })}
           </div>
+
+          {/* 항목명 입력 — 고정 헤더에 배치해 자동완성이 항상 아래로 열리도록 */}
+          {mode === 'normal' && !showDone && (
+            <div className="flex flex-col gap-1 pb-2">
+              <div className="flex items-center justify-between">
+                <label className="text-[12px] font-semibold text-gray-600">
+                  항목명 *
+                  {lat !== null && <span className="ml-1.5 text-blue-500 font-normal">위치 확인됨</span>}
+                </label>
+                {lat === null && name.trim().length > 0 && (
+                  <span className="text-[11px] text-gray-400">위치 없이 추가 가능</span>
+                )}
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="장소 검색 또는 직접 입력 (예: 택시, 교통카드, 기념품…)"
+                value={name}
+                onChange={e => { setName(e.target.value); if (!coordsFromMap) { setLat(null); setLng(null) } }}
+                onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
+                autoFocus
+                className={inputCls}
+              />
+            </div>
+          )}
         </div>
 
         {/* 등록 완료 화면 */}
@@ -1412,27 +1489,6 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
           {/* ── 일반 일정 폼 ── */}
           {mode === 'normal' && (
             <>
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <label className="text-[12px] font-semibold text-gray-600">
-                    항목명 *
-                    {lat !== null && <span className="ml-1.5 text-blue-500 font-normal">위치 확인됨</span>}
-                  </label>
-                  {lat === null && name.trim().length > 0 && (
-                    <span className="text-[11px] text-gray-400">위치 없이 추가 가능</span>
-                  )}
-                </div>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  placeholder="장소 검색 또는 직접 입력 (예: 택시, 교통카드, 기념품…)"
-                  value={name}
-                  onChange={e => { setName(e.target.value); if (!coordsFromMap) { setLat(null); setLng(null) } }}
-                  onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
-                  autoFocus
-                  className={inputCls}
-                />
-              </div>
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-center justify-between">
                   <label className="text-[12px] font-semibold text-gray-600">시간대</label>
@@ -1657,7 +1713,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
 }
 
 /* ── 빠른 입력 시트 (카드 클릭 → 비용·메모·사진만) ── */
-function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, leftWidth, isDesktop, tabsBottom }: {
+function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, leftWidth, isDesktop, tabsBottom, members = [] }: {
   item:       PlanItem
   onUpdate:   (id: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => Promise<void>
   onClose:    () => void
@@ -1667,10 +1723,13 @@ function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, left
   leftWidth:  number
   isDesktop:  boolean
   tabsBottom: number
+  members?:   { id: string; name: string; role: string; photoURL?: string; colorIndex?: number; hexColor?: string }[]
 }) {
   const [price,       setPrice]       = useState(item.price > 0 ? String(item.price) : '')
   const [currency,    setCurrency]    = useState(item.currency)
   const [comment,     setComment]     = useState(item.comment)
+  const [payerId,     setPayerId]     = useState<string | undefined>(item.payerId)
+  const [showPayer,   setShowPayer]   = useState(false)
   const [receipts,    setReceipts]    = useState<string[]>(item.receipts ?? [])
   const [newFiles,    setNewFiles]    = useState<File[]>([])
   const [newPreviews, setNewPreviews] = useState<string[]>([])
@@ -1714,6 +1773,7 @@ function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, left
         price:    Number(price) || 0,
         currency,
         comment,
+        payerId:  payerId ?? null as unknown as undefined,
         receipts: [...receipts, ...uploadedURLs],
       })
       onClose()
@@ -1769,6 +1829,47 @@ function QuickItemSheet({ item, onUpdate, onClose, currencies, uid, tripId, left
             />
           </div>
         </div>
+
+        {/* 결제자 */}
+        {members.length > 1 && (
+          <div className="flex flex-col gap-1.5">
+            <button
+              type="button"
+              onClick={() => setShowPayer(v => !v)}
+              className="flex items-center justify-between text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+            >
+              <span className="flex items-center gap-1.5">
+                결제자
+                {payerId && (() => {
+                  const p = members.find(m => m.id === payerId)
+                  return p ? <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">{p.name}</span> : null
+                })()}
+              </span>
+              <span className="text-[10px] text-gray-400">{showPayer ? '▲' : '▼'}</span>
+            </button>
+            {showPayer && (
+              <div className="flex gap-2 flex-wrap">
+                {members.map((m, mi) => {
+                  const selected = payerId === m.id
+                  const ci = m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1))
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => setPayerId(prev => prev === m.id ? undefined : m.id)}
+                      className={`flex flex-col items-center gap-0.5 px-2.5 py-2 rounded-xl border-2 transition-all ${
+                        selected ? 'border-emerald-400 bg-emerald-50/60' : 'border-gray-100 bg-gray-50 opacity-50'
+                      }`}
+                    >
+                      <PersonAvatar name={m.name} size={28} colorIndex={ci} hexColor={m.hexColor} photoURL={m.photoURL} />
+                      <span className="text-[9px] font-semibold text-gray-700 max-w-[44px] truncate">{m.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 메모 */}
         <div className="flex flex-col gap-1.5">
@@ -2293,6 +2394,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [lightbox,        setLightbox]        = useState<{ receipts: string[]; idx: number } | null>(null)
   const [showSettlement,  setShowSettlement]  = useState(false)
   const [showReport,      setShowReport]      = useState(false)
+  /* 일괄 삭제 모드 */
+  const [selectMode,    setSelectMode]    = useState(false)
+  const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
+  /* Day 이동 */
+  const [movingItem,    setMovingItem]    = useState<PlanItem | null>(null)
 
   /* 온보딩 */
   const [memberTipDismissed,   setMemberTipDismissed]   = useState(() => {
@@ -3131,6 +3237,43 @@ function PlannerContent({ tripId }: { tripId: string }) {
     })
   }
 
+  /* ── 아이템 Day 이동 ── */
+  const handleMoveToDay = async (item: PlanItem, targetDayId: string) => {
+    if (!activeDay || !meta || activeDay.dayId === targetDayId) return
+    const targetItems = dayItems[targetDayId] ?? []
+    const newOrder = targetItems.length
+    // 현재 day에서 제거
+    setDayItems(prev => ({
+      ...prev,
+      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== item.id),
+      [targetDayId]: [...(prev[targetDayId] ?? []), { ...item, order: newOrder }],
+    }))
+    // Firestore: 현재 day 삭제 → 타겟 day에 추가
+    const { deleteDoc: delDoc, addDoc: addD } = await import('firebase/firestore')
+    await delDoc(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id))
+    const targetDay = days.find(d => d.dayId === targetDayId)
+    if (targetDay) {
+      await setDoc(doc(db, 'users', uid, 'trips', tripId, 'days', targetDayId), { label: targetDay.label, date: targetDay.date }, { merge: true })
+    }
+    const { serverTimestamp } = await import('firebase/firestore')
+    await addD(collection(db, 'users', uid, 'trips', tripId, 'days', targetDayId, 'items'), {
+      ...item, order: newOrder, createdAt: serverTimestamp(),
+    })
+    setMovingItem(null)
+  }
+
+  /* ── 일괄 삭제 ── */
+  const handleBatchDelete = async () => {
+    if (!activeDay || !meta || selectedIds.size === 0) return
+    const ids = Array.from(selectedIds)
+    setDayItems(prev => ({ ...prev, [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => !ids.includes(i.id)) }))
+    const batch = writeBatch(db)
+    ids.forEach(id => batch.delete(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', id)))
+    await batch.commit()
+    setSelectedIds(new Set())
+    setSelectMode(false)
+  }
+
   /* ── 아이템 수정 (범용) ── */
   const handleUpdate = async (itemId: string, updates: Partial<Omit<PlanItem, 'id' | 'order'>>) => {
     if (!activeDay || !meta) return
@@ -3941,7 +4084,12 @@ function PlannerContent({ tripId }: { tripId: string }) {
             role:       m.role,
           }))}
           onClose={() => setShowPick(false)}
-          onAssign={setTreasurer}
+          onAssign={(id) => {
+            const t = meta.members.find(m => m.id === id)
+            if (!t) return
+            if (t.role === 'owner') { if (!t.isTreasurer) setTreasurer(id) }
+            else if (t.role !== 'treasurer') setTreasurer(id)
+          }}
           mode="treasurer"
           pickField="pick"
         />
@@ -3983,7 +4131,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
             role:       m.role,
           }))}
           onClose={() => setShowDriverPick(false)}
-          onAssign={(id) => { const t = meta.members.find(m => m.id === id); if (t && !t.isDriver) setDriver(id) }}
+          onAssign={(id) => {
+            const t = meta.members.find(m => m.id === id)
+            if (t && !t.isDriver && t.role !== 'driver') setDriver(id)
+          }}
           mode="driver"
           pickField="driverPick"
         />
@@ -4273,12 +4424,25 @@ function PlannerContent({ tripId }: { tripId: string }) {
             </div>
             {activeDayIdx !== -1 && (
               <div className="flex items-center gap-1">
-                <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
-                  data-tour="add-item"
-                  className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
-                  <Plus className="w-3.5 h-3.5" /> 추가
+                {!selectMode && (
+                  <button onClick={() => { setPendingPlace(undefined); setShowAdd(true) }}
+                    data-tour="add-item"
+                    className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full text-xs font-bold transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> 추가
+                  </button>
+                )}
+                <button
+                  onClick={() => { setSelectMode(v => !v); setSelectedIds(new Set()) }}
+                  className={`flex items-center gap-1.5 px-3 py-2 rounded-full text-xs font-bold transition-colors ${
+                    selectMode
+                      ? 'bg-red-500 hover:bg-red-600 text-white'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600'
+                  }`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  {selectMode ? '취소' : '삭제'}
                 </button>
-                <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />
+                {!selectMode && <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />}
               </div>
             )}
           </div>
@@ -4453,6 +4617,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
                             totalPeople={(meta.members ?? []).filter(m => !m.left).length || meta.people || 1}
                             memberIds={(meta.members ?? []).filter(m => !m.left).map(m => m.id)}
                             canEdit={canEditItems}
+                            selectMode={selectMode}
+                            selected={selectedIds.has(item.id)}
+                            onToggleSelect={id => setSelectedIds(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n })}
+                            onMoveDay={canEditItems ? setMovingItem : undefined}
                           />
                           )
                         })}
@@ -4711,6 +4879,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
           leftWidth={leftWidth}
           isDesktop={isDesktop}
           tabsBottom={dayTabsRef.current?.getBoundingClientRect().bottom ?? 152}
+          members={(meta?.members ?? []).filter(m => !m.left)}
         />
       )}
 
@@ -6236,6 +6405,74 @@ function PlannerContent({ tripId }: { tripId: string }) {
         />
       )}
 
+      {/* 일괄 삭제 floating bar */}
+      {selectMode && (
+        <div className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-3 px-5 py-4 bg-white border-t border-gray-200 shadow-xl safe-area-inset-bottom">
+          <span className="text-sm font-semibold text-gray-700">
+            {selectedIds.size > 0 ? `${selectedIds.size}개 선택됨` : '항목을 선택하세요'}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}
+              className="px-4 py-2 rounded-full text-sm font-semibold border border-gray-200 text-gray-600 hover:border-gray-300 transition-colors"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleBatchDelete}
+              disabled={selectedIds.size === 0}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold bg-red-500 text-white hover:bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Day 이동 모달 */}
+      {movingItem && meta && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
+          onClick={() => setMovingItem(null)}
+        >
+          <div
+            className="w-full max-w-md bg-white rounded-t-2xl px-5 pt-5 pb-8 safe-area-inset-bottom"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-xs text-gray-400 mb-0.5">이동할 Day 선택</p>
+                <p className="text-sm font-bold text-gray-800 truncate max-w-[240px]">{movingItem.name}</p>
+              </div>
+              <button onClick={() => setMovingItem(null)} className="p-1.5 rounded-full hover:bg-gray-100">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 max-h-72 overflow-y-auto">
+              {days.map(day => {
+                const isCurrent = activeDay?.dayId === day.dayId
+                return (
+                  <button
+                    key={day.dayId}
+                    disabled={isCurrent}
+                    onClick={() => handleMoveToDay(movingItem, day.dayId)}
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                      isCurrent
+                        ? 'border-blue-300 bg-blue-50 text-blue-600 cursor-default'
+                        : 'border-gray-200 text-gray-700 hover:border-blue-400 hover:bg-blue-50/40 active:bg-blue-100'
+                    }`}
+                  >
+                    <span>{day.label || `Day ${days.indexOf(day) + 1}`}</span>
+                    {day.date && <span className="text-xs text-gray-400 font-normal">{day.date}</span>}
+                    {isCurrent && <span className="text-[11px] text-blue-400 font-normal">현재</span>}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )
