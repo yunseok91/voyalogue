@@ -351,8 +351,8 @@ function StarRow({
 }) {
   const { avg, count } = calcAvg(ratings)
   return (
-    <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-      <span className="flex gap-0.5">
+    <span className="flex items-center gap-1.5 min-w-0 shrink" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+      <span className="flex gap-0.5 flex-shrink-0">
         {[1, 2, 3, 4, 5].map(v => (
           <Star key={v}
             className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-400 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
@@ -361,7 +361,7 @@ function StarRow({
         ))}
       </span>
       {count >= 1 && (
-        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap flex-shrink-0">
           avg {avg.toFixed(1)} · {count}명
         </span>
       )}
@@ -460,7 +460,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         </span>
       )}
 
-      <div className="flex-1 min-w-0">
+      <div className="flex-1 min-w-0 overflow-x-hidden">
         {/* 이름 + 맵 인덱스 배지 */}
         <div className="flex items-start gap-2 mb-1">
           {mapIndex !== undefined && item.lat && item.lng && (
@@ -484,7 +484,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
           {/* 1행: 시간대 도트 + 시각 + 별점 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
@@ -3491,23 +3491,78 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const draggedItem = sorted[oldIdx]
     const targetItem  = sorted[newIdx]
 
-    /* cross-slot: 슬롯 변경만 수행, arrayMove 금지 (교체 버그 방지) */
+    /* cross-slot: timeSlot + order를 배치로 한번에 업데이트 (race condition 방지) */
     if (draggedItem.timeSlot !== targetItem.timeSlot) {
-      await handleMoveToSlot(activeId, targetItem.timeSlot as TimeSlot)
+      const targetSlot = targetItem.timeSlot as TimeSlot
+      // 목표 슬롯의 현재 아이템들 (order 순 정렬)
+      const targetSlotItems = currentItems
+        .filter(i => i.timeSlot === targetSlot)
+        .sort((a, b) => a.order - b.order)
+      // over 아이템의 슬롯 내 위치에 삽입 (없으면 맨 끝)
+      const insertAt = Math.max(0, targetSlotItems.findIndex(i => i.id === overId))
+      const newSlotOrder = [
+        ...targetSlotItems.slice(0, insertAt),
+        draggedItem,
+        ...targetSlotItems.slice(insertAt),
+      ]
+      // 로컬 state 업데이트
+      setDayItems(prev => {
+        const allItems = prev[activeDay.dayId] ?? []
+        return {
+          ...prev,
+          [activeDay.dayId]: allItems.map(item => {
+            if (item.id === activeId) return { ...item, timeSlot: targetSlot, order: insertAt }
+            const newOrder = newSlotOrder.findIndex(r => r.id === item.id)
+            if (newOrder === -1) return item
+            return { ...item, order: newOrder }
+          }),
+        }
+      })
+      // 배치 커밋: 드래그 아이템 timeSlot+order, 밀린 아이템들 order
+      // set+merge 사용: 문서가 없을 경우에도 에러 없이 처리
+      const batch = writeBatch(db)
+      batch.set(
+        doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', activeId),
+        { timeSlot: targetSlot, order: insertAt },
+        { merge: true }
+      )
+      newSlotOrder.forEach((item, idx) => {
+        if (item.id === activeId) return
+        if (item.order !== idx) {
+          batch.set(
+            doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
+            { order: idx },
+            { merge: true }
+          )
+        }
+      })
+      await batch.commit()
       return
     }
 
-    /* same-slot: 순서 변경 */
-    const reordered = arrayMove(sorted, oldIdx, newIdx)
-    setDayItems(prev => ({
-      ...prev,
-      [activeDay.dayId]: reordered.map((item, idx) => ({ ...item, order: idx })),
-    }))
+    /* same-slot: 같은 슬롯 내 아이템만 재정렬 (다른 슬롯 아이템 order 변경 방지) */
+    const slotItems = sorted.filter(i => i.timeSlot === draggedItem.timeSlot)
+    const slotOldIdx = slotItems.findIndex(i => i.id === activeId)
+    const slotNewIdx = slotItems.findIndex(i => i.id === overId)
+    if (slotOldIdx === -1 || slotNewIdx === -1) return
+    const reordered = arrayMove(slotItems, slotOldIdx, slotNewIdx)
+    setDayItems(prev => {
+      const allItems = prev[activeDay.dayId] ?? []
+      return {
+        ...prev,
+        [activeDay.dayId]: allItems.map(item => {
+          const newOrderIdx = reordered.findIndex(r => r.id === item.id)
+          if (newOrderIdx === -1) return item
+          return { ...item, order: newOrderIdx }
+        }),
+      }
+    })
     const batch = writeBatch(db)
     reordered.forEach((item, idx) => {
-      batch.update(
+      batch.set(
         doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id),
-        { order: idx }
+        { order: idx },
+        { merge: true }
       )
     })
     await batch.commit()
@@ -3524,9 +3579,10 @@ function PlannerContent({ tripId }: { tripId: string }) {
         i.id === activeId ? { ...i, timeSlot: targetSlot } : i
       ),
     }))
-    await updateDoc(
+    await setDoc(
       doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', activeId),
-      { timeSlot: targetSlot }
+      { timeSlot: targetSlot },
+      { merge: true }
     )
   }
 
