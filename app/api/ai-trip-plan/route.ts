@@ -254,10 +254,10 @@ ${accommodationBooked
 - 식사 항목(category: 식사) 하루 1~2개 반드시 포함
 - estimatedCost: 인당 예상 실비 (무료=0)`
 
-    /* ── Gemini API 호출 ── */
+    /* ── Gemini API 호출 (일시적 503 과부하는 1회 재시도) ── */
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
-    const geminiRes = await ai.models.generateContent({
-      model:    'gemini-flash-latest',
+    const callGemini = () => ai.models.generateContent({
+      model:    'gemini-3.5-flash',
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -265,6 +265,16 @@ ${accommodationBooked
         responseSchema:   travelSchema,
       },
     })
+
+    let geminiRes
+    try {
+      geminiRes = await callGemini()
+    } catch (err) {
+      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
+      if (!msg.includes('503') && !msg.includes('unavailable')) throw err
+      await new Promise(r => setTimeout(r, 1500))
+      geminiRes = await callGemini()
+    }
 
     const rawText = geminiRes.text
     if (!rawText) throw new Error('빈 응답')
