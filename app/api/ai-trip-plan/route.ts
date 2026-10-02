@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
       else if ((companion as string) === '가족')     accomType = '넓은 패밀리 호텔'
       else if ((companion as string) === '커플')     accomType = '3-4성급 부티크 호텔'
       else if ((companion as string) === '임산부여행') accomType = '편의시설 접근성 좋은 3-4성급 이상 호텔'
-      else if ((companion as string) === '시니어여행') accomType = '엘리베이터·접근성 좋은 편안한 3-4성급 호텔'
+      else if ((companion as string) === '노약자동반') accomType = '엘리베이터·접근성 좋은 편안한 3-4성급 호텔'
       else                                            accomType = '3-4성급 호텔'
     }
 
@@ -212,8 +212,8 @@ export async function POST(req: NextRequest) {
     let companionCareHint = ''
     if ((companion as string) === '임산부여행') {
       companionCareHint = '\n- 임산부 동반 여행이므로 과격한 액티비티·놀이기구·장거리 도보 코스·날것 음식(회·육회 등)은 제외하고, 중간중간 휴식 시간과 화장실 접근성 좋은 장소 위주로 구성해줘.'
-    } else if ((companion as string) === '시니어여행') {
-      companionCareHint = '\n- 시니어 동반 여행이므로 계단이 많거나 장거리 도보가 필요한 코스는 피하고, 이동 거리를 짧게 하고 중간중간 휴식 공간(카페 등)을 배치해줘.'
+    } else if ((companion as string) === '노약자동반') {
+      companionCareHint = '\n- 고령자·거동이 불편한 동행자가 있으므로 계단이 많거나 장거리 도보가 필요한 코스는 피하고, 이동 거리를 짧게 하고 중간중간 휴식 공간(카페 등)을 배치해줘.'
     }
 
     const accommodationBooked = (accommodation as string) === 'booked'

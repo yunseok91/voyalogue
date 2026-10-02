@@ -311,12 +311,12 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     id: 'companion', label: '누구랑 가나요?',
     type: 'select', enabled: true, order: 3, required: true,
     options: [
-      { label: '혼자',       value: '혼자'     },
-      { label: '커플',       value: '커플'     },
-      { label: '친구들',     value: '친구들'   },
-      { label: '가족',       value: '가족'     },
-      { label: '🤰 임산부 여행', value: '임산부여행' },
-      { label: '🧓 시니어 여행', value: '시니어여행' },
+      { label: '혼자',     value: '혼자'     },
+      { label: '친구들',   value: '친구들'   },
+      { label: '커플',     value: '커플'     },
+      { label: '가족',     value: '가족'     },
+      { label: '임산부 여행', value: '임산부여행' },
+      { label: '노약자 동반', value: '노약자동반' },
     ],
   },
   {
@@ -1169,14 +1169,14 @@ export function AiTripPlanner({ onClose }: Props) {
                   </div>
 
                   {/* 친구들/가족/임산부/시니어 — 인원 스테퍼 */}
-                  {current.id === 'companion' && ['친구들', '가족', '임산부여행', '시니어여행'].includes(answers['companion'] as string) && (
+                  {current.id === 'companion' && ['친구들', '가족', '임산부여행', '노약자동반'].includes(answers['companion'] as string) && (
                     <div className="flex flex-col gap-2 px-1">
                       <label className="text-xs font-semibold text-gray-500">
                         {{
                           '가족':     '가족',
                           '친구들':   '친구',
                           '임산부여행': '동행',
-                          '시니어여행': '일행',
+                          '노약자동반': '일행',
                         }[answers['companion'] as string]} 인원 (본인 포함)
                       </label>
                       <div className="flex items-center gap-4">
