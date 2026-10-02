@@ -284,6 +284,117 @@ function DestinationSearch({
   )
 }
 
+/* ── 숙소 위치 검색 컴포넌트 (DestinationSearch와 동일한 커스텀 드롭다운 방식) ── */
+function AccommodationSearch({
+  value, destination, onChange, onResolved,
+}: {
+  value: string
+  destination: string
+  onChange: (v: string) => void
+  onResolved: (place: { name: string; lat: number; lng: number } | null) => void
+}) {
+  const [open,        setOpen]        = useState(false)
+  const [suggestions, setSuggestions] = useState<{ placeId: string; description: string }[]>([])
+  const [loading,     setLoading]     = useState(false)
+  const wrapRef         = useRef<HTMLDivElement>(null)
+  const debounceRef     = useRef<ReturnType<typeof setTimeout>>()
+  const acServiceRef    = useRef<google.maps.places.AutocompleteService | null>(null)
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null)
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', h)
+    return () => document.removeEventListener('mousedown', h)
+  }, [])
+
+  const handleInput = (val: string) => {
+    onChange(val)
+    onResolved(null)
+    setOpen(true)
+    clearTimeout(debounceRef.current)
+
+    if (val.trim().length < 2) { setSuggestions([]); setLoading(false); return }
+
+    setLoading(true)
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await loadGoogleMaps()
+        if (!acServiceRef.current) acServiceRef.current = new google.maps.places.AutocompleteService()
+        acServiceRef.current.getPlacePredictions(
+          { input: destination ? `${val} ${destination}` : val, language: 'ko' },
+          (preds, status) => {
+            setLoading(false)
+            if (status !== google.maps.places.PlacesServiceStatus.OK || !preds) { setSuggestions([]); return }
+            setSuggestions(preds.slice(0, 6).map(p => ({ placeId: p.place_id, description: p.description })))
+          }
+        )
+      } catch { setLoading(false) }
+    }, 350)
+  }
+
+  const select = (placeId: string, description: string) => {
+    onChange(description)
+    setOpen(false)
+    setSuggestions([])
+    if (!placesServiceRef.current) {
+      placesServiceRef.current = new google.maps.places.PlacesService(document.createElement('div'))
+    }
+    placesServiceRef.current.getDetails(
+      { placeId, fields: ['name', 'formatted_address', 'geometry'] },
+      (place, status) => {
+        if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
+          const name = place.name ?? description
+          onChange(name)
+          onResolved({ name, lat: place.geometry.location.lat(), lng: place.geometry.location.lng() })
+        } else {
+          onResolved(null)
+        }
+      }
+    )
+  }
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <div className="relative">
+        {loading
+          ? <Loader2 className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400 animate-spin" />
+          : <Search  className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        }
+        <input
+          type="text"
+          placeholder="숙소 이름이나 주소를 검색하세요"
+          value={value}
+          onChange={e => handleInput(e.target.value)}
+          onFocus={() => value.length > 0 && setOpen(true)}
+          autoComplete="off"
+          className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+        />
+      </div>
+
+      {open && value.trim().length > 0 && suggestions.length > 0 && (
+        <div className="absolute z-[300] top-[calc(100%+6px)] left-0 w-full bg-white border border-gray-200 rounded-2xl shadow-xl overflow-hidden">
+          <ul className="max-h-52 overflow-y-auto py-1">
+            {suggestions.map(s => (
+              <li key={s.placeId}>
+                <button
+                  type="button"
+                  onMouseDown={() => select(s.placeId, s.description)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left"
+                >
+                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                  <span className="text-sm text-gray-800">{s.description}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export type AiQuestion = {
   id:       string
   label:    string
@@ -490,7 +601,6 @@ export function AiTripPlanner({ onClose }: Props) {
   const [remainingCount, setRemainingCount] = useState(DAILY_LIMIT)
   const [flightTimeOpen, setFlightTimeOpen] = useState<boolean | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
-  const accommodationInputRef = useRef<HTMLInputElement>(null)
   const [accGeocodeStatus, setAccGeocodeStatus] = useState<'idle' | 'checking' | 'found' | 'notfound'>('idle')
 
   /* 질문 설정 + 하루 제한 확인 */
@@ -542,46 +652,6 @@ export function AiTripPlanner({ onClose }: Props) {
       setTimeout(() => inputRef.current?.focus(), 100)
     }
   }, [stepIdx, current])
-
-  /* 숙소 위치 자동완성 (예약된 경우) — 목적지 인근으로 검색 바이어스 */
-  useEffect(() => {
-    if (current?.id !== 'accommodation' || answers['accommodation'] !== 'booked') return
-    let autocomplete: google.maps.places.Autocomplete | null = null
-    let cancelled = false
-    loadGoogleMaps().then(() => {
-      if (cancelled || !accommodationInputRef.current) return
-      autocomplete = new google.maps.places.Autocomplete(accommodationInputRef.current, {
-        fields: ['name', 'formatted_address', 'geometry'],
-      })
-      autocomplete.addListener('place_changed', () => {
-        const place = autocomplete!.getPlace()
-        const label = place.name ?? place.formatted_address ?? ''
-        setAnswer('accommodationLocation', label)
-        if (place.geometry?.location) {
-          setAnswer('accommodationLat', String(place.geometry.location.lat()))
-          setAnswer('accommodationLng', String(place.geometry.location.lng()))
-          setAccGeocodeStatus('found')
-        } else {
-          setAnswer('accommodationLat', '')
-          setAnswer('accommodationLng', '')
-          setAccGeocodeStatus('idle')
-        }
-      })
-      const dest = answers['destination'] as string
-      if (dest) {
-        const geocoder = new google.maps.Geocoder()
-        geocoder.geocode({ address: dest }, (results, status) => {
-          if (!cancelled && status === 'OK' && results?.[0] && autocomplete) {
-            autocomplete.setBounds(results[0].geometry.viewport)
-          }
-        })
-      }
-    }).catch(() => {})
-    return () => {
-      cancelled = true
-      if (autocomplete) google.maps.event.clearInstanceListeners(autocomplete)
-    }
-  }, [current?.id, answers['accommodation'], answers['destination']])
 
   /* 자동완성에서 선택되지 않은 주소를 수동으로 지오코딩 */
   function geocodeAccommodationText() {
@@ -1210,24 +1280,28 @@ export function AiTripPlanner({ onClose }: Props) {
                   {current.id === 'accommodation' && answers['accommodation'] === 'booked' && (
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold text-gray-500">숙소 위치 (선택)</label>
-                      <div className="relative">
-                        <input
-                          ref={accommodationInputRef}
-                          type="text"
-                          placeholder="숙소 이름이나 주소를 검색하세요"
-                          value={(answers['accommodationLocation'] as string) ?? ''}
-                          onChange={e => {
-                            setAnswer('accommodationLocation', e.target.value)
+                      <AccommodationSearch
+                        value={(answers['accommodationLocation'] as string) ?? ''}
+                        destination={(answers['destination'] as string) ?? ''}
+                        onChange={v => {
+                          setAnswer('accommodationLocation', v)
+                          setAnswer('accommodationLat', '')
+                          setAnswer('accommodationLng', '')
+                          setAccGeocodeStatus('idle')
+                        }}
+                        onResolved={place => {
+                          if (place) {
+                            setAnswer('accommodationLocation', place.name)
+                            setAnswer('accommodationLat', String(place.lat))
+                            setAnswer('accommodationLng', String(place.lng))
+                            setAccGeocodeStatus('found')
+                          } else {
                             setAnswer('accommodationLat', '')
                             setAnswer('accommodationLng', '')
                             setAccGeocodeStatus('idle')
-                          }}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
-                        />
-                        {accGeocodeStatus === 'found' && (
-                          <Check className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-500" />
-                        )}
-                      </div>
+                          }
+                        }}
+                      />
                       {accGeocodeStatus === 'found' ? (
                         <p className="text-[11px] text-blue-500 font-semibold">✓ 위치를 찾았어요 — 숙소 주변으로 동선을 최적화해 드려요</p>
                       ) : (answers['accommodationLocation'] as string ?? '').trim() ? (
