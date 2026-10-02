@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { GoogleGenAI } from '@google/genai'
 
+/* Gemini 재시도 체인 + 식당 평점 조회까지 여유있게 끝내도록 함수 제한시간 연장 */
+export const maxDuration = 45
+
 /* ── 타입 ── */
 type VibeData = { style: string; pace: string; focus: string }
 
@@ -76,14 +79,18 @@ async function fetchGoogleRating(name: string, destination: string): Promise<{ r
         'X-Goog-FieldMask':  'places.rating,places.userRatingCount',
       },
       body: JSON.stringify({ textQuery: `${name} ${destination}`, maxResultCount: 1 }),
-      signal: AbortSignal.timeout(4000),
+      signal: AbortSignal.timeout(7000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.error('[ai-trip-plan] rating lookup failed', res.status, await res.text().catch(() => ''))
+      return null
+    }
     const data = await res.json()
     const place = data.places?.[0]
     if (!place?.rating) return null
     return { rating: place.rating, reviewCount: place.userRatingCount ?? 0 }
-  } catch {
+  } catch (err) {
+    console.error('[ai-trip-plan] rating lookup error', err instanceof Error ? err.message : err)
     return null
   }
 }
