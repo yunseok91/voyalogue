@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  X, ChevronRight, ChevronLeft, Sparkles, Loader2,
+  X, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Loader2,
   MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus, BedDouble,
 } from 'lucide-react'
 import {
@@ -311,10 +311,12 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     id: 'companion', label: '누구랑 가나요?',
     type: 'select', enabled: true, order: 3, required: true,
     options: [
-      { label: '혼자',   value: '혼자'   },
-      { label: '커플',   value: '커플'   },
-      { label: '친구들', value: '친구들' },
-      { label: '가족',   value: '가족'   },
+      { label: '혼자',       value: '혼자'     },
+      { label: '커플',       value: '커플'     },
+      { label: '친구들',     value: '친구들'   },
+      { label: '가족',       value: '가족'     },
+      { label: '🤰 임산부 여행', value: '임산부여행' },
+      { label: '🧓 시니어 여행', value: '시니어여행' },
     ],
   },
   {
@@ -361,6 +363,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     type: 'select', enabled: true, order: 8, required: true,
     options: [
       { label: '🚇 대중교통',  value: '대중교통' },
+      { label: '🚙 자차',      value: '자차'     },
       { label: '🚗 렌터카',    value: '렌터카'   },
       { label: '🛵 오토바이',  value: '오토바이' },
       { label: '🚶 도보',      value: '도보'     },
@@ -447,6 +450,17 @@ function peopleFromCompanion(companion: string, people?: string): number {
   return Math.max(2, parseInt(people ?? '3') || 3)
 }
 
+/* ── 국내 여행지 판별 (항공편 시간대 기본 접힘 여부에 사용) ── */
+function isDomesticDestination(dest: string): boolean {
+  return /서울|부산|제주|인천|대구|대전|광주|수원|경주|여수|강릉|속초|전주|통영|거제|울산|춘천|가평|남해|포항|목포|순천|군산|담양|한국|korea/i.test(dest)
+}
+
+function defaultFlightTimeOpen(dest: string): boolean {
+  if (!dest) return true
+  if (!isDomesticDestination(dest)) return true
+  return /부산|제주/.test(dest) // 국내여도 부산·제주는 항공편을 쓸 수 있어 기본 펼침
+}
+
 /* ── 메인 컴포넌트 ── */
 interface Props {
   onClose: () => void
@@ -474,6 +488,7 @@ export function AiTripPlanner({ onClose }: Props) {
   const [error,          setError]          = useState('')
   const [dailyUsed,      setDailyUsed]      = useState(false)
   const [remainingCount, setRemainingCount] = useState(DAILY_LIMIT)
+  const [flightTimeOpen, setFlightTimeOpen] = useState<boolean | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   /* 질문 설정 + 하루 제한 확인 */
@@ -995,50 +1010,64 @@ export function AiTripPlanner({ onClose }: Props) {
                     </div>
                   )}
 
-                  {/* 항공편 시간대 */}
-                  <div className="flex flex-col gap-2.5">
-                    <p className="text-xs font-semibold text-gray-500">항공편 시간대 (선택)</p>
-                    <div className="flex flex-col gap-2">
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] text-gray-400">첫날 도착 시간대</label>
-                        <div className="flex gap-1.5">
-                          {['오전', '오후', '저녁', '심야'].map(t => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setAnswer('arrivalTime', answers['arrivalTime'] === t ? '' : t)}
-                              className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                                answers['arrivalTime'] === t
-                                  ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                              }`}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
+                  {/* 항공편 시간대 — 국내(부산·제주 제외)는 기본 접힘 */}
+                  {(() => {
+                    const isOpen = flightTimeOpen ?? defaultFlightTimeOpen((answers['destination'] as string) ?? '')
+                    return (
+                      <div className="flex flex-col gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => setFlightTimeOpen(!isOpen)}
+                          className="flex items-center justify-between w-full"
+                        >
+                          <p className="text-xs font-semibold text-gray-500">항공편 시간대 (선택)</p>
+                          <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                        </button>
+                        {isOpen && (
+                          <div className="flex flex-col gap-2">
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[11px] text-gray-400">첫날 도착 시간대</label>
+                              <div className="flex gap-1.5">
+                                {['오전', '오후', '저녁', '심야'].map(t => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setAnswer('arrivalTime', answers['arrivalTime'] === t ? '' : t)}
+                                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                      answers['arrivalTime'] === t
+                                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="flex flex-col gap-1.5">
+                              <label className="text-[11px] text-gray-400">마지막날 출발 시간대</label>
+                              <div className="flex gap-1.5">
+                                {['오전', '오후', '저녁', '심야'].map(t => (
+                                  <button
+                                    key={t}
+                                    type="button"
+                                    onClick={() => setAnswer('departureTime', answers['departureTime'] === t ? '' : t)}
+                                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
+                                      answers['departureTime'] === t
+                                        ? 'border-blue-600 bg-blue-50 text-blue-700'
+                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
+                                    }`}
+                                  >
+                                    {t}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      <div className="flex flex-col gap-1.5">
-                        <label className="text-[11px] text-gray-400">마지막날 출발 시간대</label>
-                        <div className="flex gap-1.5">
-                          {['오전', '오후', '저녁', '심야'].map(t => (
-                            <button
-                              key={t}
-                              type="button"
-                              onClick={() => setAnswer('departureTime', answers['departureTime'] === t ? '' : t)}
-                              className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                                answers['departureTime'] === t
-                                  ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                  : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                              }`}
-                            >
-                              {t}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
+                    )
+                  })()}
                 </div>
               )}
 
@@ -1062,11 +1091,16 @@ export function AiTripPlanner({ onClose }: Props) {
                     ))}
                   </div>
 
-                  {/* 친구들/가족 — 인원 스테퍼 */}
-                  {current.id === 'companion' && (answers['companion'] === '친구들' || answers['companion'] === '가족') && (
+                  {/* 친구들/가족/임산부/시니어 — 인원 스테퍼 */}
+                  {current.id === 'companion' && ['친구들', '가족', '임산부여행', '시니어여행'].includes(answers['companion'] as string) && (
                     <div className="flex flex-col gap-2 px-1">
                       <label className="text-xs font-semibold text-gray-500">
-                        {answers['companion'] === '가족' ? '가족' : '친구'} 인원 (본인 포함)
+                        {{
+                          '가족':     '가족',
+                          '친구들':   '친구',
+                          '임산부여행': '동행',
+                          '시니어여행': '일행',
+                        }[answers['companion'] as string]} 인원 (본인 포함)
                       </label>
                       <div className="flex items-center gap-4">
                         <button

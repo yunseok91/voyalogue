@@ -55,10 +55,10 @@ function currencyFor(dest: string): string {
   return 'KRW'
 }
 
-/** 이상 문자 제거 */
+/** 특수문자·이모지·이상 문자 전체 제거 (한글·영문·숫자·기본 문장부호만 허용) */
 function sanitizeText(text: string): string {
   return text
-    .replace(/[Ѐ-ӿ]+/g, '')
+    .replace(/[^가-힣ᄀ-ᇿ㄰-㆏a-zA-Z0-9\s.,!?~()'"%\-·…:]/g, '')
     .replace(/\s{2,}/g, ' ')
     .trim()
 }
@@ -188,6 +188,7 @@ export async function POST(req: NextRequest) {
     let transportHint = ''
     const transportStr = (transport as string) ?? '미정'
     if (transportStr === '렌터카')        transportHint = '\n- 이동수단: 렌터카 (외곽·드라이브 코스 포함 가능)'
+    else if (transportStr === '자차')     transportHint = '\n- 이동수단: 자차 (주차 편한 곳·드라이브 코스 포함 가능)'
     else if (transportStr === '대중교통') transportHint = '\n- 이동수단: 대중교통 (지하철·버스 접근 가능 장소만)'
 
     /* ── 숙소 힌트 ── */
@@ -200,9 +201,19 @@ export async function POST(req: NextRequest) {
     if (!accomType) {
       if      (vibeArr.includes('프리미엄') || budgetKRW >= 2000000) accomType = '5성급 럭셔리 호텔'
       else if (budgetKRW > 0 && budgetKRW < 500000) accomType = '저렴한 게스트하우스·호스텔'
-      else if ((companion as string) === '가족')   accomType = '넓은 패밀리 호텔'
-      else if ((companion as string) === '커플')   accomType = '3-4성급 부티크 호텔'
-      else                                          accomType = '3-4성급 호텔'
+      else if ((companion as string) === '가족')     accomType = '넓은 패밀리 호텔'
+      else if ((companion as string) === '커플')     accomType = '3-4성급 부티크 호텔'
+      else if ((companion as string) === '임산부여행') accomType = '편의시설 접근성 좋은 3-4성급 이상 호텔'
+      else if ((companion as string) === '시니어여행') accomType = '엘리베이터·접근성 좋은 편안한 3-4성급 호텔'
+      else                                            accomType = '3-4성급 호텔'
+    }
+
+    /* ── 동행자 특이사항 힌트 ── */
+    let companionCareHint = ''
+    if ((companion as string) === '임산부여행') {
+      companionCareHint = '\n- 임산부 동반 여행이므로 과격한 액티비티·놀이기구·장거리 도보 코스·날것 음식(회·육회 등)은 제외하고, 중간중간 휴식 시간과 화장실 접근성 좋은 장소 위주로 구성해줘.'
+    } else if ((companion as string) === '시니어여행') {
+      companionCareHint = '\n- 시니어 동반 여행이므로 계단이 많거나 장거리 도보가 필요한 코스는 피하고, 이동 거리를 짧게 하고 중간중간 휴식 공간(카페 등)을 배치해줘.'
     }
 
     const accommodationBooked = (accommodation as string) === 'booked'
@@ -230,7 +241,7 @@ export async function POST(req: NextRequest) {
 [조건별 상세 지침 (반드시 준수)]
 1. 취향이 '${vibeArr.join(', ')}'이므로 전체 일정의 70% 이상을 이 테마에 맞는 장소로 채워줘. 특히: ${vibeData.focus}
 2. 일정 강도가 '${pace}'이므로 하루 장소 수를 정확히 ${itemCount}개로 제한해줘.
-3. 이동 수단이 '${transportStr}'이므로${transportStr === '렌터카' ? ' 주차 편한 곳·드라이브 코스 위주로 동선을 짜줘.' : transportStr === '대중교통' ? ' 지하철역·버스 정류장 도보권 장소만 포함해줘.' : ' 이동 동선을 최적화해줘.'}${budgetHint ? `\n4. 예산이 '${budgetHint}'이므로 모든 식당·장소·숙소의 가격대를 이에 맞춰줘.` : ''}${arrivalTime ? `\n${budgetHint ? '5' : '4'}. Day 1은 ${arrivalTime} 도착이므로 그 이후부터 일정을 시작해줘.` : ''}${departureTime ? `\n${budgetHint && arrivalTime ? '6' : budgetHint || arrivalTime ? '5' : '4'}. 마지막 날은 ${departureTime} 출발이므로 그 이전에 일정을 마무리해줘.` : ''}${foodPrefArr.length > 0 ? `\n- 식당 선정 시 '${foodPrefArr.map(p => FOOD_LABEL[p] ?? p).join(', ')}' 위주로 구성해줘.` : ''}
+3. 이동 수단이 '${transportStr}'이므로${transportStr === '렌터카' || transportStr === '자차' ? ' 주차 편한 곳·드라이브 코스 위주로 동선을 짜줘.' : transportStr === '대중교통' ? ' 지하철역·버스 정류장 도보권 장소만 포함해줘.' : ' 이동 동선을 최적화해줘.'}${budgetHint ? `\n4. 예산이 '${budgetHint}'이므로 모든 식당·장소·숙소의 가격대를 이에 맞춰줘.` : ''}${arrivalTime ? `\n${budgetHint ? '5' : '4'}. Day 1은 ${arrivalTime} 도착이므로 그 이후부터 일정을 시작해줘.` : ''}${departureTime ? `\n${budgetHint && arrivalTime ? '6' : budgetHint || arrivalTime ? '5' : '4'}. 마지막 날은 ${departureTime} 출발이므로 그 이전에 일정을 마무리해줘.` : ''}${foodPrefArr.length > 0 ? `\n- 식당 선정 시 '${foodPrefArr.map(p => FOOD_LABEL[p] ?? p).join(', ')}' 위주로 구성해줘.` : ''}${companionCareHint}
 
 [숙소]
 ${accommodationBooked
@@ -262,7 +273,7 @@ ${accommodationBooked
 
     /* ── Gemini 응답 → 기존 GeneratedPlan 포맷 변환 ── */
     const plan = {
-      tripTitle: (geminiPlan.tripTitle as string) ?? '',
+      tripTitle: sanitizeText((geminiPlan.tripTitle as string) ?? ''),
 
       accommodationOptions: ((geminiPlan.accommodationOptions ?? []) as Array<{
         name: string
@@ -272,7 +283,7 @@ ${accommodationBooked
         lat: number
         lng: number
       }>).map(acc => ({
-        name:     acc.name,
+        name:     sanitizeText(acc.name ?? ''),
         price:    acc.expectedPricePerNight ?? 0,
         currency: acc.currency ?? currency,
         comment:  sanitizeText(acc.recommendationReason ?? ''),
@@ -295,7 +306,7 @@ ${accommodationBooked
       }>).map(day => ({
         dayId: `d${day.dayNumber}`,
         items: (day.items ?? []).map(item => ({
-          name:     item.spotName,
+          name:     sanitizeText(item.spotName ?? ''),
           timeSlot: normalizeSlot(item.timeSlot),
           cat:      item.category,
           price:    item.estimatedCost ?? 0,
