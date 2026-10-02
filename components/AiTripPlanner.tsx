@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   X, ChevronRight, ChevronLeft, ChevronDown, Sparkles, Loader2,
-  MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus, BedDouble,
+  MapPin, Utensils, ShoppingBag, Car, MoreHorizontal, Calendar, Check, Search, Plus, BedDouble, Star,
 } from 'lucide-react'
 import {
   collection, addDoc, setDoc, doc, serverTimestamp, getDoc, writeBatch,
@@ -490,6 +490,11 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
       { label: '추천해 주세요',   value: 'recommend' },
     ],
   },
+  {
+    id: 'extraNotes', label: '추가로 고려했으면 하는 점이 있나요?',
+    sub: '못 먹는 음식, 거동이 불편한 동행, 특별 요청 등 — 선택사항이에요',
+    type: 'text', enabled: true, order: 10, required: false,
+  },
 ]
 
 type Answers = Record<string, string | string[]>
@@ -517,6 +522,8 @@ type GeneratedPlan = {
       comment:  string
       lat:      number
       lng:      number
+      googleRating?:      number
+      googleReviewCount?: number
     }[]
   }[]
 }
@@ -730,6 +737,7 @@ export function AiTripPlanner({ onClose }: Props) {
           arrivalTime:           answers['arrivalTime']           ?? '',
           departureTime:         answers['departureTime']         ?? '',
           budget:                answers['budget']                ?? '',
+          extraNotes:            answers['extraNotes']            ?? '',
         }),
       })
       const data = await res.json()
@@ -851,6 +859,8 @@ export function AiTripPlanner({ onClose }: Props) {
             lng:            item.lng     ?? 0,
             rating:         0,
             ratings:        {},
+            googleRating:      item.googleRating      ?? null,
+            googleReviewCount: item.googleReviewCount ?? null,
             participants:   people,
             participantIds: [],
             receipts:       [],
@@ -1021,8 +1031,19 @@ export function AiTripPlanner({ onClose }: Props) {
                 )
               })()}
 
+              {/* 추가 요청사항 (자유 입력, 여러 줄) */}
+              {current.type === 'text' && current.id === 'extraNotes' && (
+                <textarea
+                  placeholder="예: 땅콩 알레르기가 있어요 / 휠체어로 이동해요 / 둘째 날은 쇼핑 최소화해주세요…"
+                  value={(answers['extraNotes'] as string) ?? ''}
+                  onChange={e => setAnswer('extraNotes', e.target.value)}
+                  rows={4}
+                  className="w-full px-4 py-3.5 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all resize-none"
+                />
+              )}
+
               {/* 일반 텍스트 입력 (기타 text 타입) */}
-              {current.type === 'text' && current.id !== 'destination' && current.id !== 'budget' && (
+              {current.type === 'text' && current.id !== 'destination' && current.id !== 'budget' && current.id !== 'extraNotes' && (
                 <input
                   ref={inputRef}
                   type="text"
@@ -1480,6 +1501,17 @@ export function AiTripPlanner({ onClose }: Props) {
                           <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0 ${SLOT_COLOR[item.timeSlot]}`}>
                             {item.timeSlot}
                           </span>
+                          {item.cat === '식사' && item.googleRating !== undefined && (
+                            <span className="flex items-center gap-0.5 text-[10px] font-semibold text-amber-600 flex-shrink-0">
+                              <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                              {item.googleRating.toFixed(1)}
+                              <span className="text-gray-400 font-normal">
+                                ({item.googleReviewCount && item.googleReviewCount >= 1000
+                                  ? `${Math.floor(item.googleReviewCount / 1000)}천+`
+                                  : item.googleReviewCount ?? 0})
+                              </span>
+                            </span>
+                          )}
                         </div>
                         {item.price > 0 && (
                           <p className="text-xs text-blue-600 font-semibold mb-1">

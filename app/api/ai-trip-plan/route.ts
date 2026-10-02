@@ -63,6 +63,31 @@ function sanitizeText(text: string): string {
     .trim()
 }
 
+/** 식당 이름으로 Google 평점·리뷰 수 조회 (실패 시 null) */
+async function fetchGoogleRating(name: string, destination: string): Promise<{ rating: number; reviewCount: number } | null> {
+  const key = process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
+  if (!key || !name) return null
+  try {
+    const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type':      'application/json',
+        'X-Goog-Api-Key':    key,
+        'X-Goog-FieldMask':  'places.rating,places.userRatingCount',
+      },
+      body: JSON.stringify({ textQuery: `${name} ${destination}`, maxResultCount: 1 }),
+      signal: AbortSignal.timeout(4000),
+    })
+    if (!res.ok) return null
+    const data = await res.json()
+    const place = data.places?.[0]
+    if (!place?.rating) return null
+    return { rating: place.rating, reviewCount: place.userRatingCount ?? 0 }
+  } catch {
+    return null
+  }
+}
+
 /** timeSlot 정규화 (Gemini 5단계 → 앱 4단계 매핑) */
 function normalizeSlot(slot: string): string {
   if (slot === '오후') return '점심'
@@ -134,7 +159,7 @@ export async function POST(req: NextRequest) {
       destination, startDate, nights, companion, people,
       vibe, pace, foodPref,
       accommodation, accommodationStyle, accommodationLocation,
-      transport, arrivalTime, departureTime, budget,
+      transport, arrivalTime, departureTime, budget, extraNotes,
     } = await req.json()
 
     if (!destination || !startDate || !nights) {
@@ -218,6 +243,9 @@ export async function POST(req: NextRequest) {
 
     const accommodationBooked = (accommodation as string) === 'booked'
 
+    /* ── 사용자 자유 입력 추가 요청사항 (알레르기·거동 불편 등) ── */
+    const extraNotesClean = sanitizeText((extraNotes as string) ?? '').slice(0, 300)
+
     /* ── 시스템 인스트럭션 (역할 + 불변 원칙만) ── */
     const systemInstruction = `너는 현지 사정에 정통한 최고의 여행 코디네이터야.
 - 모든 comment·recommendationReason은 자연스러운 한국어 해요체로 작성해 (예: "진짜 맛있어요", "뷰가 끝내줘요")
@@ -247,6 +275,7 @@ export async function POST(req: NextRequest) {
 ${accommodationBooked
   ? `이미 예약됨${accommodationLocation ? ` (위치: ${accommodationLocation})` : ''}. accommodationOptions는 빈 배열([])로 반환하고, 해당 숙소 위치 기준으로 동선을 최적화해줘.`
   : `추천 필요 (스타일: ${accomType}). 실제 존재하는 숙소 3개를 accommodationOptions에 담아줘.`}
+${extraNotesClean ? `\n[사용자 추가 요청사항 — 다른 지침보다 우선 반영]\n${extraNotesClean}\n알레르기·건강·접근성 관련 내용이면 안전을 최우선으로 장소·메뉴를 피하거나 선택해줘.` : ''}
 
 [출력 규칙]
 - day 객체 정확히 ${totalDays}개 생성 (dayNumber: 1 ~ ${totalDays})
@@ -333,9 +362,26 @@ ${accommodationBooked
           comment:  sanitizeText(item.comment ?? ''),
           lat:      item.lat ?? 0,
           lng:      item.lng ?? 0,
+          googleRating:      undefined as number | undefined,
+          googleReviewCount: undefined as number | undefined,
         })),
       })),
     }
+
+    /* ── 식사 항목에 실제 Google 평점·리뷰 수 조회해서 붙이기 (실패해도 무시) ── */
+    await Promise.all(
+      plan.days.flatMap(day =>
+        day.items
+          .filter(item => item.cat === '식사')
+          .map(async item => {
+            const r = await fetchGoogleRating(item.name, destination as string)
+            if (r) {
+              item.googleRating = r.rating
+              item.googleReviewCount = r.reviewCount
+            }
+          })
+      )
+    )
 
     return NextResponse.json(plan)
 
