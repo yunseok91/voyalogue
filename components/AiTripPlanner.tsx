@@ -1194,43 +1194,24 @@ export function AiTripPlanner({ onClose }: Props) {
                         {isOpen && (
                           <div className="flex flex-col gap-2">
                             <div className="flex flex-col gap-1.5">
-                              <label className="text-[11px] text-gray-400">첫날 도착 시간대</label>
-                              <div className="flex gap-1.5">
-                                {['오전', '오후', '저녁', '심야'].map(t => (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setAnswer('arrivalTime', answers['arrivalTime'] === t ? '' : t)}
-                                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                                      answers['arrivalTime'] === t
-                                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                                    }`}
-                                  >
-                                    {t}
-                                  </button>
-                                ))}
-                              </div>
+                              <label className="text-[11px] text-gray-400">첫날 도착 시각 (공항 도착 기준)</label>
+                              <input
+                                type="time"
+                                value={(answers['arrivalTime'] as string) ?? ''}
+                                onChange={e => setAnswer('arrivalTime', e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                              />
                             </div>
                             <div className="flex flex-col gap-1.5">
-                              <label className="text-[11px] text-gray-400">마지막날 출발 시간대</label>
-                              <div className="flex gap-1.5">
-                                {['오전', '오후', '저녁', '심야'].map(t => (
-                                  <button
-                                    key={t}
-                                    type="button"
-                                    onClick={() => setAnswer('departureTime', answers['departureTime'] === t ? '' : t)}
-                                    className={`flex-1 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                                      answers['departureTime'] === t
-                                        ? 'border-blue-600 bg-blue-50 text-blue-700'
-                                        : 'border-gray-200 text-gray-500 hover:border-gray-300'
-                                    }`}
-                                  >
-                                    {t}
-                                  </button>
-                                ))}
-                              </div>
+                              <label className="text-[11px] text-gray-400">마지막날 출발 시각 (공항 출발 기준)</label>
+                              <input
+                                type="time"
+                                value={(answers['departureTime'] as string) ?? ''}
+                                onChange={e => setAnswer('departureTime', e.target.value)}
+                                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-gray-900 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 transition-all"
+                              />
                             </div>
+                            <p className="text-[11px] text-gray-400">입력하시면 입국 수속·이동 시간까지 감안해서 일정을 짜드려요</p>
                           </div>
                         )}
                       </div>

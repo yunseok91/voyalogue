@@ -95,6 +95,14 @@ async function fetchGoogleRating(name: string, destination: string): Promise<{ r
   }
 }
 
+/** "HH:MM"에 분 단위를 더하고 00:00~23:59 범위로 감싸기 */
+function shiftTime(time: string, minutesDelta: number): string {
+  const [h, m] = time.split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return time
+  const total = (((h * 60 + m + minutesDelta) % 1440) + 1440) % 1440
+  return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
+}
+
 /** timeSlot 정규화 (Gemini 5단계 → 앱 4단계 매핑) */
 function normalizeSlot(slot: string): string {
   if (slot === '오후') return '점심'
@@ -211,10 +219,9 @@ export async function POST(req: NextRequest) {
       '파인다이닝':   '파인다이닝·미슐랭 레스토랑',
     }
 
-    /* ── 항공편 시간 힌트 ── */
-    let flightHint = ''
-    if (arrivalTime)   flightHint += `\n- Day 1 도착: ${arrivalTime} (그 이전 일정 제외)`
-    if (departureTime) flightHint += `\n- 마지막날 출발: ${departureTime} (출발 전까지 일정만)`
+    /* ── 공항 도착/출발 버퍼 적용 시각 (입국 수속·이동 시간 고려) ── */
+    const arrivalReadyTime    = arrivalTime   ? shiftTime(arrivalTime as string, 90)    : ''
+    const departureCutoffTime = departureTime ? shiftTime(departureTime as string, -150) : ''
 
     /* ── 교통수단 힌트 ── */
     let transportHint = ''
@@ -276,7 +283,7 @@ export async function POST(req: NextRequest) {
 [조건별 상세 지침 (반드시 준수)]
 1. 취향이 '${vibeArr.join(', ')}'이므로 전체 일정의 70% 이상을 이 테마에 맞는 장소로 채워줘. 특히: ${vibeData.focus}
 2. 일정 강도가 '${pace}'이므로 하루 장소 수를 정확히 ${itemCount}개로 제한해줘.
-3. 이동 수단이 '${transportStr}'이므로${transportStr === '렌터카' || transportStr === '자차' ? ' 주차 편한 곳·드라이브 코스 위주로 동선을 짜줘.' : transportStr === '대중교통' ? ' 지하철역·버스 정류장 도보권 장소만 포함해줘.' : ' 이동 동선을 최적화해줘.'}${budgetHint ? `\n4. 예산이 '${budgetHint}'이므로 모든 식당·장소·숙소의 가격대를 이에 맞춰줘.` : ''}${arrivalTime ? `\n${budgetHint ? '5' : '4'}. Day 1은 ${arrivalTime} 도착이므로 그 이후부터 일정을 시작해줘.` : ''}${departureTime ? `\n${budgetHint && arrivalTime ? '6' : budgetHint || arrivalTime ? '5' : '4'}. 마지막 날은 ${departureTime} 출발이므로 그 이전에 일정을 마무리해줘.` : ''}${foodPrefArr.length > 0 ? `\n- 식당 선정 시 '${foodPrefArr.map(p => FOOD_LABEL[p] ?? p).join(', ')}' 위주로 구성해줘.` : ''}${companionCareHint}
+3. 이동 수단이 '${transportStr}'이므로${transportStr === '렌터카' || transportStr === '자차' ? ' 주차 편한 곳·드라이브 코스 위주로 동선을 짜줘.' : transportStr === '대중교통' ? ' 지하철역·버스 정류장 도보권 장소만 포함해줘.' : ' 이동 동선을 최적화해줘.'}${budgetHint ? `\n4. 예산이 '${budgetHint}'이므로 모든 식당·장소·숙소의 가격대를 이에 맞춰줘.` : ''}${arrivalTime ? `\n${budgetHint ? '5' : '4'}. Day 1은 공항 도착이 ${arrivalTime}이므로, 입국 수속·수하물 수취·공항에서 시내까지 이동 시간을 감안해 ${arrivalReadyTime} 이후부터 일정을 시작해줘.` : ''}${departureTime ? `\n${budgetHint && arrivalTime ? '6' : budgetHint || arrivalTime ? '5' : '4'}. 마지막 날은 공항 출발이 ${departureTime}이므로, 시내에서 공항까지 이동·체크인·보안검색 시간을 감안해 ${departureCutoffTime} 이전에 모든 일정을 마무리해줘.` : ''}${foodPrefArr.length > 0 ? `\n- 식당 선정 시 '${foodPrefArr.map(p => FOOD_LABEL[p] ?? p).join(', ')}' 위주로 구성해줘.` : ''}${companionCareHint}
 
 [숙소]
 ${accommodationBooked
