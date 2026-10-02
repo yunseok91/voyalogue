@@ -254,10 +254,13 @@ ${accommodationBooked
 - 식사 항목(category: 식사) 하루 1~2개 반드시 포함
 - estimatedCost: 인당 예상 실비 (무료=0)`
 
-    /* ── Gemini API 호출 (일시적 503 과부하는 1회 재시도) ── */
+    /* ── Gemini API 호출 ──
+       일시적 503 과부하·모델 단종(404)은 다음 모델로 넘어가며 재시도.
+       할당량 초과(429)는 모든 모델에 동일하게 적용되므로 즉시 포기. */
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! })
-    const callGemini = () => ai.models.generateContent({
-      model:    'gemini-3.5-flash',
+    const MODEL_CHAIN = ['gemini-3.5-flash', 'gemini-3.6-flash', 'gemini-flash-lite-latest']
+    const callGemini = (model: string) => ai.models.generateContent({
+      model,
       contents: userPrompt,
       config: {
         systemInstruction,
@@ -266,15 +269,21 @@ ${accommodationBooked
       },
     })
 
-    let geminiRes
-    try {
-      geminiRes = await callGemini()
-    } catch (err) {
-      const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
-      if (!msg.includes('503') && !msg.includes('unavailable')) throw err
-      await new Promise(r => setTimeout(r, 1500))
-      geminiRes = await callGemini()
+    let geminiRes: Awaited<ReturnType<typeof callGemini>> | undefined
+    let lastErr: unknown
+    for (const model of MODEL_CHAIN) {
+      try {
+        geminiRes = await callGemini(model)
+        break
+      } catch (err) {
+        lastErr = err
+        const msg = (err instanceof Error ? err.message : String(err)).toLowerCase()
+        const retryable = msg.includes('503') || msg.includes('unavailable') || msg.includes('404') || msg.includes('not_found')
+        if (!retryable) throw err
+        await new Promise(r => setTimeout(r, 800))
+      }
     }
+    if (!geminiRes) throw lastErr
 
     const rawText = geminiRes.text
     if (!rawText) throw new Error('빈 응답')
