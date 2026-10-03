@@ -4699,7 +4699,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                   }`}
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  {selectMode ? '취소' : '삭제'}
+                  {selectMode ? '취소' : '일괄삭제'}
                 </button>
                 {!selectMode && <InfoTooltip text="식사·장소·쇼핑·교통·기타 카테고리로 일정을 추가하세요. 금액·영수증·참여자·별점도 함께 기록할 수 있어요." width={220} />}
               </div>
