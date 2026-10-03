@@ -2564,6 +2564,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [lightbox,        setLightbox]        = useState<{ receipts: string[]; idx: number } | null>(null)
   const [showSettlement,  setShowSettlement]  = useState(false)
   const [showReport,      setShowReport]      = useState(false)
+  const [showUnevenModal, setShowUnevenModal] = useState(false)
   /* 일괄 삭제 모드 */
   const [selectMode,    setSelectMode]    = useState(false)
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
@@ -2625,7 +2626,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [editPhotoUploading,      setEditPhotoUploading]      = useState(false)
 
   /* 모달 열릴 때 배경 스크롤 잠금 */
-  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport
+  const anyModalOpen = showAdd || !!editItem || showEdit || showMembers || showSettlement || !!lightbox || !!editingFlight || !!editingAcc || showReport || showUnevenModal
   useScrollLock(anyModalOpen)
 
 
@@ -3105,6 +3106,28 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const first = amounts[0]
     return amounts.some(a => Math.abs(a - first) > 1)
   }, [memberSpent])
+
+  /* 참여 인원이 전체 멤버와 다른 장소 목록 — 안내 팝업용 */
+  const unevenItemsList = useMemo(() => {
+    const list: { dayLabel: string; item: PlanItem; count: number }[] = []
+    if (!meta?.members) return list
+    const activeIds = meta.members.filter(m => !m.left).map(m => m.id)
+    if (activeIds.length === 0) return list
+    Object.entries(dayItems).forEach(([dayId, items]) => {
+      const day = days.find(d => d.dayId === dayId)
+      items.forEach(item => {
+        const hasAll = !item.participantIds || activeIds.every(id => item.participantIds!.includes(id))
+        if (!hasAll) {
+          list.push({
+            dayLabel: day ? `${day.label} · ${formatDate(day.date)}` : dayId,
+            item,
+            count: item.participantIds?.length ?? 0,
+          })
+        }
+      })
+    })
+    return list
+  }, [dayItems, meta, days])
 
   /* 결제자별 실제 결제 금액 합산 — payerId 없으면 총무(없으면 방장) 귀속 */
   const memberPaid = useMemo(() => {
@@ -4974,7 +4997,12 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <p className="text-[10px] text-gray-400 mt-0.5">숙소·항공 경비는 제외된 금액이에요</p>
                 {hasUnevenParticipants && (
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <p className="text-[10px] font-bold text-red-500">참여 인원이 다른 장소가 있어요</p>
+                    <button
+                      onClick={() => setShowUnevenModal(true)}
+                      className="text-[10px] font-bold text-red-500 underline decoration-dotted hover:text-red-600"
+                    >
+                      참여 인원이 다른 장소가 있어요
+                    </button>
                     <button
                       onClick={handleResetAllParticipants}
                       className="text-[10px] text-blue-500 hover:text-blue-700 font-semibold underline"
@@ -5850,6 +5878,56 @@ function PlannerContent({ tripId }: { tripId: string }) {
             } : prev)
           }}
         />
+      )}
+
+      {/* ── 참여 인원이 다른 장소 안내 팝업 ── */}
+      {showUnevenModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center z-[200]"
+          onClick={() => setShowUnevenModal(false)}>
+          <div className="bg-white rounded-t-3xl sm:rounded-2xl w-full sm:max-w-sm mx-0 sm:mx-4 shadow-2xl max-h-[90dvh] flex flex-col"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-6 pt-5 pb-4 border-b border-gray-100 flex items-center justify-between flex-shrink-0">
+              <div>
+                <h3 className="text-base font-bold text-gray-900">참여 인원이 다른 장소</h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  전체 {meta?.members?.filter(m => !m.left).length ?? 0}명 중 일부만 참여하는 일정이에요
+                </p>
+              </div>
+              <button onClick={() => setShowUnevenModal(false)} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="overflow-y-auto px-6 py-4 flex flex-col gap-2">
+              {unevenItemsList.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">해당하는 일정이 없어요</p>
+              ) : unevenItemsList.map(({ dayLabel, item, count }) => (
+                <div key={item.id} className="flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-50 rounded-xl">
+                  <div className="min-w-0">
+                    <p className="text-[10px] text-gray-400">{dayLabel}</p>
+                    <p className="text-sm font-semibold text-gray-900 truncate">{item.name}</p>
+                    <p className="text-[11px] text-amber-600 font-semibold">
+                      {count}명 참여 / 전체 {meta?.members?.filter(m => !m.left).length ?? 0}명
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => { setEditItem(item); setShowUnevenModal(false) }}
+                    className="flex-shrink-0 px-2.5 py-1.5 text-[11px] font-semibold text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg transition-all"
+                  >
+                    수정
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="px-6 py-4 border-t border-gray-100 flex-shrink-0">
+              <button
+                onClick={() => { handleResetAllParticipants(); setShowUnevenModal(false) }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold transition-colors"
+              >
+                전체 일정 전원으로 초기화
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ── 정산 명세 팝업 ── */}
