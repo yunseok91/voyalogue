@@ -485,7 +485,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
           {/* 1행: 시간대 도트 + 시각 + 별점 */}
-          <div className="flex items-center gap-2 min-w-0">
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
