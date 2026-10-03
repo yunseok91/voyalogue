@@ -3100,14 +3100,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     return result
   }, [dayItems, rates, meta, primaryCurrency])
 
-  const hasUnevenParticipants = useMemo(() => {
-    const amounts = Object.values(memberSpent)
-    if (amounts.length <= 1) return false
-    const first = amounts[0]
-    return amounts.some(a => Math.abs(a - first) > 1)
-  }, [memberSpent])
-
-  /* 참여 인원이 전체 멤버와 다른 장소 목록 — 안내 팝업용 */
+  /* 참여 인원이 전체(활성) 멤버와 다른 장소 목록 — 안내 배너·팝업 공통 기준 */
   const unevenItemsList = useMemo(() => {
     const list: { dayLabel: string; item: PlanItem; count: number }[] = []
     if (!meta?.members) return list
@@ -3128,6 +3121,11 @@ function PlannerContent({ tripId }: { tripId: string }) {
     })
     return list
   }, [dayItems, meta, days])
+
+  /* 배너는 "참여자 목록이 실제로 다른 장소가 있는지" 기준으로만 뜨도록
+     (예전엔 멤버별 정산 총액 차이로 판단해서, 트립을 나간 멤버의 과거 지출 때문에
+      활성 멤버는 전부 동일하게 참여했는데도 배너가 떴음) */
+  const hasUnevenParticipants = unevenItemsList.length > 0
 
   /* 결제자별 실제 결제 금액 합산 — payerId 없으면 총무(없으면 방장) 귀속 */
   const memberPaid = useMemo(() => {
