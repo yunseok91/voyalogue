@@ -2237,14 +2237,17 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
       await onUpdate(item.id, {
         name: name.trim(), timeSlot, cat,
         ...(startTime ? { startTime } : { startTime: '' }),
-        price: Number(price) || 0, currency,
-        comment, lat, lng,
+        price: Number(price) || 0, currency: currency ?? 'KRW',
+        comment: comment ?? '', lat: lat ?? 0, lng: lng ?? 0,
         participants: participantIds.length || people,
         participantIds,
         payerId: payerId ?? null as unknown as undefined,
         receipts: finalReceipts.length > 0 ? finalReceipts : [],
       })
       onClose()
+    } catch (err) {
+      console.error('[EditItemPanel] 저장 실패', err)
+      alert('저장에 실패했습니다. 다시 시도해 주세요.')
     } finally {
       setSaving(false)
     }
