@@ -395,6 +395,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
   const [showCatPick,  setShowCatPick]  = useState(false)
   const [popupCat,     setPopupCat]     = useState<Category>('장소')
   const [showPP,       setShowPP]       = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const catRef    = useRef<HTMLDivElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
 
@@ -650,26 +651,52 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
             </div>
           )}
           {canEdit && !selectMode && (
-            <>
-              {onMoveDay && (
+            confirmDelete ? (
+              <div className="flex items-center gap-1" onPointerDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                <span className="text-[11px] text-gray-500 font-medium mr-0.5">삭제할까요?</span>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="px-2 py-1 text-[11px] font-semibold text-gray-500 hover:bg-gray-100 rounded-lg transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={() => onDelete(item.id)}
+                  className="px-2 py-1 text-[11px] font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-all"
+                >
+                  삭제
+                </button>
+              </div>
+            ) : (
+              <>
+                {onMoveDay && (
+                  <button
+                    onPointerDown={e => e.stopPropagation()}
+                    onClick={e => { e.stopPropagation(); onMoveDay(item) }}
+                    className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg transition-all"
+                    title="Day 이동"
+                  >
+                    <ArrowLeftRight className="w-3.5 h-3.5" />
+                  </button>
+                )}
                 <button
                   onPointerDown={e => e.stopPropagation()}
-                  onClick={e => { e.stopPropagation(); onMoveDay(item) }}
-                  className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 active:bg-indigo-100 rounded-lg transition-all"
-                  title="Day 이동"
+                  onClick={e => { e.stopPropagation(); onEdit(item) }}
+                  className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
                 >
-                  <ArrowLeftRight className="w-3.5 h-3.5" />
+                  <Edit2 className="w-3.5 h-3.5" />
+                  <span>수정</span>
                 </button>
-              )}
-              <button
-                onPointerDown={e => e.stopPropagation()}
-                onClick={e => { e.stopPropagation(); onEdit(item) }}
-                className="flex items-center gap-1 px-2.5 py-1.5 text-[11px] font-semibold text-gray-400 hover:text-gray-700 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-all"
-              >
-                <Edit2 className="w-3.5 h-3.5" />
-                <span>수정</span>
-              </button>
-            </>
+                <button
+                  onPointerDown={e => e.stopPropagation()}
+                  onClick={e => { e.stopPropagation(); setConfirmDelete(true) }}
+                  title="삭제"
+                  className="flex items-center justify-center w-7 h-7 text-gray-400 hover:text-red-600 hover:bg-red-50 active:bg-red-100 rounded-lg transition-all"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )
           )}
         </div>
       </div>
@@ -2226,13 +2253,14 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
   return (
     <div className="fixed inset-0 z-40 flex items-end sm:items-center justify-center">
       <div className="absolute inset-0 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-50 w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl p-6 flex flex-col gap-5 max-h-[90dvh] overflow-y-auto">
-        <div className="flex items-center justify-between">
+      <div className="relative z-50 w-full max-w-md bg-white rounded-t-3xl sm:rounded-2xl shadow-2xl flex flex-col max-h-[90dvh] overflow-hidden">
+        <div className="flex items-center justify-between px-6 pt-6 pb-2 flex-shrink-0 bg-white">
           <h3 className="text-base font-bold text-gray-900">일정 수정</h3>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 text-gray-400">
             <X className="w-4 h-4" />
           </button>
         </div>
+        <div className="overflow-y-auto px-6 pb-6">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <label className="text-[12px] font-semibold text-gray-600">
@@ -2469,6 +2497,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
             </button>
           </div>
         </form>
+        </div>
       </div>
     </div>
   )
