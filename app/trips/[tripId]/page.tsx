@@ -351,7 +351,7 @@ function StarRow({
 }) {
   const { avg, count } = calcAvg(ratings)
   return (
-    <span className="flex items-center gap-1.5 min-w-0 shrink" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+    <span className="flex items-center gap-1.5 min-w-0 shrink flex-wrap" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
       <span className="flex gap-0.5 flex-shrink-0">
         {[1, 2, 3, 4, 5].map(v => (
           <Star key={v}
@@ -2699,7 +2699,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   useEffect(() => {
     const onMove = (e: MouseEvent) => {
       if (!isDraggingRef.current) return
-      const next = Math.min(720, Math.max(280, dragStartWRef.current + e.clientX - dragStartXRef.current))
+      const next = Math.min(720, Math.max(340, dragStartWRef.current + e.clientX - dragStartXRef.current))
       setLeftWidth(next)
     }
     const onUp = () => {

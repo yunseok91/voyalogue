@@ -183,8 +183,8 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
   const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
   const count = vals.length
   return (
-    <span className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
-      <span className="flex gap-0.5">
+    <span className="flex items-center gap-1.5 flex-wrap min-w-0" onClick={e => e.stopPropagation()}>
+      <span className="flex gap-0.5 flex-shrink-0">
         {[1,2,3,4,5].map(v => (
           <Star key={v}
             className={`w-3 h-3 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
@@ -193,7 +193,7 @@ function StarRow({ myRating = 0, ratings = {}, onChange }: {
         ))}
       </span>
       {count >= 1 && (
-        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap">
+        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap flex-shrink-0">
           avg {avg.toFixed(1)} · {count}명
         </span>
       )}
@@ -362,7 +362,7 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
           {/* 1행: 시간대 도트 + 시각 + 별점 */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap min-w-0">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
