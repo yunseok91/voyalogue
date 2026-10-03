@@ -2573,6 +2573,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
   const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set())
   /* Day 이동 */
   const [movingItem,    setMovingItem]    = useState<PlanItem | null>(null)
+  const [movingBusy,    setMovingBusy]    = useState(false)
 
   /* 온보딩 */
   const [memberTipDismissed,   setMemberTipDismissed]   = useState(() => {
@@ -3433,27 +3434,36 @@ function PlannerContent({ tripId }: { tripId: string }) {
 
   /* ── 아이템 Day 이동 ── */
   const handleMoveToDay = async (item: PlanItem, targetDayId: string) => {
-    if (!activeDay || !meta || activeDay.dayId === targetDayId) return
-    const targetItems = dayItems[targetDayId] ?? []
-    const newOrder = targetItems.length
-    // 현재 day에서 제거
-    setDayItems(prev => ({
-      ...prev,
-      [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== item.id),
-      [targetDayId]: [...(prev[targetDayId] ?? []), { ...item, order: newOrder }],
-    }))
-    // Firestore: 현재 day 삭제 → 타겟 day에 추가
-    const { deleteDoc: delDoc, addDoc: addD } = await import('firebase/firestore')
-    await delDoc(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id))
-    const targetDay = days.find(d => d.dayId === targetDayId)
-    if (targetDay) {
-      await setDoc(doc(db, 'users', uid, 'trips', tripId, 'days', targetDayId), { label: targetDay.label, date: targetDay.date }, { merge: true })
+    if (!activeDay || !meta || activeDay.dayId === targetDayId || movingBusy) return
+    setMovingBusy(true)
+    try {
+      const targetItems = dayItems[targetDayId] ?? []
+      const newOrder = targetItems.length
+      // item.id를 그대로 spread하면 새 문서의 데이터 필드에 예전 id가 섞여 들어가서
+      // { id: d.id, ...d.data() } 로 읽을 때 실제 문서 id를 덮어써버림 — 반드시 제외
+      const { id: _oldId, ...itemData } = item
+      const { addDoc: addD, deleteDoc: delDoc, serverTimestamp } = await import('firebase/firestore')
+      const targetDay = days.find(d => d.dayId === targetDayId)
+      if (targetDay) {
+        await setDoc(doc(db, 'users', uid, 'trips', tripId, 'days', targetDayId), { label: targetDay.label, date: targetDay.date }, { merge: true })
+      }
+      // 타겟 day에 먼저 추가 성공한 뒤에 원본 삭제 — 중간에 실패해도 데이터 유실 방지
+      const newDocRef = await addD(collection(db, 'users', uid, 'trips', tripId, 'days', targetDayId, 'items'), {
+        ...itemData, order: newOrder, createdAt: serverTimestamp(),
+      })
+      await delDoc(doc(db, 'users', uid, 'trips', tripId, 'days', activeDay.dayId, 'items', item.id))
+      setDayItems(prev => ({
+        ...prev,
+        [activeDay.dayId]: (prev[activeDay.dayId] ?? []).filter(i => i.id !== item.id),
+        [targetDayId]: [...(prev[targetDayId] ?? []), { ...itemData, id: newDocRef.id, order: newOrder }],
+      }))
+      setMovingItem(null)
+    } catch (err) {
+      console.error('[handleMoveToDay] 이동 실패', err)
+      alert('일정 이동에 실패했습니다. 다시 시도해 주세요.')
+    } finally {
+      setMovingBusy(false)
     }
-    const { serverTimestamp } = await import('firebase/firestore')
-    await addD(collection(db, 'users', uid, 'trips', tripId, 'days', targetDayId, 'items'), {
-      ...item, order: newOrder, createdAt: serverTimestamp(),
-    })
-    setMovingItem(null)
   }
 
   /* ── 전체 일정 참여자 전원으로 초기화 ── */
@@ -6778,7 +6788,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
       {movingItem && meta && (
         <div
           className="fixed inset-0 z-50 flex items-end justify-center bg-black/40"
-          onClick={() => setMovingItem(null)}
+          onClick={() => !movingBusy && setMovingItem(null)}
         >
           <div
             className="w-full max-w-md bg-white rounded-t-2xl px-5 pt-5 pb-8 safe-area-inset-bottom"
@@ -6789,7 +6799,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 <p className="text-xs text-gray-400 mb-0.5">이동할 Day 선택</p>
                 <p className="text-sm font-bold text-gray-800 truncate max-w-[240px]">{movingItem.name}</p>
               </div>
-              <button onClick={() => setMovingItem(null)} className="p-1.5 rounded-full hover:bg-gray-100">
+              <button onClick={() => !movingBusy && setMovingItem(null)} disabled={movingBusy} className="p-1.5 rounded-full hover:bg-gray-100 disabled:opacity-40">
                 <X className="w-5 h-5 text-gray-500" />
               </button>
             </div>
@@ -6799,9 +6809,9 @@ function PlannerContent({ tripId }: { tripId: string }) {
                 return (
                   <button
                     key={day.dayId}
-                    disabled={isCurrent}
+                    disabled={isCurrent || movingBusy}
                     onClick={() => handleMoveToDay(movingItem, day.dayId)}
-                    className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all ${
+                    className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm font-semibold transition-all disabled:opacity-50 ${
                       isCurrent
                         ? 'border-blue-300 bg-blue-50 text-blue-600 cursor-default'
                         : 'border-gray-200 text-gray-700 hover:border-blue-400 hover:bg-blue-50/40 active:bg-blue-100'
