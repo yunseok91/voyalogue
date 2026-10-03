@@ -32,6 +32,8 @@
 - **Gemini 모델명을 특정 날짜 스냅샷으로 하드코딩하지 말 것.** 구글이 예고 없이 단종시킴(`gemini-2.0-flash` 단종 경험). `-latest` 계열 별칭을 쓰되, 구조화 출력(responseSchema) 요청에서 유독 503(과부하)이 날 수 있으니 `app/api/ai-trip-plan/route.ts`의 다중 모델 폴백 체인(`MODEL_CHAIN`) 패턴을 유지/확장할 것.
 - **Gemini API 키와 Firebase 프로젝트는 같은 Google Cloud 프로젝트일 필요가 없음.** `GEMINI_API_KEY`는 결제 계정이 아예 안 걸린 프로젝트([voyageup 쪽과 별개])에 둬야 진짜 무료 티어로 동작. Firebase Storage(`voyageup-1ab49`)는 결제 켜져 있어야 함. 둘을 같은 프로젝트로 맞추려고 하지 말 것.
 - **Vercel 서버리스 함수에서 외부 API(Google Places 등) 호출 시 타임아웃을 넉넉히 줄 것.** 로컬에서는 즉시 성공해도 Vercel의 콜드 네트워크 지연 때문에 짧은 `AbortSignal.timeout`으로는 실패함. `export const maxDuration`도 함께 고려.
+- **`app/trips/[tripId]/page.tsx`와 `app/share/[code]/page.tsx`는 ItemRow/StarRow 같은 UI 컴포넌트를 각자 독립적으로 중복 구현하고 있음(공유 모듈 아님).** 한쪽에서 레이아웃/스타일 버그를 고치면 다른 쪽엔 자동 반영 안 됨 — 카드 UI 관련 수정은 두 파일 다 grep해서 똑같은 패턴이 있는지 확인하고 같이 고칠 것. (2026-10-03, 별점 줄바꿈 수정이 trips 페이지에만 들어가고 share 페이지엔 안 들어가서 재발)
+- **좌우 리사이즈 가능한 패널(`leftWidth`, `app/trips/[tripId]/page.tsx`)의 최소 너비는 카드 내용이 잘리지 않는 선에서 잡을 것.** `flex-wrap`만으론 한계가 있음 — 패널이 너무 좁아지면 결국 잘림. 최소값은 340px 이상 유지.
 
 ## 참고
 
