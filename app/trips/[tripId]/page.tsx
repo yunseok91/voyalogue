@@ -349,22 +349,25 @@ function StarRow({
   ratings?: Record<string, number>
   onChange?: (v: number) => void
 }) {
-  const { avg, count } = calcAvg(ratings)
   return (
-    <span className="flex items-center gap-1.5 min-w-0 shrink flex-wrap" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
-      <span className="flex gap-0.5 flex-shrink-0">
-        {[1, 2, 3, 4, 5].map(v => (
-          <Star key={v}
-            className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-400 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
-            onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
-          />
-        ))}
-      </span>
-      {count >= 1 && (
-        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap flex-shrink-0">
-          avg {avg.toFixed(1)} · {count}명
-        </span>
-      )}
+    <span className="flex gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()} onPointerDown={e => e.stopPropagation()}>
+      {[1, 2, 3, 4, 5].map(v => (
+        <Star key={v}
+          className={`w-3.5 h-3.5 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-400 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
+          onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
+        />
+      ))}
+    </span>
+  )
+}
+
+/* 평점(멤버 평균) 배지 — 별점 입력과 분리된 자기 줄로 표시 */
+function AvgBadge({ ratings }: { ratings?: Record<string, number> }) {
+  const { avg, count } = calcAvg(ratings)
+  if (count < 1) return null
+  return (
+    <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap self-start">
+      avg {avg.toFixed(1)} · {count}명
     </span>
   )
 }
@@ -484,8 +487,8 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
 
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
-          {/* 1행: 시간대 도트 + 시각 + 별점 */}
-          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+          {/* 1행: 시간대 도트 + 시각 */}
+          <div className="flex items-center gap-2 min-w-0">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
@@ -498,14 +501,18 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                 </span>
               )
             })()}
-            <StarRow
-              myRating={item.ratings?.[myUid] ?? 0}
-              ratings={item.ratings}
-              onChange={v => onRate(item.id, v)}
-            />
           </div>
 
-          {/* 2행: ÷N */}
+          {/* 2행: 별점(내 평가) + 평점(멤버 평균) — 각자 고정된 줄 */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <StarRow
+              myRating={item.ratings?.[myUid] ?? 0}
+              onChange={v => onRate(item.id, v)}
+            />
+            <AvgBadge ratings={item.ratings} />
+          </div>
+
+          {/* 3행: ÷N */}
           {item.price > 0 && totalPeople > 1 && (
             <div className="flex items-center gap-2">
               <button

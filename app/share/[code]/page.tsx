@@ -174,29 +174,30 @@ function buildDays(meta: TripMeta): Day[] {
 }
 
 /* ── 별점 ── */
-function StarRow({ myRating = 0, ratings = {}, onChange }: {
+function StarRow({ myRating = 0, onChange }: {
   myRating?: number
-  ratings?: Record<string, number>
   onChange?: (v: number) => void
 }) {
-  const vals = Object.values(ratings).filter(v => v > 0)
-  const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0
-  const count = vals.length
   return (
-    <span className="flex items-center gap-1.5 flex-wrap min-w-0" onClick={e => e.stopPropagation()}>
-      <span className="flex gap-0.5 flex-shrink-0">
-        {[1,2,3,4,5].map(v => (
-          <Star key={v}
-            className={`w-3 h-3 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
-            onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
-          />
-        ))}
-      </span>
-      {count >= 1 && (
-        <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap flex-shrink-0">
-          avg {avg.toFixed(1)} · {count}명
-        </span>
-      )}
+    <span className="flex gap-0.5 flex-shrink-0" onClick={e => e.stopPropagation()}>
+      {[1,2,3,4,5].map(v => (
+        <Star key={v}
+          className={`w-3 h-3 transition-colors ${v <= myRating ? 'fill-amber-400 text-amber-400' : 'text-gray-200 hover:text-amber-300'} ${onChange ? 'cursor-pointer' : ''}`}
+          onClick={e => { e.stopPropagation(); onChange?.(v === myRating ? 0 : v) }}
+        />
+      ))}
+    </span>
+  )
+}
+
+/* 평점(멤버 평균) 배지 — 별점 입력과 분리된 자기 줄로 표시 */
+function AvgBadge({ ratings = {} }: { ratings?: Record<string, number> }) {
+  const vals = Object.values(ratings).filter(v => v > 0)
+  if (vals.length < 1) return null
+  const avg = vals.reduce((s, v) => s + v, 0) / vals.length
+  return (
+    <span className="text-[10px] font-semibold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full leading-none whitespace-nowrap self-start">
+      avg {avg.toFixed(1)} · {vals.length}명
     </span>
   )
 }
@@ -361,8 +362,8 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
 
         {/* 메타 행 */}
         <div className="flex flex-col gap-1 mt-1">
-          {/* 1행: 시간대 도트 + 시각 + 별점 */}
-          <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {/* 1행: 시간대 도트 + 시각 */}
+          <div className="flex items-center gap-2 min-w-0">
             <span
               className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${SLOT_DOT[item.timeSlot]}`}
               title={item.timeSlot}
@@ -375,11 +376,15 @@ function ItemCard({ item, canEdit, myUid, totalPeople, memberIds, rates, onEdit,
                 </span>
               )
             })()}
+          </div>
+
+          {/* 2행: 별점(내 평가) + 평점(멤버 평균) — 각자 고정된 줄 */}
+          <div className="flex items-center gap-2 flex-wrap">
             <StarRow
               myRating={myUid ? (item.ratings?.[myUid] ?? 0) : 0}
-              ratings={item.ratings}
               onChange={onRate ? v => onRate(item.id, v) : undefined}
             />
+            <AvgBadge ratings={item.ratings} />
           </div>
 
           {/* 2행: ÷N */}
