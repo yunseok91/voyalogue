@@ -565,6 +565,7 @@ function ItemRow({ item, myUid, onDelete, onEdit, onQuickEdit, onChangeCat, onRa
                   accept="image/*"
                   multiple
                   className="hidden"
+                  onClick={e => e.stopPropagation()}
                   onChange={e => {
                     if (e.target.files?.length) { onUploadReceipt?.(e.target.files); e.target.value = '' }
                   }}
