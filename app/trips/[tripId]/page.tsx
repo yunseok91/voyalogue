@@ -831,7 +831,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
   defaultPlace?:        { name: string; lat: number; lng: number }
   tripCity?:            string
 }) {
-  const { avatarColor, avatarHexColor, user: authUser } = useAuthStore()
+  const { avatarColor, avatarHexColor, user: authUser, resolvedPhotoURL } = useAuthStore()
   const [mode,          setMode]          = useState<AddMode>('normal')
   const [showDone,      setShowDone]      = useState(false)
   const [addedName,     setAddedName]     = useState('')
@@ -1735,7 +1735,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                         ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                         : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                       const hexC    = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                      const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
+                      const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || authUser?.photoURL || m.photoURL) : m.photoURL
                       return (
                         <button
                           key={m.id}
@@ -1783,7 +1783,7 @@ function AddItemPanel({ onAdd, onClose, defaultCurrency, currencies, people, mem
                           ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                           : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                         const hexC = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                        const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
+                        const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || authUser?.photoURL || m.photoURL) : m.photoURL
                         return (
                           <button
                             key={m.id}
@@ -2148,7 +2148,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
   uid:       string
   tripId:    string
 }) {
-  const { avatarColor, avatarHexColor, user: authUser } = useAuthStore()
+  const { avatarColor, avatarHexColor, user: authUser, resolvedPhotoURL } = useAuthStore()
   const [name,           setName]           = useState(item.name)
   const [timeSlot,       setTimeSlot]       = useState<TimeSlot>(item.timeSlot)
   const [startTime,      setStartTime]      = useState(item.startTime ?? '')
@@ -2360,7 +2360,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                     ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                     : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                   const hexC     = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                  const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
+                  const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || authUser?.photoURL || m.photoURL) : m.photoURL
                   return (
                     <button
                       key={m.id}
@@ -2408,7 +2408,7 @@ function EditItemPanel({ item, onUpdate, onDelete, onClose, currencies, people, 
                       ? (avatarHexColor ? undefined : (avatarColor ?? 0))
                       : (m.hexColor ? undefined : (m.colorIndex ?? ((mi % (CLAY.length - 1)) + 1)))
                     const hexC = m.role === 'owner' ? (avatarHexColor ?? undefined) : m.hexColor
-                    const photoURL = m.role === 'owner' ? (auth.currentUser?.photoURL ?? authUser?.photoURL ?? m.photoURL) : m.photoURL
+                    const photoURL = m.role === 'owner' ? (resolvedPhotoURL || auth.currentUser?.photoURL || authUser?.photoURL || m.photoURL) : m.photoURL
                     return (
                       <button
                         key={m.id}
