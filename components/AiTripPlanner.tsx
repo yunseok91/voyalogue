@@ -422,17 +422,25 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
     id: 'companion', label: '누구랑 가나요?',
     type: 'select', enabled: true, order: 3, required: true,
     options: [
-      { label: '혼자',     value: '혼자'     },
-      { label: '친구들',   value: '친구들'   },
-      { label: '커플',     value: '커플'     },
-      { label: '가족',     value: '가족'     },
-      { label: '임산부 여행', value: '임산부여행' },
-      { label: '노약자 동반', value: '노약자동반' },
+      { label: '혼자',   value: '혼자'   },
+      { label: '친구들', value: '친구들' },
+      { label: '커플',   value: '커플'   },
+      { label: '가족',   value: '가족'   },
+    ],
+  },
+  {
+    id: 'specialNeeds', label: '추가로 고려할 동행이 있나요?', sub: '복수 선택 가능 · 건너뛰어도 돼요',
+    type: 'multiselect', enabled: true, order: 4, required: false,
+    options: [
+      { label: '🤰 임산부 동반',       value: '임산부'   },
+      { label: '🧓 고령자·거동불편 동반', value: '고령자'   },
+      { label: '♿ 장애인 동반',        value: '장애인'   },
+      { label: '🐶 반려동물 동반',      value: '반려동물' },
     ],
   },
   {
     id: 'budget', label: '인당 현지 경비는?', sub: '항공·숙박 제외 · 건너뛰어도 돼요',
-    type: 'select', enabled: true, order: 4, required: false,
+    type: 'select', enabled: true, order: 5, required: false,
     options: [
       { label: '💸 ~50만원',      value: '25'  },
       { label: '💵 50~100만원',   value: '75'  },
@@ -442,7 +450,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'vibe', label: '여행 바이브는?', sub: '복수 선택 가능',
-    type: 'multiselect', enabled: true, order: 5, required: true,
+    type: 'multiselect', enabled: true, order: 6, required: true,
     options: [
       { label: '🍜 먹방 중심',   value: '먹방중심' },
       { label: '🏯 핫플 + 관광', value: '핫플관광' },
@@ -452,7 +460,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'pace', label: '하루 일정 강도는?',
-    type: 'select', enabled: true, order: 6, required: true,
+    type: 'select', enabled: true, order: 7, required: true,
     options: [
       { label: '🏃 빽빽하게', value: '빽빽하게' },
       { label: '🚶 적당히',   value: '적당히'   },
@@ -461,7 +469,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'foodPref', label: '음식 취향을 골라주세요', sub: '복수 선택 가능 · 건너뛰어도 돼요',
-    type: 'multiselect', enabled: true, order: 7, required: false,
+    type: 'multiselect', enabled: true, order: 8, required: false,
     options: [
       { label: '🏪 현지 로컬 맛집',    value: '현지로컬'   },
       { label: '☕ 인스타 감성 카페',  value: '인스타카페' },
@@ -471,7 +479,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'transport', label: '현지 이동 수단은?',
-    type: 'select', enabled: true, order: 8, required: true,
+    type: 'select', enabled: true, order: 9, required: true,
     options: [
       { label: '🚇 대중교통',  value: '대중교통' },
       { label: '🚙 자차',      value: '자차'     },
@@ -484,7 +492,7 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'accommodation', label: '숙소는 어떻게 할까요?',
-    type: 'select', enabled: true, order: 9, required: true,
+    type: 'select', enabled: true, order: 10, required: true,
     options: [
       { label: '이미 예약했어요', value: 'booked'    },
       { label: '추천해 주세요',   value: 'recommend' },
@@ -492,8 +500,8 @@ export const DEFAULT_QUESTIONS: AiQuestion[] = [
   },
   {
     id: 'extraNotes', label: '추가로 고려했으면 하는 점이 있나요?',
-    sub: '못 먹는 음식, 거동이 불편한 동행, 특별 요청 등 — 선택사항이에요',
-    type: 'text', enabled: true, order: 10, required: false,
+    sub: '못 먹는 음식, 특별 요청 등 — 선택사항이에요',
+    type: 'text', enabled: true, order: 11, required: false,
   },
 ]
 
@@ -726,6 +734,7 @@ export function AiTripPlanner({ onClose }: Props) {
           startDate:             answers['startDate'],
           nights:                Number(answers['nights']),
           companion:             answers['companion']             ?? '커플',
+          specialNeeds:          answers['specialNeeds']          ?? [],
           people:                answers['people']               ?? '3',
           vibe:                  answers['vibe']                  ?? ['핫플관광'],
           pace:                  answers['pace']                  ?? '적당히',
@@ -1240,16 +1249,11 @@ export function AiTripPlanner({ onClose }: Props) {
                     ))}
                   </div>
 
-                  {/* 친구들/가족/임산부/시니어 — 인원 스테퍼 */}
-                  {current.id === 'companion' && ['친구들', '가족', '임산부여행', '노약자동반'].includes(answers['companion'] as string) && (
+                  {/* 친구들/가족 — 인원 스테퍼 */}
+                  {current.id === 'companion' && ['친구들', '가족'].includes(answers['companion'] as string) && (
                     <div className="flex flex-col gap-2 px-1">
                       <label className="text-xs font-semibold text-gray-500">
-                        {{
-                          '가족':     '가족',
-                          '친구들':   '친구',
-                          '임산부여행': '동행',
-                          '노약자동반': '일행',
-                        }[answers['companion'] as string]} 인원 (본인 포함)
+                        {answers['companion'] === '가족' ? '가족' : '친구'} 인원 (본인 포함)
                       </label>
                       <div className="flex items-center gap-4">
                         <button

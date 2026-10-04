@@ -171,7 +171,7 @@ const travelSchema = {
 export async function POST(req: NextRequest) {
   try {
     const {
-      destination, startDate, nights, companion, people,
+      destination, startDate, nights, companion, specialNeeds, people,
       vibe, pace, foodPref,
       accommodation, accommodationStyle, accommodationLocation,
       transport, arrivalTime, departureTime, budget, extraNotes,
@@ -210,6 +210,9 @@ export async function POST(req: NextRequest) {
       else                          budgetHint = `프리미엄 예산 (${fmt}): 파인다이닝, 럭셔리 경험`
     }
 
+    /* ── 추가 고려 동행 (임산부·고령자·장애인·반려동물) ── */
+    const specialNeedsArr = Array.isArray(specialNeeds) ? (specialNeeds as string[]) : []
+
     /* ── 음식 취향 ── */
     const foodPrefArr = Array.isArray(foodPref) ? (foodPref as string[]) : []
     const FOOD_LABEL: Record<string, string> = {
@@ -240,19 +243,24 @@ export async function POST(req: NextRequest) {
     if (!accomType) {
       if      (vibeArr.includes('프리미엄') || budgetKRW >= 2000000) accomType = '5성급 럭셔리 호텔'
       else if (budgetKRW > 0 && budgetKRW < 500000) accomType = '저렴한 게스트하우스·호스텔'
+      else if (specialNeedsArr.includes('임산부') || specialNeedsArr.includes('고령자') || specialNeedsArr.includes('장애인'))
+        accomType = '엘리베이터·편의시설 접근성 좋은 3-4성급 이상 호텔'
+      else if (specialNeedsArr.includes('반려동물')) accomType = '반려동물 동반 가능한 3-4성급 호텔'
       else if ((companion as string) === '가족')     accomType = '넓은 패밀리 호텔'
       else if ((companion as string) === '커플')     accomType = '3-4성급 부티크 호텔'
-      else if ((companion as string) === '임산부여행') accomType = '편의시설 접근성 좋은 3-4성급 이상 호텔'
-      else if ((companion as string) === '노약자동반') accomType = '엘리베이터·접근성 좋은 편안한 3-4성급 호텔'
       else                                            accomType = '3-4성급 호텔'
     }
 
-    /* ── 동행자 특이사항 힌트 ── */
+    /* ── 동행자 특이사항 힌트 (복수 선택 시 모두 누적) ── */
     let companionCareHint = ''
-    if ((companion as string) === '임산부여행') {
-      companionCareHint = '\n- 임산부 동반 여행이므로 과격한 액티비티·놀이기구·장거리 도보 코스·날것 음식(회·육회 등)은 제외하고, 중간중간 휴식 시간과 화장실 접근성 좋은 장소 위주로 구성해줘.'
-    } else if ((companion as string) === '노약자동반') {
-      companionCareHint = '\n- 고령자·거동이 불편한 동행자가 있으므로 계단이 많거나 장거리 도보가 필요한 코스는 피하고, 이동 거리를 짧게 하고 중간중간 휴식 공간(카페 등)을 배치해줘.'
+    if (specialNeedsArr.includes('임산부')) {
+      companionCareHint += '\n- 임산부 동반이므로 과격한 액티비티·놀이기구·장거리 도보 코스·날것 음식(회·육회 등)은 제외하고, 중간중간 휴식 시간과 화장실 접근성 좋은 장소 위주로 구성해줘.'
+    }
+    if (specialNeedsArr.includes('고령자') || specialNeedsArr.includes('장애인')) {
+      companionCareHint += '\n- 고령자·장애인 동반이므로 계단이 많거나 장거리 도보가 필요한 코스는 피하고, 휠체어·엘리베이터 접근이 가능한 곳 위주로 구성하고 이동 거리를 짧게 해줘.'
+    }
+    if (specialNeedsArr.includes('반려동물')) {
+      companionCareHint += '\n- 반려동물(강아지) 동반이므로 반려동물 동반 가능한 식당·카페·야외 장소 위주로 구성하고, 반려동물 출입이 금지되는 실내 관광지는 피해줘. 산책하기 좋은 공원·산책로도 1곳 이상 포함해줘.'
     }
 
     const accommodationBooked = (accommodation as string) === 'booked'
@@ -290,6 +298,9 @@ ${accommodationBooked
   ? `이미 예약됨${accommodationLocation ? ` (위치: ${accommodationLocation})` : ''}. accommodationOptions는 빈 배열([])로 반환하고, 해당 숙소 위치 기준으로 동선을 최적화해줘.`
   : `추천 필요 (스타일: ${accomType}). 실제 존재하는 숙소 3개를 accommodationOptions에 담아줘.`}
 ${extraNotesClean ? `\n[사용자 추가 요청사항 — 다른 지침보다 우선 반영]\n${extraNotesClean}\n알레르기·건강·접근성 관련 내용이면 안전을 최우선으로 장소·메뉴를 피하거나 선택해줘.` : ''}
+
+[축제·계절 행사 체크]
+${destination}에서 ${startDate}부터 ${totalDays}일간 열릴 가능성이 높은, 네가 실제로 알고 있는 "매년 비슷한 시기에 열리는" 지역 축제·계절 행사(벚꽃·단풍·불꽃축제·전통시장 축제 등)가 있으면 적절한 날짜의 day에 장소 항목으로 1개 포함해줘. 단, 정확한 연도별 일정은 해마다 바뀔 수 있으니 comment에 "정확한 날짜는 미리 확인해보세요" 같은 안내를 꼭 덧붙여줘. 확신이 없거나 떠오르는 게 없으면 절대 지어내지 말고 그냥 생략해줘 — 없는 축제를 만들어내는 것보다 생략하는 게 훨씬 나아.
 
 [출력 규칙]
 - day 객체 정확히 ${totalDays}개 생성 (dayNumber: 1 ~ ${totalDays})
