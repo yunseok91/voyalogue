@@ -69,7 +69,7 @@ function OverviewContent({ tripId }: { tripId: string }) {
           const snap = await getDocs(
             collection(db, 'users', uid, 'trips', tripId, 'days', dayId, 'items')
           )
-          allItems[dayId] = snap.docs.map(d => ({ id: d.id, ...d.data() } as PlanItem))
+          allItems[dayId] = snap.docs.map(d => ({ ...d.data(), id: d.id } as PlanItem))
         }))
         if (!cancelled) setDayItems(allItems)
       } finally {

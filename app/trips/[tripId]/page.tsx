@@ -2942,7 +2942,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         getDocs(collection(db, 'users', uid, 'trips', tripId, 'days', day.dayId, 'items'))
           .then(snap => ({
             dayId:     day.dayId,
-            items:     snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            items:     snap.docs.map(d => ({ ...d.data(), id: d.id })) as PlanItem[],
             fromCache: snap.metadata.fromCache,
             empty:     snap.empty,
           }))
@@ -2973,7 +2973,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
     const unsub = onSnapshot(col, snap => {
       // 캐시 미스 직후 빈 스냅샷 무시 — 서버 데이터가 곧 도착하므로 마커 깜빡임 방지
       if (snap.empty && snap.metadata.fromCache) return
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
+      const items = snap.docs.map(d => ({ ...d.data(), id: d.id })) as PlanItem[]
       setDayItems(prev => ({ ...prev, [day.dayId]: items }))
     })
     unsubsRef.current[day.dayId] = unsub
@@ -3323,7 +3323,7 @@ function PlannerContent({ tripId }: { tripId: string }) {
         getDocs(collection(db, 'users', fetchUid, 'trips', tripId, 'days', day.dayId, 'items'))
           .then(snap => ({
             dayId:     day.dayId,
-            items:     snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            items:     snap.docs.map(d => ({ ...d.data(), id: d.id })) as PlanItem[],
             empty:     snap.empty,
             fromCache: snap.metadata.fromCache,
           }))

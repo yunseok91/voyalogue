@@ -26,8 +26,7 @@
 
 ## 알려진 함정 (같은 실수 반복 금지)
 
-- **Firestore에 기존 문서를 복사해서 새 문서 만들 때 `id` 필드를 반드시 제외할 것.**
-  `addDoc(collection(...), { ...item, ... })`처럼 기존 객체를 통째로 스프레드하면 그 객체의 `id` 필드가 새 문서의 "데이터"로 같이 저장됨. 앱 전역에서 문서를 `{ id: d.id, ...d.data() }` 형태로 읽기 때문에, 스프레드 순서상 `d.data()`의 오염된 `id`가 실제 문서 id(`d.id`)를 덮어써서 엉뚱한 id로 취급되는 버그가 생김. (2026-10-03, Day 이동 기능에서 발견 — 복사된 것처럼 보이거나 삭제해도 되살아나는 증상으로 나타남)
+- **Firestore 문서를 로컬 객체로 읽을 때는 항상 `{ ...d.data(), id: d.id }` 순서로 쓸 것 (`id`를 스프레드 뒤에).** `{ id: d.id, ...d.data() }`처럼 앞에 쓰면, 혹시라도 저장된 데이터 안에 `id`라는 필드가 섞여 있을 경우(예: 문서를 복사해서 새로 만들 때 기존 객체를 통째로 스프레드하는 실수) 그 오염된 값이 실제 문서 id를 덮어써버림 — 실제 문서 id가 항상 최종적으로 이기도록 순서를 고정해두는 게 안전함. (2026-10-03, Day 이동 기능의 `addDoc`이 `id` 필드까지 복사해서 저장한 게 원인 — 복사된 것처럼 보이거나 삭제해도 되살아나는 증상으로 나타남. `addDoc` 쪽도 `id` 제외하도록 고쳤지만, 읽는 쪽도 항상 이 순서를 지켜서 비슷한 실수가 또 나도 방어되게 할 것. `app/trips/[tripId]/page.tsx`, `app/trips/[tripId]/overview/page.tsx`, `app/share/[code]/page.tsx`의 PlanItem 로드 지점 전부 이 순서로 통일함.)
 - **Firestore `updateDoc`/`addDoc` payload에 `undefined` 값이 들어가면 조용히 실패함.** 사용자가 안 건드린 필드(예: 메모, 통화)가 초기값부터 `undefined`일 수 있으니 항상 `?? ''`/`?? 0`/`?? null` 폴백을 걸 것. 실패를 사용자가 알 수 있게 `try/catch` + 에러 알림도 항상 추가.
 - **Gemini 모델명을 특정 날짜 스냅샷으로 하드코딩하지 말 것.** 구글이 예고 없이 단종시킴(`gemini-2.0-flash` 단종 경험). `-latest` 계열 별칭을 쓰되, 구조화 출력(responseSchema) 요청에서 유독 503(과부하)이 날 수 있으니 `app/api/ai-trip-plan/route.ts`의 다중 모델 폴백 체인(`MODEL_CHAIN`) 패턴을 유지/확장할 것.
 - **Gemini API 키와 Firebase 프로젝트는 같은 Google Cloud 프로젝트일 필요가 없음.** `GEMINI_API_KEY`는 결제 계정이 아예 안 걸린 프로젝트([voyageup 쪽과 별개])에 둬야 진짜 무료 티어로 동작. Firebase Storage(`voyageup-1ab49`)는 결제 켜져 있어야 함. 둘을 같은 프로젝트로 맞추려고 하지 말 것.

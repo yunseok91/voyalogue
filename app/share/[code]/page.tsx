@@ -1406,7 +1406,7 @@ export default function SharePage() {
         getDocs(collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items'))
           .then(snap => ({
             dayId: day.dayId,
-            items: snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[],
+            items: snap.docs.map(d => ({ ...d.data(), id: d.id })) as PlanItem[],
             fromCache: snap.metadata.fromCache,
             empty: snap.empty,
           }))
@@ -1436,7 +1436,7 @@ export default function SharePage() {
     const col = collection(db, 'users', trip.uid, 'trips', trip.id, 'days', day.dayId, 'items')
     const unsub = onSnapshot(col, snap => {
       if (snap.empty && snap.metadata.fromCache) return
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() })) as PlanItem[]
+      const items = snap.docs.map(d => ({ ...d.data(), id: d.id })) as PlanItem[]
       setDayItems(prev => ({ ...prev, [day.dayId]: items }))
     })
     unsubsRef.current[day.dayId] = unsub
