@@ -119,12 +119,13 @@ const CAT_COLORS: Record<string, string> = {
 const CAT_DISPLAY: Record<string, string> = { 장소: '관광' }
 
 const CHART_CATS = ['식사', '장소', '쇼핑', '교통', '기타'] as const
+/* 카테고리 색상 — validate_palette.js 통과 확인 (인접 ΔE 9.1+, 일반시력 ΔE 19.6+) */
 const CHART_HEX: Record<string, string> = {
-  식사: '#FF8A65',  // warm coral-orange
-  장소: '#64B5F6',  // soft periwinkle blue
-  쇼핑: '#F48FB1',  // soft rose pink
-  교통: '#4DB6AC',  // calm teal
-  기타: '#90A4AE',  // blue-grey
+  식사: '#2a78d6',  // blue
+  장소: '#eb6834',  // orange
+  쇼핑: '#1baf7a',  // aqua
+  교통: '#eda100',  // yellow
+  기타: '#e87ba4',  // magenta
 }
 
 const ROLE_LABEL: Record<string, string> = {
@@ -854,39 +855,55 @@ function SummaryContent({ tripId }: { tripId: string }) {
 
             return (
               <div className="bg-white rounded-2xl border border-gray-100 p-5 sm:p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <BarChart2 className="w-4 h-4 text-blue-500" />
-                    <h2 className="text-sm font-bold text-gray-900">일별 지출</h2>
-                  </div>
-                  {/* 선택된 바 금액 표시 */}
-                  {selectedBar !== null && dayCatSummary[selectedBar] && (
-                    <div className="flex items-center gap-2 animate-fade-in">
-                      <span className="text-[11px] font-bold text-gray-500">D{selectedBar + 1}</span>
-                      <span className="text-sm font-extrabold text-gray-900">
-                        {dayCatSummary[selectedBar].total > 0
-                          ? formatKRW(dayCatSummary[selectedBar].total)
-                          : '지출 없음'}
-                      </span>
-                      <button
-                        onClick={() => setSelectedBar(null)}
-                        className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-300 transition-colors"
-                      >
-                        <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
-                      </button>
-                    </div>
-                  )}
+                <div className="flex items-center gap-2 mb-1">
+                  <BarChart2 className="w-4 h-4 text-blue-500" />
+                  <h2 className="text-sm font-bold text-gray-900">일별 지출</h2>
                 </div>
+                <p className="text-[11px] text-gray-400 mb-4">막대 아래 표시된 카테고리가 그날 가장 많이 쓴 항목이에요</p>
+
+                {/* 선택된 날 상세 — 전체 카테고리 내역 */}
+                {selectedBar !== null && dayCatSummary[selectedBar] && (() => {
+                  const sd = dayCatSummary[selectedBar]
+                  const breakdown = CHART_CATS
+                    .filter(cat => (sd.cats[cat] ?? 0) > 0)
+                    .sort((a, b) => (sd.cats[b] ?? 0) - (sd.cats[a] ?? 0))
+                  return (
+                    <div className="flex flex-col gap-2 mb-4 p-3 rounded-xl bg-gray-50 animate-fade-in">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] font-bold text-gray-500">{fmtDate(sd.date) || sd.label}</span>
+                        <span className="text-sm font-extrabold text-gray-900">
+                          {sd.total > 0 ? formatKRW(sd.total) : '지출 없음'}
+                        </span>
+                        <button
+                          onClick={() => setSelectedBar(null)}
+                          className="w-4 h-4 rounded-full bg-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-300 transition-colors ml-auto"
+                        >
+                          <svg className="w-2.5 h-2.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                        </button>
+                      </div>
+                      {breakdown.length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {breakdown.map(cat => (
+                            <span key={cat} className="flex items-center gap-1 text-[11px] text-gray-600">
+                              <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_HEX[cat] }} />
+                              {CAT_DISPLAY[cat] ?? cat} {formatKRW(sd.cats[cat] ?? 0)}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
 
                 {/* 바 차트 — 일수 많을 때 스크롤 가능 */}
                 <div className="overflow-x-auto">
                 <div
                   className="flex items-end gap-2"
-                  style={{ height: 180, minWidth: `${dayCatSummary.length * 44}px` }}
+                  style={{ height: 206, minWidth: `${dayCatSummary.length * 44}px` }}
                 >
                   {dayCatSummary.map((d, i) => {
                     const barRatio = d.total > 0 ? d.total / maxVal : 0
-                    const barH     = barRatio > 0 ? Math.max(barRatio * 148, 16) : 4
+                    const barH     = barRatio > 0 ? Math.max(barRatio * 130, 16) : 4
                     const topCat = CHART_CATS.reduce<string>((best, cat) =>
                       (d.cats[cat] ?? 0) > (d.cats[best] ?? 0) ? cat : best, CHART_CATS[0])
                     const isSelected = selectedBar === i
@@ -894,8 +911,8 @@ function SummaryContent({ tripId }: { tripId: string }) {
                     return (
                       <div
                         key={i}
-                        className="flex-1 min-w-[36px] flex flex-col items-center justify-end gap-1.5 cursor-pointer"
-                        style={{ height: 180 }}
+                        className="flex-1 min-w-[36px] flex flex-col items-center justify-end gap-1 cursor-pointer"
+                        style={{ height: 206 }}
                         onClick={() => setSelectedBar(isSelected ? null : i)}
                       >
                         {/* 금액 레이블 — 선택 시 강조 */}
@@ -905,44 +922,47 @@ function SummaryContent({ tripId }: { tripId: string }) {
                           {d.total > 0 ? formatKRW(d.total) : ''}
                         </span>
 
-                        {/* 스택 바 — 선택 시 링 */}
+                        {/* 스택 바 — 세그먼트 사이 2px 간격, 선택 시 링 */}
                         <div
-                          className={`w-full rounded-t-xl overflow-hidden flex flex-col-reverse transition-all duration-300 ${
+                          className={`w-full rounded-t overflow-hidden flex flex-col-reverse transition-all duration-300 ${
                             isSelected ? 'ring-2 ring-blue-400 ring-offset-1' : ''
                           }`}
-                          style={{ height: barH, minHeight: d.total > 0 ? 16 : 4 }}
+                          style={{ height: barH, minHeight: d.total > 0 ? 16 : 4, gap: 2 }}
                         >
                           {d.total === 0 ? (
-                            <div className="w-full h-full rounded-t-xl bg-gray-100" />
+                            <div className="w-full h-full rounded-t bg-gray-100" />
                           ) : (
                             CHART_CATS.map(cat => {
                               const val = d.cats[cat] ?? 0
                               if (!val) return null
-                              const segH = (val / d.total) * 100
                               return (
                                 <div
                                   key={cat}
-                                  style={{ height: `${segH}%`, backgroundColor: CHART_HEX[cat] }}
+                                  style={{ flexGrow: val, flexBasis: 0, backgroundColor: CHART_HEX[cat] }}
                                 />
                               )
                             })
                           )}
                         </div>
 
+                        {/* 1위 카테고리 — 색 유추 대신 바로 읽게 텍스트로 표기 */}
+                        {d.total > 0 ? (
+                          <div className="flex items-center gap-1 max-w-full">
+                            <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: isSelected ? '#3B82F6' : CHART_HEX[topCat] }} />
+                            <span className={`text-[9px] font-semibold truncate transition-colors ${isSelected ? 'text-blue-600' : 'text-gray-600'}`}>
+                              {CAT_DISPLAY[topCat] ?? topCat}
+                            </span>
+                          </div>
+                        ) : (
+                          <span className="text-[9px] text-gray-300">-</span>
+                        )}
+
                         {/* 날짜 레이블 */}
-                        <div className="flex flex-col items-center">
-                          <span className={`text-[10px] sm:text-[11px] font-bold transition-colors ${
-                            isSelected ? 'text-blue-600' : 'text-gray-700'
-                          }`}>
-                            D{i + 1}
-                          </span>
-                          {d.total > 0 && (
-                            <div
-                              className="w-1.5 h-1.5 rounded-full mt-0.5"
-                              style={{ backgroundColor: isSelected ? '#3B82F6' : CHART_HEX[topCat] }}
-                            />
-                          )}
-                        </div>
+                        <span className={`text-[10px] sm:text-[11px] font-bold transition-colors ${
+                          isSelected ? 'text-blue-600' : 'text-gray-700'
+                        }`}>
+                          {fmtDate(d.date) || d.label}
+                        </span>
                       </div>
                     )
                   })}
